@@ -1,0 +1,8 @@
+{
+  "name": "Fila Livre - Smart Booking",
+  "description": "A complete queue management system for barbershops and salons with AI-powered style suggestions and digital queue tracking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
