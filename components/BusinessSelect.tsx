@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { LOGO_SVG } from '../constants';
-import { Plus, LogOut, Building2, ArrowRight, Loader2, AlertCircle, Database, Zap, Clock, Hash, Search } from 'lucide-react';
+import { Plus, LogOut, Building2, ArrowRight, Loader2, AlertCircle, Database, Zap, Clock, Hash, Search, Trash2, Edit2, X, Check } from 'lucide-react';
 import { Establishment } from '../types';
 import { db } from '../services/firebase';
-import { doc, setDoc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { FirebaseHelper } from './FirebaseHelper';
 
 interface BusinessSelectProps {
@@ -19,6 +19,8 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -92,6 +94,38 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     }
   };
 
+  const handleDeleteBusiness = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm('Tem certeza que deseja excluir esta unidade? Todos os dados da fila e histórico desta unidade serão perdidos.')) return;
+    
+    setActionLoading(true);
+    try {
+      await deleteDoc(doc(db, "establishments", id));
+      setConnections(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      setError('Erro ao excluir unidade.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateBusiness = async (e: React.FormEvent, id: string) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+    
+    setActionLoading(true);
+    try {
+      const docRef = doc(db, "establishments", id);
+      await updateDoc(docRef, { name: editName.toUpperCase().trim() });
+      setConnections(prev => prev.map(c => c.id === id ? { ...c, name: editName.toUpperCase().trim() } : c));
+      setEditingId(null);
+    } catch (err) {
+      setError('Erro ao atualizar unidade.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCreateBusiness = async () => {
     if (!newCode || !newName) return setError('Preencha todos os campos.');
     setActionLoading(true);
@@ -154,8 +188,8 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         </div>
       )}
 
-      {/* INPUT PRINCIPAL - BUSCA POR CÓDIGO */}
-      {!isAdding && (
+      {/* INPUT PRINCIPAL - BUSCA POR CÓDIGO (SOMENTE CLIENTE OU ADMIN INICIANDO) */}
+      {!isAdding && !editingId && (
         <div className="mb-10 space-y-4">
           <div className="relative group">
             <div className="absolute left-5 top-1/2 -translate-y-1/2 text-teal-500 group-focus-within:scale-110 transition-transform">
@@ -196,22 +230,61 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
             )}
             
             {connections.map(est => (
-              <button key={est.id} onClick={() => onSelect(est)} className="bg-slate-900/40 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between text-left group hover:border-teal-500/50 transition-all">
-                <div className="flex items-center gap-5">
-                   <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-teal-400 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all shadow-lg">
-                      <Building2 size={24} />
-                   </div>
-                   <div>
-                      <h4 className="text-white font-black text-sm uppercase font-orbitron">{est.name}</h4>
-                      <span className="text-[9px] font-mono text-slate-500">{est.id}</span>
-                   </div>
-                </div>
-                <ArrowRight size={18} className="text-slate-700 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-              </button>
+              <div key={est.id} className="relative group">
+                {editingId === est.id ? (
+                  <form onSubmit={(e) => handleUpdateBusiness(e, est.id)} className="bg-slate-900 border-2 border-teal-500 p-4 rounded-[32px] flex items-center gap-3 animate-in zoom-in duration-200">
+                    <input 
+                      autoFocus
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white font-bold uppercase text-xs"
+                    />
+                    <button type="button" onClick={() => setEditingId(null)} className="p-2 text-slate-500"><X size={20}/></button>
+                    <button type="submit" disabled={actionLoading} className="p-2 text-teal-500">
+                      {actionLoading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20}/>}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="relative">
+                    <button 
+                      onClick={() => onSelect(est)} 
+                      className="w-full bg-slate-900/40 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between text-left group hover:border-teal-500/50 transition-all shadow-xl"
+                    >
+                      <div className="flex items-center gap-5">
+                         <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-teal-400 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all shadow-lg">
+                            <Building2 size={24} />
+                         </div>
+                         <div>
+                            <h4 className="text-white font-black text-sm uppercase font-orbitron">{est.name}</h4>
+                            <span className="text-[9px] font-mono text-slate-500">{est.id}</span>
+                         </div>
+                      </div>
+                      <ArrowRight size={18} className="text-slate-700 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
+                    </button>
+
+                    {userRole === 'admin' && (
+                      <div className="absolute right-14 top-1/2 -translate-y-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingId(est.id); setEditName(est.name); }}
+                          className="p-3 bg-slate-800 border border-slate-700 rounded-xl text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shadow-lg"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => handleDeleteBusiness(e, est.id)}
+                          className="p-3 bg-slate-800 border border-slate-700 rounded-xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
 
             {userRole === 'admin' && isAdding && (
-              <div className="bg-slate-900 border-2 border-dashed border-slate-800 p-8 rounded-[40px] space-y-6 animate-in zoom-in duration-300">
+              <div className="bg-slate-900 border-2 border-dashed border-slate-800 p-8 rounded-[40px] space-y-6 animate-in zoom-in duration-300 shadow-2xl">
                 <div className="space-y-4">
                    <div className="space-y-1.5">
                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Barbearia</label>
@@ -234,7 +307,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         )}
       </div>
       
-      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v2.8 • Google Cloud Active</p>
+      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v2.9 • Google Cloud Active</p>
     </div>
   );
 };
