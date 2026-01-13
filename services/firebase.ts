@@ -1,8 +1,9 @@
 
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
+// Credenciais sincronizadas para Fila Livre
 export const firebaseConfig = {
   apiKey: "AIzaSyA0Fyw53lB6UHr2BFVTWmJBuXJ6jtX4Dq8",
   authDomain: "fila-livre-5d28d.firebaseapp.com",
@@ -10,24 +11,29 @@ export const firebaseConfig = {
   projectId: "fila-livre-5d28d",
   storageBucket: "fila-livre-5d28d.firebasestorage.app",
   messagingSenderId: "134262363702",
-  appId: "1:134262363702:web:0e5af368f52dd03dddea97",
-  measurementId: "G-R6YNQR1EXN"
+  appId: "1:134262363702:web:aa07548c8180863fddea97",
+  measurementId: "G-M09SM7KT1P"
 };
 
-// Verifica se a API Key é válida
-export const isConfigured = 
-  !!firebaseConfig.apiKey && 
-  firebaseConfig.apiKey.length > 20 &&
-  !firebaseConfig.apiKey.includes("COLE_");
-
-// Inicialização segura
 let app;
 try {
-  app = initializeApp(firebaseConfig);
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 } catch (e) {
-  console.error("Erro ao inicializar Firebase:", e);
+  console.error("Erro na inicialização crítica do Firebase:", e);
+  app = {} as any;
 }
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Força persistência local para garantir funcionamento em redes instáveis (Offline-First)
+if (typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn("Múltiplas abas abertas, persistência desabilitada nesta instância.");
+    } else if (err.code === 'unimplemented') {
+      console.warn("O navegador atual não suporta persistência offline.");
+    }
+  });
+}

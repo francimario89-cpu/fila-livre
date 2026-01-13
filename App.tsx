@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { db, auth, isConfigured } from './services/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
+import { db, auth } from './services/firebase';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { UserCircle, Settings, ExternalLink } from 'lucide-react';
+import { AlertTriangle, Loader2, Database, Settings, LogOut } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -12,12 +12,17 @@ import { AuthView } from './components/AuthView';
 import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, AuthProvider, PaymentMethod } from './types';
+import { DataStatus } from './components/DataStatus';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod } from './types';
+import { LOGO_SVG } from './constants';
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState<'admin' | 'client'>('client');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLocalMode, setIsLocalMode] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [loadStatus, setLoadStatus] = useState('Conectando ao Firebase...');
   
   const [currentEst, setCurrentEst] = useState<Establishment | null>(null);
   const [activeTab, setActiveTab] = useState('fila');
@@ -31,8 +36,12 @@ const App: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
 
   useEffect(() => {
-    if (!isConfigured) return;
-    return onAuthStateChanged(auth, (user) => {
+    const timer1 = setTimeout(() => setLoadStatus('O Google está ativando seu servidor...'), 2000);
+    const forceStop = setTimeout(() => {
+      if (isInitializing) setIsInitializing(false);
+    }, 8000);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserEmail(user.email || user.uid);
         setIsLoggedIn(true);
@@ -41,135 +50,178 @@ const App: React.FC = () => {
       } else {
         setIsLoggedIn(false);
       }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!currentEst || !isConfigured) return;
-
-    const qQueue = query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc"));
-    const unsubscribeQueue = onSnapshot(qQueue, (snapshot) => {
-      setQueue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem)));
-    });
-
-    const unsubscribeServices = onSnapshot(collection(db, "establishments", currentEst.id, "services"), (snapshot) => {
-      setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
-    });
-
-    const unsubscribePros = onSnapshot(collection(db, "establishments", currentEst.id, "professionals"), (snapshot) => {
-      setProfessionals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)));
-    });
-
-    const unsubscribeRevenue = onSnapshot(collection(db, "establishments", currentEst.id, "revenue"), (snapshot) => {
-      setRevenue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RevenueRecord)));
+      setIsInitializing(false);
+      clearTimeout(timer1);
+      clearTimeout(forceStop);
+    }, () => {
+      setIsInitializing(false);
     });
 
     return () => {
-      unsubscribeQueue();
-      unsubscribeServices();
-      unsubscribePros();
-      unsubscribeRevenue();
+      unsubscribe();
+      clearTimeout(timer1);
+      clearTimeout(forceStop);
     };
-  }, [currentEst]);
+  }, []);
 
-  if (!isConfigured) {
-    return (
-      <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 text-center space-y-8">
-        <div className="w-20 h-20 bg-teal-500/10 rounded-[32px] flex items-center justify-center text-teal-500 border border-teal-500/20 animate-pulse">
-          <Settings size={40} />
-        </div>
-        <div className="space-y-3 max-w-md">
-          <h1 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">Conexão Pendente</h1>
-          <p className="text-slate-400 text-xs leading-relaxed">
-            Verificamos suas chaves do Firebase, mas você ainda não atualizou o arquivo <code>services/firebase.ts</code>.
-          </p>
-        </div>
-        <a href="https://console.firebase.google.com/project/fila-livre-5d28d/settings/general" target="_blank" className="w-full max-w-sm py-4 bg-teal-500 text-slate-950 font-black rounded-2xl text-[10px] uppercase flex items-center justify-center gap-2">Ir para o Firebase <ExternalLink size={14} /></a>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!currentEst) return;
 
-  const handleLogin = (id: string, role: 'admin' | 'client') => {
-    setUserRole(role);
-    localStorage.setItem('user_role', role);
+    if (isLocalMode) {
+      const loadLocalData = () => {
+        setQueue(JSON.parse(localStorage.getItem(`local_queue_${currentEst.id}`) || '[]'));
+        setServices(JSON.parse(localStorage.getItem(`local_services_${currentEst.id}`) || '[]'));
+        setProfessionals(JSON.parse(localStorage.getItem(`local_pros_${currentEst.id}`) || '[]'));
+        setRevenue(JSON.parse(localStorage.getItem(`local_revenue_${currentEst.id}`) || '[]'));
+      };
+      loadLocalData();
+      return;
+    }
+
+    const handleError = (err: any) => {
+      if (err.code === 'permission-denied' || err.code === 'unavailable' || err.message?.includes('activating')) {
+        setIsLocalMode(true);
+      }
+    };
+
+    try {
+      const unsubscribeQueue = onSnapshot(query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc")), (snapshot) => {
+        setQueue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem)));
+      }, handleError);
+
+      const unsubscribeServices = onSnapshot(collection(db, "establishments", currentEst.id, "services"), (snapshot) => {
+        setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
+      }, handleError);
+
+      const unsubscribePros = onSnapshot(collection(db, "establishments", currentEst.id, "professionals"), (snapshot) => {
+        setProfessionals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)));
+      }, handleError);
+
+      const unsubscribeRevenue = onSnapshot(collection(db, "establishments", currentEst.id, "revenue"), (snapshot) => {
+        setRevenue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RevenueRecord)));
+      }, handleError);
+
+      return () => {
+        unsubscribeQueue(); unsubscribeServices(); unsubscribePros(); unsubscribeRevenue();
+      };
+    } catch (e) {
+      setIsLocalMode(true);
+    }
+  }, [currentEst, isLocalMode]);
+
+  const handleManualSync = async () => {
+    if (!currentEst) return;
+    setLoadStatus('Sincronizando bancos...');
+    try {
+      // Tenta uma leitura simples para ver se o Firebase acordou
+      await getDocs(collection(db, "establishments"));
+      setIsLocalMode(false);
+      window.location.reload(); // Recarrega para limpar streams
+    } catch (e) {
+      alert("O banco cloud ainda não respondeu. Continuando em modo local.");
+    }
   };
 
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
+    const newItem = { ...data, id: Math.random().toString(36).substr(2, 9), establishmentId: currentEst.id, status: 'waiting', timestamp: Date.now() };
+    if (isLocalMode) {
+      const newQueue = [...queue, newItem];
+      setQueue(newQueue);
+      localStorage.setItem(`local_queue_${currentEst.id}`, JSON.stringify(newQueue));
+      setIsJoinModalOpen(false);
+      return;
+    }
     try {
-      await addDoc(collection(db, "establishments", currentEst.id, "queue"), {
-        ...data,
-        establishmentId: currentEst.id,
-        status: 'waiting',
-        timestamp: Date.now()
-      });
+      await addDoc(collection(db, "establishments", currentEst.id, "queue"), newItem);
       setIsJoinModalOpen(false);
     } catch (e) {
-      alert("Erro ao entrar na fila.");
+      setIsLocalMode(true);
+      handleJoinQueue(data);
     }
   };
 
   const handleCallNext = async () => {
     if (!currentEst) return;
     const servingItem = queue.find(i => i.status === 'serving');
-    
     if (servingItem) {
       setSelectedQueueItem(servingItem);
       setIsCompletionModalOpen(true);
     } else {
       const nextIdx = queue.findIndex(i => i.status === 'waiting');
       if (nextIdx !== -1) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "queue", queue[nextIdx].id), {
-          status: 'serving',
-          timestamp: Date.now()
-        });
+        if (isLocalMode) {
+          const newQueue = [...queue];
+          newQueue[nextIdx].status = 'serving';
+          newQueue[nextIdx].timestamp = Date.now();
+          setQueue(newQueue);
+          localStorage.setItem(`local_queue_${currentEst.id}`, JSON.stringify(newQueue));
+        } else {
+          await updateDoc(doc(db, "establishments", currentEst.id, "queue", queue[nextIdx].id), { status: 'serving', timestamp: Date.now() });
+        }
       }
     }
   };
 
   const handleFinishService = async (method: PaymentMethod, amount: number) => {
     if (!currentEst || !selectedQueueItem) return;
+    const newRec = { id: Math.random().toString(36).substr(2, 9), amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id };
+    if (isLocalMode) {
+      const newRev = [...revenue, newRec];
+      const newQ = queue.filter(i => i.id !== selectedQueueItem.id);
+      setRevenue(newRev); setQueue(newQ);
+      localStorage.setItem(`local_revenue_${currentEst.id}`, JSON.stringify(newRev));
+      localStorage.setItem(`local_queue_${currentEst.id}`, JSON.stringify(newQ));
+      setIsCompletionModalOpen(false); setSelectedQueueItem(null);
+      return;
+    }
     try {
-      await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
-        amount,
-        method,
-        serviceName: selectedQueueItem.service,
-        clientName: selectedQueueItem.name,
-        date: new Date().toISOString(),
-        establishmentId: currentEst.id
-      });
-
+      await addDoc(collection(db, "establishments", currentEst.id, "revenue"), newRec);
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-      setIsCompletionModalOpen(false);
-      setSelectedQueueItem(null);
-
-      const nextIdx = queue.findIndex(i => i.status === 'waiting');
-      if (nextIdx !== -1) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "queue", queue[nextIdx].id), {
-          status: 'serving',
-          timestamp: Date.now()
-        });
-      }
+      setIsCompletionModalOpen(false); setSelectedQueueItem(null);
     } catch (e) {
-      alert("Erro ao finalizar atendimento.");
+      setIsLocalMode(true); handleFinishService(method, amount);
     }
   };
 
-  if (!isLoggedIn) return <AuthView onLogin={handleLogin} />;
-  
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center space-y-8 p-10 text-center">
+        <div className="w-24 h-24 animate-pulse drop-shadow-[0_0_20px_rgba(45,212,191,0.5)]">{LOGO_SVG}</div>
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="animate-spin text-teal-500" size={24} />
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] block">{loadStatus}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email); setUserRole(role); setIsLoggedIn(true); localStorage.setItem('user_role', role); }} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   return (
     <Layout 
       activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} 
-      establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)}
+      establishmentCode={currentEst.id} isLocalMode={isLocalMode} onBackToDashboard={() => setCurrentEst(null)}
     >
       {activeTab === 'fila' && (
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} estStatus={currentEst.status} 
           bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} 
           onCallNext={handleCallNext} 
-          onNoShow={() => queue[0] && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue[0].id))} 
+          onNoShow={() => {
+            const first = queue.find(i => i.status === 'serving') || queue.find(i => i.status === 'waiting');
+            if (!first) return;
+            if (isLocalMode) {
+               const newQ = queue.filter(i => i.id !== first.id);
+               setQueue(newQ);
+               localStorage.setItem(`local_queue_${currentEst.id}`, JSON.stringify(newQ));
+            } else {
+               deleteDoc(doc(db, "establishments", currentEst.id, "queue", first.id));
+            }
+          }} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)} 
         />
       )}
@@ -183,68 +235,57 @@ const App: React.FC = () => {
           plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} 
           loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} 
           pixKey={currentEst.pixKey || ''} 
-          onSetPixKey={async (k) => {
-            await updateDoc(doc(db, "establishments", currentEst.id!), { pixKey: k });
-          }} 
-          onUpdateStatus={async (s) => {
-            await updateDoc(doc(db, "establishments", currentEst.id!), { status: s });
-          }}
-          onSetBookingModel={async (m) => {
-             await updateDoc(doc(db, "establishments", currentEst.id!), { bookingModel: m });
-          }}
-          onSetLoyaltyEnabled={async (e) => {
-             await updateDoc(doc(db, "establishments", currentEst.id!), { loyaltyEnabled: e });
-          }}
+          onSetPixKey={async (k) => { if (isLocalMode) return; await updateDoc(doc(db, "establishments", currentEst.id!), { pixKey: k }); }} 
+          onUpdateStatus={async (s) => { if (isLocalMode) return; await updateDoc(doc(db, "establishments", currentEst.id!), { status: s }); }}
+          onSetBookingModel={async (m) => { if (isLocalMode) return; await updateDoc(doc(db, "establishments", currentEst.id!), { bookingModel: m }); }}
+          onSetLoyaltyEnabled={async (e) => { if (isLocalMode) return; await updateDoc(doc(db, "establishments", currentEst.id!), { loyaltyEnabled: e }); }}
           onCallNext={handleCallNext} 
-          onNoShow={() => queue[0] && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue[0].id))} 
+          onNoShow={() => handleCallNext()} 
           onUpdateServices={async (sList) => {
-             // Sincroniza o catálogo no Firestore
+             if (isLocalMode) { setServices(sList); localStorage.setItem(`local_services_${currentEst.id}`, JSON.stringify(sList)); return; }
              const lastService = sList[sList.length - 1];
-             if (sList.length > services.length) {
-                await setDoc(doc(db, "establishments", currentEst.id, "services", lastService.id), lastService);
-             } else {
-                // Lógica de remoção (simplificada)
-                const removed = services.find(s => !sList.find(sl => sl.id === s.id));
-                if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "services", removed.id));
-             }
+             if (sList.length > services.length) { await setDoc(doc(db, "establishments", currentEst.id, "services", lastService.id), lastService); }
+             else { const removed = services.find(s => !sList.find(sl => sl.id === s.id)); if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "services", removed.id)); }
           }}
           onUpdatePros={async (pList) => {
-             // Sincroniza a equipe no Firestore
+             if (isLocalMode) { setProfessionals(pList); localStorage.setItem(`local_pros_${currentEst.id}`, JSON.stringify(pList)); return; }
              const lastPro = pList[pList.length - 1];
-             if (pList.length > professionals.length) {
-                await setDoc(doc(db, "establishments", currentEst.id, "professionals", lastPro.id), lastPro);
-             } else {
-                const removed = professionals.find(p => !pList.find(pl => pl.id === p.id));
-                if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", removed.id));
-             }
+             if (pList.length > professionals.length) { await setDoc(doc(db, "establishments", currentEst.id, "professionals", lastPro.id), lastPro); }
+             else { const removed = professionals.find(p => !pList.find(pl => pl.id === p.id)); if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", removed.id)); }
           }}
         />
       )}
 
       {activeTab === 'config' && (
-        <div className="flex flex-col items-center py-12 space-y-10">
-           <div className="text-center space-y-4">
-              <div className="w-24 h-24 bg-slate-900 border-2 border-white/5 rounded-[40px] flex items-center justify-center text-teal-400 shadow-2xl">
-                <UserCircle size={48} />
-              </div>
-              <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">Minha Conta</h2>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">{userEmail}</p>
-           </div>
-           <div className="w-full max-w-sm space-y-3">
-              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Sair da Conta</button>
-           </div>
+        <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="text-center space-y-2">
+             <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">Gerenciamento</h2>
+             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Controle de Sincronização e Conta</p>
+          </div>
+
+          <section className="space-y-4">
+             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 flex items-center gap-2">
+                <Database size={14} className="text-indigo-400" /> Fluxo de Dados Híbrido
+             </h3>
+             <DataStatus 
+                isLocalMode={isLocalMode} 
+                localCount={queue.length + services.length + professionals.length} 
+                cloudCount={queue.length} // Simplificado para o exemplo
+                onSync={handleManualSync}
+             />
+          </section>
+
+          <div className="pt-10 flex flex-col gap-4">
+            <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500 shadow-xl flex items-center justify-center gap-2">
+               <LogOut size={16} /> Encerrar Sessão
+            </button>
+          </div>
         </div>
       )}
 
       {isJoinModalOpen && <JoinQueueModal services={services} currentQueue={queue} professionals={professionals} bookingModel={currentEst.bookingModel || 'both'} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
-      
       {isCompletionModalOpen && selectedQueueItem && (
-        <ServiceCompletionModal 
-          item={selectedQueueItem} 
-          services={services} 
-          onClose={() => setIsCompletionModalOpen(false)} 
-          onConfirm={handleFinishService} 
-        />
+        <ServiceCompletionModal item={selectedQueueItem} services={services} onClose={() => setIsCompletionModalOpen(false)} onConfirm={handleFinishService} />
       )}
     </Layout>
   );

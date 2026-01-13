@@ -3,8 +3,17 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fila Livre - Performance & Estilo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Fila Livre - App de Fila</title>
+    
+    <!-- PWA & iOS Meta Tags -->
+    <meta name="theme-color" content="#050810" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Fila Livre" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3003/3003185.png" />
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -19,36 +28,38 @@
         margin: 0;
         padding: 0;
         overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent; /* Remove brilho azul ao tocar no iOS */
+        overscroll-behavior-y: contain; /* Previne o "puxar para atualizar" nativo */
       }
       .font-orbitron { font-family: 'Orbitron', sans-serif; }
       
       .glass-card {
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(45, 212, 191, 0.15);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
       }
       
-      .neon-border {
-        box-shadow: 0 0 20px rgba(45, 212, 191, 0.3), inset 0 0 5px rgba(45, 212, 191, 0.2);
+      /* Otimização para Mobile Notch */
+      header {
+        padding-top: env(safe-area-inset-top, 1rem);
       }
-
-      .neon-text {
-        text-shadow: 0 0 15px rgba(45, 212, 191, 0.9);
+      nav {
+        padding-bottom: env(safe-area-inset-bottom, 1.5rem);
       }
 
       /* Scrollbar Customizada */
-      ::-webkit-scrollbar { width: 4px; }
-      ::-webkit-scrollbar-track { background: #050810; }
-      ::-webkit-scrollbar-thumb { background: #2dd4bf; border-radius: 10px; }
+      ::-webkit-scrollbar { width: 0px; } /* Esconde scrollbar em mobile */
       
-      .animate-float {
-        animation: float 3s ease-in-out infinite;
+      input, select, textarea {
+        font-size: 16px !important; /* Previne zoom automático no iOS */
       }
-      @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-8px); }
+
+      @keyframes pulse-soft {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
       }
+      .animate-pulse-soft { animation: pulse-soft 2s infinite; }
     </style>
   <script type="importmap">
 {
@@ -69,7 +80,14 @@
 </head>
   <body>
     <div id="root"></div>
-    <!-- Script de entrada vital para o Vercel -->
     <script type="module" src="./index.tsx"></script>
+    <script>
+      // Registro do Service Worker para suporte Android/iOS
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+        });
+      }
+    </script>
   </body>
 </html>
