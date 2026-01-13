@@ -36,6 +36,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     setError('');
     try {
       if (userRole === 'admin') {
+        // Esta busca pode exigir um Índice no Firestore se houver muitos dados
         const q = query(collection(db, "establishments"), where("ownerEmail", "==", userEmail));
         const snap = await getDocs(q);
         const cloudData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Establishment));
@@ -45,10 +46,12 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         setConnections(saved.slice(0, 6));
       }
     } catch (e: any) {
+      console.error("Load Connections Error:", e);
       if (e.code === 'permission-denied') {
         setShowHelper(true);
         setHelperType('rules');
       }
+      // Fallback para dados locais caso o cloud falhe
       const localData = JSON.parse(localStorage.getItem(`local_establishments_${userEmail}`) || '[]');
       setConnections(localData);
     } finally {
@@ -82,13 +85,8 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       }
     } catch (e: any) {
       console.error("Join Error:", e);
-      if (e.code === 'permission-denied') {
-        setError('Acesso negado pelo Firebase. Verifique as Regras de Segurança.');
-        setShowHelper(true);
-        setHelperType('rules');
-      } else {
-        setError('Falha na conexão. Verifique sua internet ou o código.');
-      }
+      setError(`Erro de conexão: ${e.message || 'Verifique o console'}`);
+      setShowHelper(true);
     } finally {
       setActionLoading(false);
     }
@@ -96,14 +94,14 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
   const handleDeleteBusiness = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm('Tem certeza que deseja excluir esta unidade? Todos os dados da fila e histórico desta unidade serão perdidos.')) return;
+    if (!confirm('Tem certeza que deseja excluir esta unidade?')) return;
     
     setActionLoading(true);
     try {
       await deleteDoc(doc(db, "establishments", id));
       setConnections(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
-      setError('Erro ao excluir unidade.');
+    } catch (err: any) {
+      setError(`Erro ao excluir: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -119,8 +117,8 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       await updateDoc(docRef, { name: editName.toUpperCase().trim() });
       setConnections(prev => prev.map(c => c.id === id ? { ...c, name: editName.toUpperCase().trim() } : c));
       setEditingId(null);
-    } catch (err) {
-      setError('Erro ao atualizar unidade.');
+    } catch (err: any) {
+      setError(`Erro ao atualizar: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -128,21 +126,22 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
   const handleCreateBusiness = async () => {
     setError('');
-    if (!newCode.trim() || !newName.trim()) {
-      return setError('Nome e Código são obrigatórios.');
+    const trimmedName = newName.trim();
+    const trimmedCode = newCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+
+    if (!trimmedName || !trimmedCode) {
+      return setError('Preencha o Nome e o Código.');
+    }
+
+    if (trimmedCode.length < 3) {
+      return setError('O código deve ter 3 ou mais letras/números.');
     }
 
     setActionLoading(true);
-    const cleanCode = newCode.toUpperCase().trim().replace(/[^A-Z0-9-]/g, '');
-    
-    if (cleanCode.length < 3) {
-      setActionLoading(false);
-      return setError('O código deve ter pelo menos 3 caracteres.');
-    }
 
     const newEst: Establishment = {
-      id: cleanCode,
-      name: newName.trim().toUpperCase(),
+      id: trimmedCode,
+      name: trimmedName.toUpperCase(),
       ownerEmail: userEmail,
       status: 'open',
       bookingModel: 'both',
@@ -152,24 +151,29 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     };
 
     try {
-      const checkDoc = await getDoc(doc(db, "establishments", cleanCode));
+      // Primeiro tenta ler para ver se o banco está ativo e o ID disponível
+      const checkDoc = await getDoc(doc(db, "establishments", trimmedCode));
       if (checkDoc.exists()) {
-        setError('Este código já está em uso por outro estabelecimento.');
         setActionLoading(false);
-        return;
+        return setError('Este código já existe. Escolha outro.');
       }
 
-      await setDoc(doc(db, "establishments", cleanCode), newEst);
+      // Tenta gravar
+      await setDoc(doc(db, "establishments", trimmedCode), newEst);
+      console.log("✅ Estabelecimento criado com sucesso!");
       onSelect(newEst);
     } catch (e: any) {
-      console.error("Create Error:", e);
-      if (e.code === 'permission-denied') {
-        setShowHelper(true);
-        setHelperType('rules');
-        setError('Acesso negado ao criar. Verifique suas Regras de Segurança.');
-      } else {
-        setError('Erro ao criar barbearia. Tente novamente mais tarde.');
-      }
+      console.error("🔥 Erro crítico na criação:", e);
+      
+      // Se cair aqui, quase certamente é erro de configuração no Console do Firebase
+      setShowHelper(true);
+      setHelperType('rules');
+      
+      let msg = "Erro no banco de dados.";
+      if (e.code === 'permission-denied') msg = "Acesso Negado (Verifique as Regras).";
+      if (e.code === 'unavailable') msg = "Banco de dados offline ou não criado.";
+      
+      setError(`${msg} Detalhe: ${e.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -204,7 +208,6 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         </div>
       )}
 
-      {/* BARRA DE BUSCA OU BOTÃO DE ADICIONAR */}
       {!isAdding && !editingId && (
         <div className="mb-10 space-y-4">
           <div className="relative group">
@@ -214,7 +217,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
             <input 
               value={newCode}
               onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-              placeholder={userRole === 'admin' ? "BUSCAR UNIDADE PELO CÓDIGO" : "DIGITE O CÓDIGO DO SALÃO"} 
+              placeholder={userRole === 'admin' ? "BUSCAR PELO CÓDIGO" : "DIGITE O CÓDIGO DO SALÃO"} 
               className="w-full bg-slate-900/50 border-2 border-slate-800 rounded-3xl py-6 pl-14 pr-6 text-white font-orbitron font-bold placeholder:text-slate-700 focus:border-teal-500 outline-none transition-all shadow-2xl"
             />
             <button 
@@ -229,34 +232,25 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
           {userRole === 'admin' && (
             <button 
               onClick={openAddForm}
-              className="w-full py-5 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl flex items-center justify-center gap-3 text-indigo-400 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600/20 transition-all active:scale-95"
+              className="w-full py-5 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl flex items-center justify-center gap-3 text-indigo-400 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600/20 transition-all active:scale-95 shadow-xl"
             >
-              <PlusCircle size={18} /> Cadastrar Nova Barbearia
+              <PlusCircle size={18} /> Cadastrar Nova Unidade
             </button>
           )}
 
-          {error && !showHelper && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest bg-red-500/10 py-3 rounded-xl">{error}</p>}
+          {error && !showHelper && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest bg-red-500/10 py-4 px-4 rounded-2xl border border-red-500/20">{error}</p>}
         </div>
       )}
 
-      {/* LISTA DE CONEXÕES / HISTÓRICO */}
       <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pb-10">
-        {!isAdding && (
-          <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-4">
-            {userRole === 'admin' ? 'Unidades Registradas' : 'Acessos Recentes'}
-          </h3>
+        {!isAdding && connections.length > 0 && (
+          <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-4">Registros Encontrados</h3>
         )}
         
         {loading ? (
           <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-teal-500" size={32} /></div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {connections.length === 0 && !isAdding && (
-              <div className="py-12 text-center bg-slate-900/20 border border-dashed border-slate-800 rounded-[32px]">
-                 <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Nenhuma unidade encontrada</p>
-              </div>
-            )}
-            
             {!isAdding && connections.map(est => (
               <div key={est.id} className="relative group">
                 {editingId === est.id ? (
@@ -265,7 +259,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                       autoFocus
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white font-bold uppercase text-xs outline-none focus:border-teal-500"
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white font-bold uppercase text-xs"
                     />
                     <button type="button" onClick={() => setEditingId(null)} className="p-2 text-slate-500"><X size={20}/></button>
                     <button type="submit" disabled={actionLoading} className="p-2 text-teal-500">
@@ -313,29 +307,28 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
             {userRole === 'admin' && isAdding && (
               <div className="bg-slate-900 border-2 border-indigo-500/30 p-8 rounded-[40px] space-y-6 animate-in zoom-in duration-300 shadow-[0_20px_50px_rgba(79,70,229,0.15)]">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-black text-white uppercase tracking-tighter">Nova Unidade</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-white uppercase tracking-tighter">Novo Estabelecimento</h3>
                   <button onClick={() => setIsAdding(false)} className="text-slate-500"><X size={20}/></button>
                 </div>
                 
                 <div className="space-y-5">
                    <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Barbearia</label>
-                     <input value={newName} onChange={e => setNewName(e.target.value.toUpperCase())} placeholder="EX: BARBA E CIA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4.5 px-6 text-white font-bold uppercase outline-none focus:border-indigo-500 transition-all" />
+                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Fantasia</label>
+                     <input value={newName} onChange={e => setNewName(e.target.value.toUpperCase())} placeholder="EX: BARBEARIA DO JOSÉ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4.5 px-6 text-white font-bold uppercase outline-none focus:border-indigo-500 transition-all" />
                    </div>
                    <div className="space-y-1.5">
-                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Código Único de Acesso</label>
-                     <input value={newCode} onChange={e => setNewCode(e.target.value.toUpperCase())} placeholder="EX: BARBER-01" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4.5 px-6 text-white font-orbitron font-bold uppercase outline-none focus:border-indigo-500 transition-all" />
-                     <p className="text-[8px] text-slate-600 font-bold uppercase mt-1 px-1">Este código será usado pelos seus clientes.</p>
+                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Código Único (Link do Cliente)</label>
+                     <input value={newCode} onChange={e => setNewCode(e.target.value.toUpperCase())} placeholder="EX: JOSE-BARBER" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4.5 px-6 text-white font-orbitron font-bold uppercase outline-none focus:border-indigo-500 transition-all" />
                    </div>
                 </div>
 
-                {error && <p className="text-red-500 text-[9px] font-black uppercase tracking-widest text-center py-2 bg-red-500/5 rounded-lg">{error}</p>}
+                {error && <p className="text-red-500 text-[9px] font-black uppercase tracking-widest text-center py-3 bg-red-500/5 rounded-xl border border-red-500/10">{error}</p>}
 
                 <div className="flex gap-3">
                    <button onClick={() => setIsAdding(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
                    <button onClick={handleCreateBusiness} disabled={actionLoading} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">
-                     {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar e Criar'}
+                     {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar e Salvar'}
                    </button>
                 </div>
               </div>
@@ -344,7 +337,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         )}
       </div>
       
-      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v3.0 • Google Cloud Active</p>
+      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v3.1 • Powered by Google</p>
     </div>
   );
 };
