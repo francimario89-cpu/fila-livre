@@ -49,7 +49,7 @@ service cloud.firestore {
         <div className="space-y-4 bg-slate-950 p-5 rounded-2xl border border-white/5">
           <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Siga estes passos:</p>
           <ol className="text-[9px] text-slate-300 space-y-2 list-decimal ml-4 font-bold uppercase tracking-tight">
-            <li>Vá no Console do Firebase > Authentication</li>
+            <li>Vá no Console do Firebase &gt; Authentication</li>
             <li>Clique na aba <span className="text-amber-500">Settings (Configurações)</span></li>
             <li>Menu lateral: <span className="text-amber-500">Authorized domains</span></li>
             <li>Clique em "Add domain" e cole: <br/><span className="text-teal-400 font-mono lowercase">{currentDomain}</span></li>
