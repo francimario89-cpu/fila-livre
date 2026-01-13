@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Settings, RefreshCcw } from 'lucide-react';
+import { Settings, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -31,7 +31,7 @@ const App: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
 
-  // Monitorar estado de autenticação - Vital para o Firebase liberar o banco
+  // Monitorar estado de autenticação
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, (user) => {
@@ -42,36 +42,38 @@ const App: React.FC = () => {
         if (savedRole) setUserRole(savedRole);
       } else {
         setIsLoggedIn(false);
+        setCurrentEst(null);
       }
     });
   }, []);
 
-  // Escutar dados do Firestore
+  // Escutar dados do Firestore com tratamento de erro resiliente
   useEffect(() => {
     if (!currentEst || !isConfigured || !isLoggedIn) return;
 
     const qQueue = query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc"));
+    
     const unsubscribeQueue = onSnapshot(qQueue, (snapshot) => {
       setQueue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem)));
-      setDbError(null);
+      setDbError(null); // Limpa erro se a conexão funcionar
     }, (err) => {
       console.error("Firestore Error:", err.code);
       if (err.code === 'permission-denied') {
-        setDbError("Acesso Negado: Verifique as Regras no Console do Firebase.");
+        setDbError("Acesso Negado: Verifique se você publicou as regras no Firebase.");
       }
     });
 
     const unsubscribeServices = onSnapshot(collection(db, "establishments", currentEst.id, "services"), (snapshot) => {
       setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
-    });
+    }, () => {});
 
     const unsubscribePros = onSnapshot(collection(db, "establishments", currentEst.id, "professionals"), (snapshot) => {
       setProfessionals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)));
-    });
+    }, () => {});
 
     const unsubscribeRevenue = onSnapshot(collection(db, "establishments", currentEst.id, "revenue"), (snapshot) => {
       setRevenue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RevenueRecord)));
-    });
+    }, () => {});
 
     return () => {
       unsubscribeQueue();
@@ -80,15 +82,6 @@ const App: React.FC = () => {
       unsubscribeRevenue();
     };
   }, [currentEst, isLoggedIn]);
-
-  if (!isConfigured) {
-    return (
-      <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 text-center space-y-8">
-        <Settings size={48} className="text-teal-500 animate-spin-slow" />
-        <h1 className="text-xl font-bold text-white uppercase font-orbitron">Inicializando...</h1>
-      </div>
-    );
-  }
 
   const handleLogin = (id: string, role: 'admin' | 'client') => {
     setUserRole(role);
@@ -105,8 +98,8 @@ const App: React.FC = () => {
         timestamp: Date.now()
       });
       setIsJoinModalOpen(false);
-    } catch (e) {
-      alert("Erro ao entrar na fila. O banco de dados recusou a gravação.");
+    } catch (e: any) {
+      alert(`Erro: ${e.message}. Verifique as regras do banco.`);
     }
   };
 
@@ -143,6 +136,15 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isConfigured) {
+    return (
+      <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 text-center space-y-8">
+        <Settings size={48} className="text-teal-500 animate-spin-slow" />
+        <h1 className="text-xl font-bold text-white uppercase font-orbitron">Carregando Firebase...</h1>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) return <AuthView onLogin={handleLogin} />;
   
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
@@ -153,9 +155,14 @@ const App: React.FC = () => {
       establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)}
     >
       {dbError && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between">
-          <p className="text-[10px] text-red-500 font-black uppercase tracking-widest">{dbError}</p>
-          <button onClick={() => window.location.reload()} className="p-2 bg-red-500 text-white rounded-lg"><RefreshCcw size={14}/></button>
+        <div className="mb-6 p-5 bg-amber-500/10 border border-amber-500/20 rounded-[32px] flex items-center justify-between gap-4 animate-in slide-in-from-top-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0" />
+            <p className="text-[9px] text-amber-500 font-black uppercase tracking-widest leading-tight">{dbError}</p>
+          </div>
+          <button onClick={() => window.location.reload()} className="p-2.5 bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20">
+            <RefreshCcw size={14}/>
+          </button>
         </div>
       )}
 
@@ -216,7 +223,7 @@ const App: React.FC = () => {
       {activeTab === 'config' && (
         <div className="flex flex-col items-center py-12 space-y-10">
            <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">Perfil</h2>
-           <button onClick={() => auth.signOut()} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Encerrar Sessão</button>
+           <button onClick={() => auth.signOut()} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Sair do App</button>
         </div>
       )}
 
