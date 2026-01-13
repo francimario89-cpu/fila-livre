@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, QrCode, UserCircle, Clock, Zap, Gift, Lock, Timer, FileText, Settings2, Rocket, ArrowRight, Share2, Copy, Check
+  Plus, Trash2, BarChart3, Users2, QrCode, UserCircle, Clock, Zap, Gift, Lock, Timer, FileText, Settings2, Rocket, ArrowRight
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, ProfStatus, PlanType, ServiceRating } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -19,7 +19,6 @@ interface AdminPanelProps {
   revenue: RevenueRecord[];
   ratings?: ServiceRating[];
   pixKey: string;
-  establishmentId: string; // Adicionado
   onSetPixKey: (key: string) => void;
   onSetOpeningHours: (hours: string) => void;
   onSetBookingModel: (model: BookingModel) => void;
@@ -33,17 +32,19 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   queue, services, professionals, estStatus, bookingModel, plan, trialStartedAt, loyaltyEnabled, revenue, ratings = [], pixKey,
-  establishmentId, onSetPixKey, onSetBookingModel, onCallNext, onNoShow, onUpdateStatus, onUpdateServices, onUpdatePros, onSetLoyaltyEnabled
+  onSetPixKey, onSetBookingModel, onCallNext, onNoShow, onUpdateStatus, onUpdateServices, onUpdatePros
 }) => {
   const [newProName, setNewProName] = useState('');
   const [isAddingPro, setIsAddingPro] = useState(false);
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   
   const [isAddingService, setIsAddingService] = useState(false);
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState('');
   const [newServiceDuration, setNewServiceDuration] = useState('30');
+
+  const [editingPix, setEditingPix] = useState(false);
+  const [tempPix, setTempPix] = useState(pixKey);
 
   const trialDaysRemaining = useMemo(() => {
     const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
@@ -52,12 +53,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return Math.max(0, remaining);
   }, [trialStartedAt]);
 
-  const canAccessProFeatures = plan === 'pro' || trialDaysRemaining > 0;
+  const isTrialActive = trialDaysRemaining > 0;
+  const canAccessProFeatures = plan === 'pro' || isTrialActive;
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(establishmentId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleUpdateProStatus = (proId: string, status: ProfStatus) => {
+    onUpdatePros(professionals.map(p => p.id === proId ? { ...p, status } : p));
   };
 
   const handleAddPro = () => {
@@ -75,6 +75,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdatePros([...professionals, newPro]);
     setNewProName('');
     setIsAddingPro(false);
+  };
+
+  const handleSavePix = () => {
+    onSetPixKey(tempPix);
+    setEditingPix(false);
   };
 
   const handleAddService = () => {
@@ -96,54 +101,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return revenue.reduce((acc, curr) => acc + curr.amount, 0);
   }, [revenue]);
 
+  // Se não houver nada configurado, mostra o guia de teste
+  const showTutorial = professionals.length === 0 && services.length === 0;
+
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       
-      {/* CARD DO CÓDIGO DA LOJA */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 shadow-xl relative overflow-hidden group">
-         <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
-            <Share2 size={100} />
-         </div>
-         <div className="space-y-1">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Código da sua Barbebaria</h3>
-            <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">Passe para seus clientes acessarem</p>
-         </div>
-         <div className="flex items-center gap-3">
-            <div className="flex-1 bg-slate-950 border border-white/5 py-4 rounded-2xl text-center text-2xl font-black text-teal-400 font-orbitron tracking-widest">
-               {establishmentId}
-            </div>
-            <button 
-              onClick={handleCopyCode}
-              className={`p-5 rounded-2xl transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}
-            >
-              {copied ? <Check size={20} /> : <Copy size={20} />}
-            </button>
-         </div>
-      </div>
-
-      {/* CONFIGURAÇÃO DE FIDELIDADE */}
-      <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Gift size={14} className="text-amber-500" /> Programa VIP / Fidelidade
-        </h3>
-        <button 
-          onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)}
-          className={`w-full p-6 rounded-[32px] border-2 flex items-center justify-between transition-all ${loyaltyEnabled ? 'bg-amber-500/10 border-amber-500/30 text-white' : 'bg-slate-900/40 border-slate-800 text-slate-500'}`}
-        >
-          <div className="flex items-center gap-4 text-left">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${loyaltyEnabled ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-600'}`}>
-              <Gift size={24} />
+      {showTutorial && (
+        <div className="bg-teal-500/10 border-2 border-dashed border-teal-500/30 p-8 rounded-[40px] space-y-6 animate-pulse-slow">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-slate-950 shadow-lg shadow-teal-500/20">
+              <Rocket size={24} />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-tighter">Cartão Fidelidade</p>
-              <p className="text-[9px] font-bold uppercase opacity-60">{loyaltyEnabled ? 'Ativado: Clientes ganham o 10º corte' : 'Desativado: Toque para habilitar'}</p>
+              <h3 className="text-white font-black text-sm uppercase tracking-tighter">Guia de Teste Rápido</h3>
+              <p className="text-[9px] text-teal-400 font-bold uppercase">Siga os passos abaixo para ver a mágica</p>
             </div>
           </div>
-          <div className={`w-12 h-6 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-amber-500' : 'bg-slate-800'}`}>
-             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${loyaltyEnabled ? 'right-1' : 'left-1'}`} />
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">1</div>
+              Cadastre um Profissional abaixo
+            </div>
+            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">2</div>
+              Cadastre um Serviço (ex: Corte)
+            </div>
+            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">3</div>
+              Abra o app em outro celular como "Cliente"
+            </div>
           </div>
-        </button>
-      </section>
+        </div>
+      )}
+
+      {/* BANNER DE PLANO / TRIAL */}
+      <div className={`p-5 rounded-[28px] border-2 flex items-center justify-between ${canAccessProFeatures ? 'bg-indigo-500/10 border-indigo-500/20 shadow-lg shadow-indigo-500/5' : 'bg-slate-900 border-slate-800'}`}>
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${canAccessProFeatures ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
+            <Gift size={24} />
+          </div>
+          <div>
+            <h4 className="text-[11px] font-black text-white uppercase tracking-widest">
+              {plan === 'pro' ? 'Assinatura Pro Ativa' : 'Degustação Plano Pro'}
+            </h4>
+            <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">
+              {plan === 'pro' ? 'Recursos ilimitados liberados' : `${trialDaysRemaining} dias restantes de acesso total`}
+            </p>
+          </div>
+        </div>
+        {plan !== 'pro' && (
+          <button className="bg-indigo-600 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase text-white shadow-xl shadow-indigo-600/30">Upgrade</button>
+        )}
+      </div>
 
       {/* FINANCEIRO */}
       <section className="space-y-4">
@@ -178,16 +188,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <Users2 size={14} className="text-indigo-400" /> Equipe de Trabalho
           </h3>
+          {!canAccessProFeatures && (
+            <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-black uppercase">Limite Grátis: {professionals.length}/1</span>
+          )}
         </div>
         
         <div className="space-y-3">
           {professionals.map(p => (
-            <div key={p.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] shadow-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-400 border border-white/5"><UserCircle size={24} /></div>
-                <span className="text-sm font-black text-white uppercase tracking-tighter">{p.name}</span>
+            <div key={p.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] space-y-4 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-400 border border-white/5"><UserCircle size={24} /></div>
+                  <span className="text-sm font-black text-white uppercase tracking-tighter">{p.name}</span>
+                </div>
+                <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="text-red-500/20 hover:text-red-500 p-2 transition-colors"><Trash2 size={16}/></button>
               </div>
-              <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="text-red-500/20 hover:text-red-500 p-2 transition-colors"><Trash2 size={16}/></button>
             </div>
           ))}
 
@@ -196,7 +211,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onClick={() => setIsAddingPro(true)} 
               className={`w-full border-2 border-dashed p-7 rounded-[32px] uppercase text-[10px] font-black flex items-center justify-center gap-3 transition-all ${(!canAccessProFeatures && professionals.length >= 1) ? 'border-slate-900 text-slate-800 cursor-not-allowed bg-slate-900/10' : 'border-slate-800 text-slate-600 hover:border-indigo-500 hover:text-indigo-400'}`}
             >
-              <Plus size={16}/> Adicionar Profissional
+              {(!canAccessProFeatures && professionals.length >= 1) ? <><Lock size={16}/> Limite Grátis Atingido</> : <><Plus size={16}/> Adicionar Profissional</>}
             </button>
           ) : (
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 animate-in slide-in-from-top-4 shadow-2xl">
