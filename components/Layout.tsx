@@ -13,6 +13,7 @@ interface LayoutProps {
   isLocalMode?: boolean;
   onBackToDashboard: () => void;
   onClearNotifications?: () => void;
+  loyaltyEnabled?: boolean;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
@@ -24,14 +25,19 @@ export const Layout: React.FC<LayoutProps> = ({
   establishmentCode,
   isLocalMode = false,
   onBackToDashboard,
-  onClearNotifications
+  onClearNotifications,
+  loyaltyEnabled = true
 }) => {
-  const filteredNav = NAVIGATION_ITEMS.filter(item => item.roles.includes(userRole));
+  const filteredNav = NAVIGATION_ITEMS.filter(item => {
+    const roleMatch = item.roles.includes(userRole);
+    if (item.id === 'fidelidade' && !loyaltyEnabled) return false;
+    return roleMatch;
+  });
+
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'online'>('online');
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   useEffect(() => {
-    // Detecta se já está instalado
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     if (!isStandalone) {
       const timer = setTimeout(() => setShowInstallPrompt(true), 3000);
@@ -57,7 +63,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xs font-black font-orbitron tracking-tighter neon-text uppercase">FILA LIVRE</h1>
+              <h1 className="text-xs font-black font-orbitron tracking-tighter text-white uppercase">FILA LIVRE</h1>
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-950 border border-white/5">
                 {isLocalMode ? (
                   <><Database size={8} className="text-amber-500" /><span className="text-[6px] font-black uppercase text-amber-500/70">Local</span></>
@@ -84,7 +90,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="mx-4 mt-4 bg-indigo-600 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top-4 duration-500 z-[100] shadow-2xl">
           <div className="flex items-center gap-3">
             <Download size={20} className="text-white" />
-            <p className="text-[10px] font-black uppercase tracking-tight">Instale como aplicativo</p>
+            <p className="text-[10px] font-black uppercase tracking-tight">Instale no seu Celular</p>
           </div>
           <button onClick={() => setShowInstallPrompt(false)} className="text-[9px] bg-white/20 px-3 py-1.5 rounded-lg font-black uppercase">Fechar</button>
         </div>

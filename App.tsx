@@ -37,13 +37,6 @@ const App: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
 
-  // Filtra itens de navegação baseado nas permissões e no estabelecimento atual
-  const filteredNav = NAVIGATION_ITEMS.filter(item => {
-    const roleMatch = item.roles.includes(userRole);
-    if (item.id === 'fidelidade' && currentEst && !currentEst.loyaltyEnabled) return false;
-    return roleMatch;
-  });
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -183,6 +176,7 @@ const App: React.FC = () => {
     <Layout 
       activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} 
       establishmentCode={currentEst.id} isLocalMode={isLocalMode} onBackToDashboard={() => setCurrentEst(null)}
+      loyaltyEnabled={currentEst.loyaltyEnabled}
     >
       {activeTab === 'fila' && (
         <QueueView 
@@ -214,8 +208,8 @@ const App: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white"><Monitor size={24} /></div>
               <div className="text-left">
-                <h4 className="text-sm font-black uppercase tracking-tighter text-white">Modo TV</h4>
-                <p className="text-[9px] font-bold uppercase opacity-60 text-slate-400">Exibir Fila na Recepção</p>
+                <h4 className="text-sm font-black uppercase tracking-tighter text-white">Painel da recepção</h4>
+                <p className="text-[9px] font-bold uppercase opacity-60 text-slate-400">Transmitir para Smart TV</p>
               </div>
             </div>
             <Monitor size={20} className="text-slate-500" />
@@ -241,6 +235,7 @@ const App: React.FC = () => {
             onUpdatePros={async (pList) => {
                if (isLocalMode) return;
                const lastPro = pList[pList.length - 1];
+               // Fixed: corrected "sl" to "pl" in find callback to resolve "Cannot find name 'sl'" error
                if (pList.length > professionals.length) await setDoc(doc(db, "establishments", currentEst.id, "professionals", lastPro.id), lastPro);
                else { const removed = professionals.find(p => !pList.find(pl => pl.id === p.id)); if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", removed.id)); }
             }}
@@ -251,7 +246,7 @@ const App: React.FC = () => {
       {activeTab === 'config' && (
         <div className="space-y-10">
           <section className="space-y-4">
-             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Status da Conexão</h3>
+             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Sincronização</h3>
              <DataStatus isLocalMode={isLocalMode} localCount={queue.length} cloudCount={queue.length} onSync={handleManualSync} />
           </section>
           <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500 flex items-center justify-center gap-2">

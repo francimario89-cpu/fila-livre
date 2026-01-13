@@ -23,6 +23,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [showHelper, setShowHelper] = useState(false);
+  const [helperType, setHelperType] = useState<'rules' | 'domain'>('rules');
 
   useEffect(() => {
     loadConnections();
@@ -38,12 +39,14 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         const cloudData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Establishment));
         setConnections(cloudData);
       } else {
-        // Histórico do cliente limitado a 6
         const saved = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
         setConnections(saved.slice(0, 6));
       }
     } catch (e: any) {
-      if (e.code === 'permission-denied') setShowHelper(true);
+      if (e.code === 'permission-denied') {
+        setShowHelper(true);
+        setHelperType('rules');
+      }
       const localData = JSON.parse(localStorage.getItem(`local_establishments_${userEmail}`) || '[]');
       setConnections(localData);
     } finally {
@@ -52,11 +55,12 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   };
 
   const handleJoinByCode = async () => {
-    if (!newCode) return setError('Digite o código do salão.');
+    const cleanCode = newCode.toUpperCase().trim();
+    if (!cleanCode) return setError('Digite o código do salão.');
+    
     setActionLoading(true);
     setError('');
-    
-    const cleanCode = newCode.toUpperCase().trim();
+    setShowHelper(false);
 
     try {
       const docRef = doc(db, "establishments", cleanCode);
@@ -65,7 +69,6 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       if (docSnap.exists()) {
         const estData = { id: docSnap.id, ...docSnap.data() } as Establishment;
         
-        // Salva no histórico (limite de 6)
         const history = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
         const filtered = history.filter((h: any) => h.id !== estData.id);
         const newHistory = [estData, ...filtered].slice(0, 6);
@@ -73,10 +76,17 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         
         onSelect(estData);
       } else {
-        setError('Código não encontrado. Verifique com seu barbeiro.');
+        setError(`O código "${cleanCode}" não foi encontrado.`);
       }
     } catch (e: any) {
-      setError('Erro ao buscar salão. Verifique sua conexão.');
+      console.error("Join Error:", e);
+      if (e.code === 'permission-denied') {
+        setError('Acesso negado pelo Firebase. Verifique as Regras de Segurança.');
+        setShowHelper(true);
+        setHelperType('rules');
+      } else {
+        setError('Falha na conexão. Verifique sua internet ou o código.');
+      }
     } finally {
       setActionLoading(false);
     }
@@ -96,11 +106,10 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       bookingModel: 'both',
       plan: 'free',
       trialStartedAt: Date.now(),
-      loyaltyEnabled: true // Habilitado por padrão
+      loyaltyEnabled: true
     };
 
     try {
-      // Verifica se código já existe
       const checkDoc = await getDoc(doc(db, "establishments", cleanCode));
       if (checkDoc.exists()) {
         setError('Este código já está em uso por outra barbearia.');
@@ -111,8 +120,11 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       await setDoc(doc(db, "establishments", cleanCode), newEst);
       onSelect(newEst);
     } catch (e: any) {
-      if (e.code === 'permission-denied') setShowHelper(true);
-      setError('Erro ao criar barbearia na nuvem.');
+      if (e.code === 'permission-denied') {
+        setShowHelper(true);
+        setHelperType('rules');
+      }
+      setError('Erro ao criar barbearia. Verifique suas permissões no Firebase.');
     } finally {
       setActionLoading(false);
     }
@@ -136,7 +148,11 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         </p>
       </div>
 
-      {showHelper && <div className="mb-6"><FirebaseHelper error="Acesso Negado" /></div>}
+      {showHelper && (
+        <div className="mb-8">
+          <FirebaseHelper error={error} type={helperType} />
+        </div>
+      )}
 
       {/* INPUT PRINCIPAL - BUSCA POR CÓDIGO */}
       {!isAdding && (
@@ -159,20 +175,26 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
               {actionLoading ? <Loader2 size={16} className="animate-spin" /> : (userRole === 'admin' ? 'Configurar' : 'Entrar')}
             </button>
           </div>
-          {error && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest">{error}</p>}
+          {error && !showHelper && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest">{error}</p>}
         </div>
       )}
 
       {/* LISTA DE CONEXÕES / HISTÓRICO */}
       <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pb-10">
         <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-4">
-          {userRole === 'admin' ? 'Unidades Registradas' : 'Acessos Recentes (Limite 6)'}
+          {userRole === 'admin' ? 'Unidades Registradas' : 'Acessos Recentes'}
         </h3>
         
         {loading ? (
           <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-teal-500" size={32} /></div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
+            {connections.length === 0 && !isAdding && (
+              <div className="py-12 text-center bg-slate-900/20 border border-dashed border-slate-800 rounded-[32px]">
+                 <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Nenhuma unidade encontrada</p>
+              </div>
+            )}
+            
             {connections.map(est => (
               <button key={est.id} onClick={() => onSelect(est)} className="bg-slate-900/40 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between text-left group hover:border-teal-500/50 transition-all">
                 <div className="flex items-center gap-5">
@@ -212,7 +234,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         )}
       </div>
       
-      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v2.7 • Google Cloud Active</p>
+      <p className="text-center py-6 text-[8px] text-slate-800 font-black uppercase tracking-[0.5em]">Fila Livre Core v2.8 • Google Cloud Active</p>
     </div>
   );
 };
