@@ -1,7 +1,7 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut } from 'lucide-react';
+import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut, BellRing, Volume2 } from 'lucide-react';
 import { formatDuration } from './JoinQueueModal';
 
 interface QueueViewProps {
@@ -20,9 +20,63 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, currentUserEmail, estStatus, bookingModel, openingHours, professionals, services, onCallNext, onNoShow, onOpenJoinModal, onLeaveQueue 
+  queue, isAdmin, currentUserEmail, estStatus, bookingModel, professionals, services, onCallNext, onNoShow, onOpenJoinModal, onLeaveQueue 
 }) => {
   const [now, setNow] = useState(Date.now());
+  const lastStatusRef = useRef<Record<string, string>>({});
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Função para tocar o sino 3 vezes
+  const playBellSound = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioContextRef.current;
+    
+    const playTone = (delay: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime + delay); // Nota Lá (A5)
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay + 0.5);
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + delay + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.6);
+    };
+
+    // Toca 3 vezes
+    playTone(0);
+    playTone(0.8);
+    playTone(1.6);
+
+    // Vibração (se suportado)
+    if (navigator.vibrate) {
+      navigator.vibrate([500, 200, 500, 200, 500]);
+    }
+  };
+
+  // Monitorar se o usuário logado foi chamado
+  useEffect(() => {
+    const myItem = queue.find(i => i.userEmail === currentUserEmail);
+    if (myItem && lastStatusRef.current[myItem.id] === 'waiting' && myItem.status === 'serving') {
+      playBellSound();
+      // Alerta visual agressivo
+      alert("🔔 É A SUA VEZ! Dirija-se ao atendimento.");
+    }
+    
+    // Atualiza cache de status
+    queue.forEach(item => {
+      lastStatusRef.current[item.id] = item.status;
+    });
+  }, [queue, currentUserEmail]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15000);
@@ -77,7 +131,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-24">
       
       {queueSuggestion && (
         <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-[32px] flex items-center gap-4 animate-bounce-subtle">
@@ -89,6 +143,18 @@ export const QueueView: React.FC<QueueViewProps> = ({
             <p className="text-[11px] text-white font-medium">A fila de <span className="font-bold">{queueSuggestion.to.split(' ')[0]}</span> está vazia! Avise no balcão se quiser trocar.</p>
           </div>
         </div>
+      )}
+
+      {/* Botão Principal para o Admin (Sempre Visível se houver fila) */}
+      {isAdmin && waitingList.length > 0 && !currentTurn && (
+        <button 
+          onClick={onCallNext}
+          className="w-full bg-emerald-500 text-slate-950 font-black py-8 rounded-[40px] flex flex-col items-center justify-center gap-2 shadow-2xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all group"
+        >
+          <BellRing size={32} className="group-hover:animate-bounce" />
+          <span className="text-[14px] uppercase tracking-widest">Chamar Próximo Cliente</span>
+          <span className="text-[9px] opacity-60 uppercase font-black">Fila: {waitingList.length} aguardando</span>
+        </button>
       )}
 
       <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-7 flex items-center justify-between relative overflow-hidden group shadow-2xl">
@@ -122,6 +188,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${currentTurn.type === 'appointment' ? 'bg-indigo-500 text-white' : 'bg-teal-500 text-slate-950'}`}>
                     EM ATENDIMENTO
                   </div>
+                  {isAdmin && <Volume2 size={20} className="text-white/20 hover:text-white cursor-pointer" onClick={playBellSound} />}
                 </div>
                 <h3 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">{currentTurn.name}</h3>
                 <div className="flex flex-wrap gap-2 mt-5">
@@ -132,7 +199,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
               {isAdmin && (
                 <div className="flex gap-2">
                   <button onClick={onNoShow} className="flex-1 bg-slate-950 border border-red-500/30 text-red-500 font-black py-4.5 rounded-2xl text-[10px] uppercase tracking-widest">Faltou</button>
-                  <button onClick={onCallNext} className="flex-[2.5] bg-white text-slate-950 font-black py-4.5 rounded-2xl shadow-2xl text-[11px] uppercase tracking-widest active:scale-95 transition-all">Concluir & Próximo</button>
+                  <button onClick={onCallNext} className="flex-[2.5] bg-white text-slate-950 font-black py-4.5 rounded-2xl shadow-2xl text-[11px] uppercase tracking-widest active:scale-95 transition-all">Finalizar & Próximo</button>
                 </div>
               )}
             </div>
@@ -148,11 +215,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const pro = professionals.find(p => p.id === item.professionalId);
             const proName = pro ? pro.name.split(' ')[0] : 'Qualquer um';
             const isMe = item.userEmail === currentUserEmail;
+            const isNext = index === 0;
             
             return (
               <div key={item.id} className={`bg-slate-900 border border-slate-800 rounded-[32px] p-6 flex items-center justify-between transition-all group hover:border-slate-700 shadow-lg ${isMe ? 'border-teal-500/50 bg-teal-500/5' : ''}`}>
                 <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${item.professionalId === 'any' ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>{index + 1}</div>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${isNext ? 'bg-amber-500 text-slate-950 animate-pulse' : (item.professionalId === 'any' ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400')}`}>
+                    {index + 1}
+                  </div>
                   <div className="space-y-1">
                     <h4 className="font-bold text-white text-[17px] leading-none uppercase tracking-tight">
                       {item.name} {isMe && <span className="text-[8px] bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded ml-2 font-black">VOCÊ</span>}
@@ -161,7 +231,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{item.service}</p>
                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-slate-400 font-black uppercase">{proName}</span>
+                        <span className={`text-[10px] font-black uppercase ${isNext ? 'text-amber-500' : 'text-slate-400'}`}>
+                          {isNext ? 'PRÓXIMO' : proName}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -196,12 +268,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </section>
 
       {!isAdmin && estStatus === 'open' && (
-        <button 
-          onClick={onOpenJoinModal} 
-          className="w-full font-black py-7 rounded-[32px] flex items-center justify-center gap-4 shadow-2xl transition-all uppercase text-[11px] tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 hover:bg-teal-400 active:scale-95"
-        >
-          <CheckCircle size={22} /> Entrar na Fila
-        </button>
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
+           <button 
+            onClick={onOpenJoinModal} 
+            className="w-full font-black py-7 rounded-[32px] flex items-center justify-center gap-4 shadow-2xl transition-all uppercase text-[11px] tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 hover:bg-teal-400 active:scale-95"
+          >
+            <CheckCircle size={22} /> Entrar na Fila
+          </button>
+        </div>
       )}
     </div>
   );

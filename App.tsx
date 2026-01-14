@@ -105,10 +105,9 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      // Limpeza de campos undefined para evitar invalid-argument
       const payload = {
         ...data,
-        userEmail, // Adiciona o e-mail do usuário para controle de saída
+        userEmail,
         establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
@@ -137,32 +136,49 @@ const App: React.FC = () => {
 
   const handleCallNext = async () => {
     if (!currentEst) return;
+    
+    // 1. Se já tem alguém sendo atendido, abre o modal de finalização para liberar a vaga
     const servingItem = queue.find(i => i.status === 'serving');
     if (servingItem) {
       setSelectedQueueItem(servingItem);
       setIsCompletionModalOpen(true);
-    } else {
-      const nextIdx = queue.findIndex(i => i.status === 'waiting');
-      if (nextIdx !== -1) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "queue", queue[nextIdx].id), {
+      return;
+    }
+
+    // 2. Senão, busca o próximo na fila de espera
+    const nextItem = queue.find(i => i.status === 'waiting');
+    if (nextItem) {
+      try {
+        await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), {
           status: 'serving',
           timestamp: Date.now()
         });
+      } catch (e) {
+        alert("Erro ao chamar o próximo cliente.");
       }
+    } else {
+      alert("A fila está vazia!");
     }
   };
 
   const handleFinishService = async (method: PaymentMethod, amount: number) => {
     if (!currentEst || !selectedQueueItem) return;
     try {
+      // Registrar receita
       await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
         amount, method, serviceName: selectedQueueItem.service,
         clientName: selectedQueueItem.name, date: new Date().toISOString(),
         establishmentId: currentEst.id
       });
+      
+      // Remover quem foi atendido
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
+      
       setIsCompletionModalOpen(false);
       setSelectedQueueItem(null);
+
+      // 3. Após finalizar, verifica se já quer chamar o próximo automaticamente
+      // (Opcional: você pode deixar o admin clicar no botão "Chamar" manualmente de novo)
     } catch (e) {
       alert("Erro ao finalizar atendimento.");
     }
@@ -201,14 +217,6 @@ const App: React.FC = () => {
                </p>
             </div>
           </div>
-          <div className="pt-2 flex flex-col gap-2">
-            <a href="https://console.firebase.google.com/project/_/firestore" target="_blank" className="w-full py-3 bg-amber-500 text-slate-950 rounded-2xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
-              Verificar Cloud Firestore <ExternalLink size={14}/>
-            </a>
-            <button onClick={clearFirestoreCache} className="w-full py-3 bg-slate-800 text-white rounded-2xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
-              Forçar Limpeza de Cache <RefreshCcw size={14}/>
-            </button>
-          </div>
         </div>
       )}
 
@@ -222,7 +230,7 @@ const App: React.FC = () => {
           professionals={professionals} 
           services={services} 
           onCallNext={handleCallNext} 
-          onNoShow={() => queue[0] && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue[0].id))} 
+          onNoShow={() => queue.find(i => i.status === 'serving') && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue.find(i => i.status === 'serving')!.id))} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={handleLeaveQueue}
         />
@@ -250,7 +258,7 @@ const App: React.FC = () => {
              await updateDoc(doc(db, "establishments", currentEst.id!), { loyaltyEnabled: e });
           }}
           onCallNext={handleCallNext} 
-          onNoShow={() => queue[0] && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue[0].id))} 
+          onNoShow={() => queue.find(i => i.status === 'serving') && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue.find(i => i.status === 'serving')!.id))} 
           onUpdateServices={async (sList) => {
              const lastService = sList[sList.length - 1];
              if (sList.length > services.length) {
