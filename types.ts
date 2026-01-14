@@ -44,6 +44,16 @@ export interface RevenueRecord {
   establishmentId: string;
 }
 
+export interface ServiceRating {
+  id: string;
+  timestamp: number;
+  rating: number; // 1 a 5
+  comment: string;
+  serviceName: string;
+  clientName: string;
+  establishmentId: string;
+}
+
 export interface QueueItem {
   id: string;
   name: string;
@@ -54,16 +64,15 @@ export interface QueueItem {
   timestamp: number;
   type: 'walk-in' | 'appointment';
   scheduledTime?: string; 
-  userEmail?: string;
+  userEmail?: string; // Para identificar dono do registro
 }
 
 export interface UserProfile {
-  uid: string;
   email: string;
   name: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  provider: AuthProvider;
+  joinedCodes: string[]; 
   role: 'admin' | 'client';
-  activeBooking?: {
-    establishmentId: string;
-    queueId: string;
-  } | null;
 }

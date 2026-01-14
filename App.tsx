@@ -13,7 +13,7 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod, BookingModel, UserProfile } from './types';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod, BookingModel } from './types';
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
@@ -43,7 +43,8 @@ const App: React.FC = () => {
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role);
+            const data = userDoc.data();
+            setUserRole(data.role);
           }
         } catch (e) {
           console.error("Erro ao carregar perfil:", e);
@@ -100,16 +101,15 @@ const App: React.FC = () => {
   }, [currentEst?.id, isLoggedIn, userEmail]);
 
   const handleJoinQueue = async (data: any) => {
-    if (!currentEst || !auth.currentUser) return;
+    if (!currentEst) return;
     
+    // TRAVA DE AGENDAMENTO ÚNICO
     try {
       if (userRole === 'client') {
-        const userDocRef = doc(db, "users", auth.currentUser.uid);
-        const userSnap = await getDoc(userDocRef);
-        const userData = userSnap.data() as UserProfile;
-
-        if (userData?.activeBooking) {
-          alert("Atenção: Você já está em uma fila ou possui um agendamento ativo.");
+        const q = query(collectionGroup(db, "queue"), where("userEmail", "==", userEmail), where("status", "in", ["waiting", "serving"]));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          alert("Você já possui um atendimento ativo ou está em uma fila. Finalize o atual para entrar em outro.");
           return;
         }
       }
@@ -126,54 +126,11 @@ const App: React.FC = () => {
       };
       if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
       
-      const docRef = await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
-
-      if (userRole === 'client') {
-        // CORREÇÃO CRÍTICA: setDoc com merge: true evita erro se o doc não existir
-        await setDoc(doc(db, "users", auth.currentUser.uid), {
-          activeBooking: { establishmentId: currentEst.id, queueId: docRef.id }
-        }, { merge: true });
-      }
-
+      await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) {
-      alert(`Erro ao processar reserva: ${e.message}`);
+      alert(`Erro: ${e.message}`);
     }
-  };
-
-  const handleRemoveFromQueue = async (id: string, clientEmail?: string) => {
-    if (!currentEst) return;
-    try {
-      await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
-      if (clientEmail) {
-        const q = query(collection(db, "users"), where("email", "==", clientEmail));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
-        }
-      }
-    } catch (e) {
-      console.error("Erro ao remover:", e);
-    }
-  };
-
-  const handleCallNext = async () => {
-    if (!currentEst) return;
-    const serving = queue.find(i => i.status === 'serving');
-    if (serving) { 
-      setSelectedQueueItem(serving); 
-      setIsCompletionModalOpen(true); 
-    } else {
-      const next = queue.find(i => i.status === 'waiting');
-      if (next) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "queue", next.id), { status: 'serving', timestamp: Date.now() });
-      }
-    }
-  };
-
-  const handleNoShow = () => {
-    const serving = queue.find(i => i.status === 'serving');
-    if (serving) handleRemoveFromQueue(serving.id, serving.userEmail);
   };
 
   const handleUpdateEstablishment = async (data: Partial<Establishment>) => {
@@ -200,10 +157,20 @@ const App: React.FC = () => {
           queue={queue} isAdmin={userRole === 'admin'} currentUserEmail={userEmail}
           estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
           professionals={professionals} services={services} 
-          onCallNext={handleCallNext} 
-          onNoShow={handleNoShow} 
+          onCallNext={async () => {
+            const serving = queue.find(i => i.status === 'serving');
+            if (serving) { setSelectedQueueItem(serving); setIsCompletionModalOpen(true); }
+            else {
+              const next = queue.find(i => i.status === 'waiting');
+              if (next) await updateDoc(doc(db, "establishments", currentEst.id, "queue", next.id), { status: 'serving', timestamp: Date.now() });
+            }
+          }} 
+          onNoShow={() => {
+            const serving = queue.find(i => i.status === 'serving');
+            if (serving) deleteDoc(doc(db, "establishments", currentEst.id, "queue", serving.id));
+          }} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
-          onLeaveQueue={(id) => { if(confirm("Deseja sair da fila?")) handleRemoveFromQueue(id, userEmail); }}
+          onLeaveQueue={async (id) => { if(confirm("Deseja sair da fila?")) await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id)); }}
         />
       )}
 
@@ -220,8 +187,7 @@ const App: React.FC = () => {
           onUpdateStatus={(s) => handleUpdateEstablishment({ status: s })}
           onSetBookingModel={(m) => handleUpdateEstablishment({ bookingModel: m })}
           onSetLoyaltyEnabled={(e) => handleUpdateEstablishment({ loyaltyEnabled: e })}
-          onCallNext={handleCallNext} 
-          onNoShow={handleNoShow}
+          onCallNext={() => {}} onNoShow={() => {}}
           onUpdateServices={async (sList) => {
              for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s);
              const ids = sList.map(x => x.id);
@@ -255,23 +221,14 @@ const App: React.FC = () => {
         <ServiceCompletionModal 
           item={selectedQueueItem} 
           services={services} 
-          pixKey={currentEst.pixKey}
           onClose={() => setIsCompletionModalOpen(false)} 
           onConfirm={async (method, amount) => {
             await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
-            
-            if (selectedQueueItem.userEmail) {
-              const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
-              const snap = await getDocs(q);
-              if (!snap.empty) {
-                await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
-              }
-              if (currentEst.loyaltyEnabled) {
-                const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
-                const lSnap = await getDoc(lRef);
-                const count = lSnap.exists() ? (lSnap.data().count || 0) + 1 : 1;
-                await setDoc(lRef, { count: count > 10 ? 1 : count });
-              }
+            if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
+              const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
+              const lSnap = await getDoc(lRef);
+              const count = lSnap.exists() ? (lSnap.data().count || 0) + 1 : 1;
+              await setDoc(lRef, { count: count > 10 ? 1 : count });
             }
             await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
             setIsCompletionModalOpen(false);
