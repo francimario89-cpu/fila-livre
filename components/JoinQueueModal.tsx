@@ -166,7 +166,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
               <ClipboardList className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
               <select value={serviceName} onChange={(e) => setServiceName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:border-teal-500 outline-none appearance-none text-sm font-bold">
                 {services.map((s) => (
-                  <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>
+                  <option key={s.id} value={s.name}>{s.name} - R$ {s.price} ({s.duration} min)</option>
                 ))}
               </select>
             </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Clock, Zap, Gift, FileText, Store, Save, ToggleLeft, ToggleRight, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, UserMinus, Timer
+  Plus, Trash2, BarChart3, Users2, UserCircle, Clock, Zap, Gift, FileText, Store, Save, ToggleLeft, ToggleRight, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, UserMinus, Timer, Scissors
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, ProfStatus } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -38,6 +38,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [newProName, setNewProName] = useState('');
   const [isAddingPro, setIsAddingPro] = useState(false);
+  
+  const [isAddingService, setIsAddingService] = useState(false);
+  const [newSName, setNewSName] = useState('');
+  const [newSPrice, setNewSPrice] = useState('');
+  const [newSDuration, setNewSDuration] = useState('30');
+
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
@@ -45,18 +51,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [manualService, setManualService] = useState(services[0]?.name || '');
   const [manualPro, setManualPro] = useState('any');
 
-  const [editEstName, setEditEstName] = useState(establishment.name);
-
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   
   const avgServiceTime = useMemo(() => {
-    if (services.length === 0) return 30;
-    return Math.round(services.reduce((acc, s) => acc + (s.duration || 30), 0) / services.length);
+    if (services.length === 0) return 0;
+    return Math.round(services.reduce((acc, s) => acc + (Number(s.duration) || 30), 0) / services.length);
   }, [services]);
 
   const handleUpdateProStatus = (proId: string, status: ProfStatus) => {
     const updated = professionals.map(p => p.id === proId ? { ...p, status } : p);
     onUpdatePros(updated);
+  };
+
+  const handleAddService = () => {
+    if (!newSName || !newSPrice) return;
+    const newService: Service = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newSName.toUpperCase(),
+      price: newSPrice,
+      duration: Number(newSDuration),
+      establishmentId: establishment.id
+    };
+    onUpdateServices([...services, newService]);
+    setNewSName('');
+    setNewSPrice('');
+    setNewSDuration('30');
+    setIsAddingService(false);
   };
 
   return (
@@ -102,29 +122,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-2">
             <div className="flex items-center gap-2 text-indigo-400 mb-1">
                 <Timer size={16} />
-                <span className="text-[8px] font-black uppercase tracking-widest">Tempo Médio</span>
+                <span className="text-[8px] font-black uppercase tracking-widest">Média de Tempo</span>
             </div>
             <h4 className="text-xl font-black text-white">{avgServiceTime} min</h4>
-            <p className="text-[8px] text-slate-500 font-bold uppercase">por serviço</p>
+            <p className="text-[8px] text-slate-500 font-bold uppercase">por procedimento</p>
         </div>
       </section>
 
-      {/* ATALHOS RÁPIDOS */}
-      <section className="grid grid-cols-2 gap-4">
-        <button 
-          onClick={() => setIsAddingManual(true)}
-          className="bg-indigo-600 p-6 rounded-[32px] flex flex-col items-center justify-center gap-3 shadow-xl shadow-indigo-500/20 active:scale-95 transition-all"
-        >
-          <UserPlus size={24} className="text-white" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Entrada Manual</span>
-        </button>
-        <button 
-          onClick={onToggleTVMode}
-          className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
-        >
-          <Monitor size={24} className="text-teal-400" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Painel TV</span>
-        </button>
+      {/* SERVIÇOS */}
+      <section className="space-y-4">
+        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <Scissors size={14} className="text-teal-400" /> Tabela de Serviços
+        </h3>
+        <div className="space-y-3">
+          {services.map(s => (
+            <div key={s.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg">
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-white uppercase">{s.name}</span>
+                <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase">
+                   <span>R$ {s.price}</span>
+                   <span className="w-1 h-1 bg-slate-700 rounded-full"/>
+                   <span className="text-teal-500">{s.duration} min</span>
+                </div>
+              </div>
+              <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="text-slate-800 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+            </div>
+          ))}
+
+          {!isAddingService ? (
+            <button onClick={() => setIsAddingService(true)} className="w-full border-2 border-dashed border-slate-800 p-7 rounded-[32px] text-slate-600 uppercase text-[10px] font-black flex items-center justify-center gap-3">
+              <Plus size={16}/> Novo Serviço
+            </button>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 animate-in slide-in-from-top-4">
+              <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white font-black" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Preço (R$)</label>
+                  <input placeholder="Ex: 50,00" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white font-black" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Duração (Min)</label>
+                  <input type="number" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white font-black" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
+                <button onClick={handleAddService} className="flex-1 bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Salvar Serviço</button>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* PROFISSIONAIS E SEUS STATUS */}
@@ -220,7 +268,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 onChange={e => setManualService(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase"
               >
-                {services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                {services.map(s => <option key={s.id} value={s.name}>{s.name} ({s.duration} min)</option>)}
               </select>
               <select 
                 value={manualPro} 
