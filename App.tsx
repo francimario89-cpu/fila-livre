@@ -12,6 +12,7 @@ import { AuthView } from './components/AuthView';
 import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
+import { TVView } from './components/TVView';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod } from './types';
 
 const App: React.FC = () => {
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fila');
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isTVMode, setIsTVMode] = useState(false);
   const [selectedQueueItem, setSelectedQueueItem] = useState<QueueItem | null>(null);
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -32,7 +34,6 @@ const App: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
 
-  // 1. Gerenciamento de Autenticação
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, async (user) => {
@@ -57,21 +58,16 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // 2. Listener em Tempo Real para a Unidade Selecionada (ESSENCIAL PARA O VIP)
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
-
-    // Escuta mudanças no documento da barbearia (status, loyaltyEnabled, name, etc)
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
       if (docSnap.exists()) {
         setCurrentEst({ id: docSnap.id, ...docSnap.data() } as Establishment);
       }
     });
-
     return () => unsubEst();
   }, [currentEst?.id, isLoggedIn]);
 
-  // 3. Listeners em Tempo Real para Coleções (Fila, Serviços, Profissionais, Financeiro)
   useEffect(() => {
     if (!currentEst?.id || !isConfigured || !isLoggedIn) {
       setQueue([]); setServices([]); setProfessionals([]); setRevenue([]); setLoyaltyCount(0);
@@ -124,20 +120,17 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      // Limpeza de dados para evitar erro 'undefined'
       const payload: any = {
         name: data.name,
         professionalId: data.professionalId,
         service: data.service,
         type: data.type,
-        userEmail,
+        userEmail: data.userEmail || (userRole === 'client' ? userEmail : null),
         establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
       };
-
       if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
-
       await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) {
@@ -148,14 +141,12 @@ const App: React.FC = () => {
   const handleFinishService = async (method: PaymentMethod, amount: number) => {
     if (!currentEst || !selectedQueueItem) return;
     try {
-      // 1. Gravar faturamento
       await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
         amount, method, serviceName: selectedQueueItem.service,
         clientName: selectedQueueItem.name, date: new Date().toISOString(),
         establishmentId: currentEst.id
       });
 
-      // 2. Incrementar fidelidade
       if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
         const loyaltyRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
         const loyaltySnap = await getDoc(loyaltyRef);
@@ -167,7 +158,6 @@ const App: React.FC = () => {
         }
       }
 
-      // 3. Remover da fila
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
       setIsCompletionModalOpen(false);
       setSelectedQueueItem(null);
@@ -175,6 +165,17 @@ const App: React.FC = () => {
       alert("Erro ao finalizar atendimento.");
     }
   };
+
+  if (isTVMode && currentEst) {
+    return (
+      <TVView 
+        queue={queue} 
+        professionals={professionals} 
+        establishmentName={currentEst.name} 
+        onClose={() => setIsTVMode(false)} 
+      />
+    );
+  }
 
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email); setUserRole(role); setIsLoggedIn(true); }} />;
@@ -186,16 +187,6 @@ const App: React.FC = () => {
       establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)}
       loyaltyEnabled={currentEst.loyaltyEnabled}
     >
-      {dbError && (
-        <div className="mb-8 p-6 bg-slate-900 border border-amber-500/20 rounded-[40px] flex items-center gap-4">
-           <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><WifiOff size={24}/></div>
-           <div>
-              <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Erro de Conexão</h4>
-              <p className="text-[11px] text-white font-bold uppercase mt-1">O banco de dados não respondeu corretamente.</p>
-           </div>
-        </div>
-      )}
-
       {activeTab === 'fila' && (
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} currentUserEmail={userEmail}
@@ -242,6 +233,8 @@ const App: React.FC = () => {
             if (pList.length > professionals.length) await setDoc(doc(db, "establishments", currentEst.id, "professionals", last.id), last);
             else { const rem = professionals.find(p => !pList.find(pl => pl.id === p.id)); if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", rem.id)); }
           }}
+          onManualJoin={handleJoinQueue}
+          onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
 

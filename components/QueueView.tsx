@@ -1,7 +1,8 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut, BellRing, Volume2, Info } from 'lucide-react';
+// Added Users2 to the imports from lucide-react to fix the error on line 105
+import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut, BellRing, Volume2, Info, Circle, Users2 } from 'lucide-react';
 import { formatDuration } from './JoinQueueModal';
 
 interface QueueViewProps {
@@ -28,82 +29,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const wakeLockRef = useRef<any>(null);
 
-  // Ativar Wake Lock para tentar manter a tela acesa
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-        } catch (err) {
-          console.log("Wake Lock bloqueado pelo sistema.");
-        }
-      }
-    };
-    if (!isAdmin) requestWakeLock();
-    return () => {
-      if (wakeLockRef.current) wakeLockRef.current.release();
-    };
-  }, [isAdmin]);
-
-  const playAlert = (type: 'called' | 'next_soon') => {
-    if (!audioContextRef.current || audioContextRef.current.state === 'suspended') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioContextRef.current;
-    
-    const playTone = (freq: number, delay: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + delay + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + duration + 0.1);
-    };
-
-    if (type === 'called') {
-      // 3 Toques fortes (Sua Vez)
-      playTone(880, 0, 0.6);
-      playTone(880, 0.8, 0.6);
-      playTone(880, 1.6, 0.6);
-      if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
-    } else {
-      // 2 Toques suaves (Falta 1)
-      playTone(660, 0, 0.3);
-      playTone(660, 0.4, 0.3);
-      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
-    }
-  };
-
-  useEffect(() => {
-    const waitingList = queue.filter(i => i.status === 'waiting');
-    const myIndex = waitingList.findIndex(i => i.userEmail === currentUserEmail);
-    const myItem = queue.find(i => i.userEmail === currentUserEmail);
-
-    // Lógica de Notificação
-    if (myItem) {
-      // 1. Chamado agora (mudou de waiting para serving)
-      if (lastStatusRef.current[myItem.id] === 'waiting' && myItem.status === 'serving') {
-        playAlert('called');
-        alert("🔔 SUA VEZ! O profissional está te aguardando.");
-      }
-
-      // 2. Alerta de "Próximo" (quando chega na posição 2 da fila de espera, ou seja, índice 1)
-      if (myIndex === 1 && lastPositionRef.current !== 1) {
-        playAlert('next_soon');
-        alert("🏃 PREPARE-SE! Falta apenas 1 pessoa para a sua vez. Dirija-se ao local.");
-      }
-
-      lastPositionRef.current = myIndex;
-    }
-    
-    queue.forEach(item => { lastStatusRef.current[item.id] = item.status; });
-  }, [queue, currentUserEmail]);
-
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(timer);
@@ -114,7 +39,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
   const getClientWaitTime = (item: QueueItem) => {
     if (item.professionalId === 'any') {
-      const allTimes = professionals.map(pro => {
+      const activePros = professionals.filter(p => p.status !== 'absent');
+      if (activePros.length === 0) return 0;
+      const allTimes = activePros.map(pro => {
         let wait = 0;
         const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
         const waiting = waitingList.filter(i => i.professionalId === pro.id);
@@ -144,17 +71,53 @@ export const QueueView: React.FC<QueueViewProps> = ({
     return wait;
   };
 
+  const isAnyProAvailable = professionals.some(p => p.status === 'available');
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-24">
       
-      {!isAdmin && (
-        <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl flex items-start gap-3">
-          <Info size={16} className="text-indigo-400 mt-0.5 shrink-0" />
-          <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight">
-            Para garantir que o alarme toque, mantenha esta aba do navegador aberta. Evite desligar a tela totalmente.
-          </p>
+      {/* BANNER DE STATUS DO ESTABELECIMENTO */}
+      <div className={`p-5 rounded-[32px] border-2 flex items-center justify-between shadow-lg transition-all ${
+        estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+        estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+        'bg-red-500/10 border-red-500/20 text-red-500'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-white/5 rounded-2xl">
+            {estStatus === 'open' ? <CheckCircle size={24} /> : estStatus === 'lunch' ? <Coffee size={24} /> : <DoorClosed size={24} />}
+          </div>
+          <div>
+            <h4 className="text-sm font-black uppercase tracking-tighter">
+              {estStatus === 'open' ? 'Estamos Abertos' : estStatus === 'lunch' ? 'Pausa para Almoço' : 'Estamos Fechados'}
+            </h4>
+            <p className="text-[9px] font-bold uppercase opacity-60 tracking-widest">
+              {estStatus === 'open' ? 'Fila liberada para novos clientes' : estStatus === 'lunch' ? 'Retornamos em breve' : 'Fila suspensa no momento'}
+            </p>
+          </div>
         </div>
-      )}
+        <div className={`w-3 h-3 rounded-full animate-pulse ${
+          estStatus === 'open' ? 'bg-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500' : 'bg-red-500'
+        }`} />
+      </div>
+
+      {/* INDICADORES DE PROFISSIONAIS ONLINE */}
+      <section className="bg-slate-900 border border-slate-800 rounded-[32px] p-6 space-y-4 shadow-xl">
+        <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-2">
+          <Users2 size={12} className="text-indigo-400" /> Profissionais Disponíveis
+        </h3>
+        <div className="flex flex-wrap gap-2 px-1">
+          {professionals.map(p => (
+            <div key={p.id} className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+              p.status === 'available' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+              p.status === 'absent' ? 'bg-red-500/5 border-slate-800 text-slate-700' :
+              'bg-amber-500/10 border-amber-500/30 text-amber-500'
+            }`}>
+              <Circle size={8} fill="currentColor" className={p.status === 'available' ? 'animate-pulse' : ''} />
+              <span className="text-[9px] font-black uppercase tracking-widest">{p.name.split(' ')[0]}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {isAdmin && waitingList.length > 0 && !currentTurn && (
         <button 
@@ -167,28 +130,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </button>
       )}
 
-      <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-7 flex items-center justify-between relative overflow-hidden group shadow-2xl">
-        <div className="absolute -right-6 -top-6 opacity-5 group-hover:rotate-12 transition-transform duration-1000">
-           <Timer size={120} />
-        </div>
-        <div className="flex items-center gap-5">
-          <div className="px-4 py-3 bg-teal-500/10 rounded-2xl flex flex-col items-center justify-center border border-teal-500/20 min-w-[100px]">
-             <span className="text-teal-400 font-black text-xl leading-none">FLUXO</span>
-             <span className="text-teal-400/50 text-[8px] font-black uppercase tracking-tighter mt-1">Tempo Real</span>
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-white font-black text-sm uppercase tracking-tighter">Status da Unidade</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
-              <Zap size={10} className="text-amber-500" /> {professionals.length} Atendentes Ativos
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-           <div className="text-[18px] font-black text-white">{waitingList.length}</div>
-           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Aguardando</p>
-        </div>
-      </div>
-
       {currentTurn && (
         <section className="space-y-4">
           <div className={`bg-gradient-to-br rounded-[40px] p-8 shadow-2xl relative overflow-hidden transition-all duration-700 ${currentTurn.type === 'appointment' ? 'from-indigo-600/90 to-slate-950 border border-indigo-500/30 shadow-indigo-500/20' : 'from-teal-600/90 to-slate-950 border border-teal-500/30 shadow-teal-500/20'}`}>
@@ -198,7 +139,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${currentTurn.type === 'appointment' ? 'bg-indigo-500 text-white' : 'bg-teal-500 text-slate-950'}`}>
                     EM ATENDIMENTO
                   </div>
-                  {isAdmin && <Volume2 size={20} className="text-white/20 hover:text-white cursor-pointer" onClick={() => playAlert('called')} />}
                 </div>
                 <h3 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">{currentTurn.name}</h3>
                 <div className="flex flex-wrap gap-2 mt-5">
@@ -209,7 +149,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
               {isAdmin && (
                 <div className="flex gap-2">
                   <button onClick={onNoShow} className="flex-1 bg-slate-950 border border-red-500/30 text-red-500 font-black py-4.5 rounded-2xl text-[10px] uppercase tracking-widest">Faltou</button>
-                  <button onClick={onCallNext} className="flex-[2.5] bg-white text-slate-950 font-black py-4.5 rounded-2xl shadow-2xl text-[11px] uppercase tracking-widest active:scale-95 transition-all">Finalizar & Próximo</button>
+                  <button onClick={onCallNext} className="flex-[2.5] bg-white text-slate-950 font-black py-4.5 rounded-2xl shadow-2xl text-[11px] uppercase tracking-widest active:scale-95 transition-all">Finalizar Atendimento</button>
                 </div>
               )}
             </div>
@@ -226,7 +166,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const proName = pro ? pro.name.split(' ')[0] : 'Qualquer um';
             const isMe = item.userEmail === currentUserEmail;
             const isNext = index === 0;
-            const isSoon = index === 1;
             
             return (
               <div key={item.id} className={`bg-slate-900 border border-slate-800 rounded-[32px] p-6 flex items-center justify-between transition-all group hover:border-slate-700 shadow-lg ${isMe ? 'border-teal-500/50 bg-teal-500/5' : ''}`}>
@@ -242,8 +181,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{item.service}</p>
                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-black uppercase ${isNext ? 'text-amber-500' : (isSoon ? 'text-indigo-400' : 'text-slate-400')}`}>
-                          {isNext ? 'PRÓXIMO' : (isSoon ? 'PREPARE-SE' : proName)}
+                        <span className={`text-[10px] font-black uppercase ${isNext ? 'text-amber-500' : 'text-slate-400'}`}>
+                          {isNext ? 'PRÓXIMO' : proName}
                         </span>
                       </div>
                     </div>
@@ -257,7 +196,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       title="Sair da Fila"
                     >
                       <LogOut size={16} />
-                      <span className="text-[8px] font-black block mt-1">SAIR</span>
                     </button>
                   ) : (
                     <>
@@ -272,17 +210,17 @@ export const QueueView: React.FC<QueueViewProps> = ({
           {waitingList.length === 0 && (
             <div className="text-center py-10 opacity-20 flex flex-col items-center">
               <Coffee size={48} className="mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest">Ninguém na fila. Momento de descanso!</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">Tudo tranquilo por aqui!</p>
             </div>
           )}
         </div>
       </section>
 
-      {!isAdmin && estStatus === 'open' && (
+      {!isAdmin && estStatus !== 'closed' && (
         <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
            <button 
             onClick={onOpenJoinModal} 
-            className="w-full font-black py-7 rounded-[32px] flex items-center justify-center gap-4 shadow-2xl transition-all uppercase text-[11px] tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 hover:bg-teal-400 active:scale-95"
+            className="w-full font-black py-7 rounded-[32px] flex items-center justify-center gap-4 shadow-2xl transition-all uppercase text-[11px] tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 hover:bg-teal-400 active:scale-95 disabled:grayscale disabled:opacity-50"
           >
             <CheckCircle size={22} /> Entrar na Fila
           </button>
