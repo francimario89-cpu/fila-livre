@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut, BellRing, Volume2 } from 'lucide-react';
+import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut, BellRing, Volume2, Info } from 'lucide-react';
 import { formatDuration } from './JoinQueueModal';
 
 interface QueueViewProps {
@@ -24,58 +24,84 @@ export const QueueView: React.FC<QueueViewProps> = ({
 }) => {
   const [now, setNow] = useState(Date.now());
   const lastStatusRef = useRef<Record<string, string>>({});
+  const lastPositionRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
-  // Função para tocar o sino 3 vezes
-  const playBellSound = () => {
-    if (!audioContextRef.current) {
+  // Ativar Wake Lock para tentar manter a tela acesa
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        } catch (err) {
+          console.log("Wake Lock bloqueado pelo sistema.");
+        }
+      }
+    };
+    if (!isAdmin) requestWakeLock();
+    return () => {
+      if (wakeLockRef.current) wakeLockRef.current.release();
+    };
+  }, [isAdmin]);
+
+  const playAlert = (type: 'called' | 'next_soon') => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'suspended') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioContextRef.current;
     
-    const playTone = (delay: number) => {
+    const playTone = (freq: number, delay: number, duration: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime + delay); // Nota Lá (A5)
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay + 0.5);
-      
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
       gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + delay + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
-      
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + delay + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
       osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.6);
+      osc.stop(ctx.currentTime + delay + duration + 0.1);
     };
 
-    // Toca 3 vezes
-    playTone(0);
-    playTone(0.8);
-    playTone(1.6);
-
-    // Vibração (se suportado)
-    if (navigator.vibrate) {
-      navigator.vibrate([500, 200, 500, 200, 500]);
+    if (type === 'called') {
+      // 3 Toques fortes (Sua Vez)
+      playTone(880, 0, 0.6);
+      playTone(880, 0.8, 0.6);
+      playTone(880, 1.6, 0.6);
+      if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+    } else {
+      // 2 Toques suaves (Falta 1)
+      playTone(660, 0, 0.3);
+      playTone(660, 0.4, 0.3);
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
     }
   };
 
-  // Monitorar se o usuário logado foi chamado
   useEffect(() => {
+    const waitingList = queue.filter(i => i.status === 'waiting');
+    const myIndex = waitingList.findIndex(i => i.userEmail === currentUserEmail);
     const myItem = queue.find(i => i.userEmail === currentUserEmail);
-    if (myItem && lastStatusRef.current[myItem.id] === 'waiting' && myItem.status === 'serving') {
-      playBellSound();
-      // Alerta visual agressivo
-      alert("🔔 É A SUA VEZ! Dirija-se ao atendimento.");
+
+    // Lógica de Notificação
+    if (myItem) {
+      // 1. Chamado agora (mudou de waiting para serving)
+      if (lastStatusRef.current[myItem.id] === 'waiting' && myItem.status === 'serving') {
+        playAlert('called');
+        alert("🔔 SUA VEZ! O profissional está te aguardando.");
+      }
+
+      // 2. Alerta de "Próximo" (quando chega na posição 2 da fila de espera, ou seja, índice 1)
+      if (myIndex === 1 && lastPositionRef.current !== 1) {
+        playAlert('next_soon');
+        alert("🏃 PREPARE-SE! Falta apenas 1 pessoa para a sua vez. Dirija-se ao local.");
+      }
+
+      lastPositionRef.current = myIndex;
     }
     
-    // Atualiza cache de status
-    queue.forEach(item => {
-      lastStatusRef.current[item.id] = item.status;
-    });
+    queue.forEach(item => { lastStatusRef.current[item.id] = item.status; });
   }, [queue, currentUserEmail]);
 
   useEffect(() => {
@@ -85,18 +111,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
   const currentTurn = queue.find(item => item.status === 'serving');
   const waitingList = queue.filter(item => item.status === 'waiting');
-
-  const queueSuggestion = useMemo(() => {
-    if (isAdmin || waitingList.length < 2) return null;
-    const proStats = professionals.map(pro => {
-      const wait = queue.filter(i => i.status === 'waiting' && i.professionalId === pro.id).length;
-      const isServing = queue.some(i => i.status === 'serving' && i.professionalId === pro.id);
-      return { id: pro.id, name: pro.name, wait, active: isServing };
-    });
-    const busyPro = proStats.find(p => p.wait >= 2);
-    const freePro = proStats.find(p => p.wait === 0 && !p.active);
-    return (busyPro && freePro) ? { from: busyPro.name, to: freePro.name } : null;
-  }, [queue, professionals, isAdmin, waitingList.length]);
 
   const getClientWaitTime = (item: QueueItem) => {
     if (item.professionalId === 'any') {
@@ -133,19 +147,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-24">
       
-      {queueSuggestion && (
-        <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-[32px] flex items-center gap-4 animate-bounce-subtle">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 shadow-lg">
-            <ArrowRightLeft size={24} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest">Dica de Atendimento</p>
-            <p className="text-[11px] text-white font-medium">A fila de <span className="font-bold">{queueSuggestion.to.split(' ')[0]}</span> está vazia! Avise no balcão se quiser trocar.</p>
-          </div>
+      {!isAdmin && (
+        <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl flex items-start gap-3">
+          <Info size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+          <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight">
+            Para garantir que o alarme toque, mantenha esta aba do navegador aberta. Evite desligar a tela totalmente.
+          </p>
         </div>
       )}
 
-      {/* Botão Principal para o Admin (Sempre Visível se houver fila) */}
       {isAdmin && waitingList.length > 0 && !currentTurn && (
         <button 
           onClick={onCallNext}
@@ -188,7 +198,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${currentTurn.type === 'appointment' ? 'bg-indigo-500 text-white' : 'bg-teal-500 text-slate-950'}`}>
                     EM ATENDIMENTO
                   </div>
-                  {isAdmin && <Volume2 size={20} className="text-white/20 hover:text-white cursor-pointer" onClick={playBellSound} />}
+                  {isAdmin && <Volume2 size={20} className="text-white/20 hover:text-white cursor-pointer" onClick={() => playAlert('called')} />}
                 </div>
                 <h3 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">{currentTurn.name}</h3>
                 <div className="flex flex-wrap gap-2 mt-5">
@@ -216,6 +226,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const proName = pro ? pro.name.split(' ')[0] : 'Qualquer um';
             const isMe = item.userEmail === currentUserEmail;
             const isNext = index === 0;
+            const isSoon = index === 1;
             
             return (
               <div key={item.id} className={`bg-slate-900 border border-slate-800 rounded-[32px] p-6 flex items-center justify-between transition-all group hover:border-slate-700 shadow-lg ${isMe ? 'border-teal-500/50 bg-teal-500/5' : ''}`}>
@@ -231,8 +242,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{item.service}</p>
                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-black uppercase ${isNext ? 'text-amber-500' : 'text-slate-400'}`}>
-                          {isNext ? 'PRÓXIMO' : proName}
+                        <span className={`text-[10px] font-black uppercase ${isNext ? 'text-amber-500' : (isSoon ? 'text-indigo-400' : 'text-slate-400')}`}>
+                          {isNext ? 'PRÓXIMO' : (isSoon ? 'PREPARE-SE' : proName)}
                         </span>
                       </div>
                     </div>

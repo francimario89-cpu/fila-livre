@@ -54,6 +54,8 @@ const App: React.FC = () => {
       } else {
         setIsLoggedIn(false);
         setCurrentEst(null);
+        setUserEmail('');
+        localStorage.removeItem('user_role');
       }
     });
   }, []);
@@ -97,6 +99,13 @@ const App: React.FC = () => {
     };
   }, [currentEst, isLoggedIn]);
 
+  const handleLogout = async () => {
+    await auth.signOut();
+    setCurrentEst(null);
+    setIsLoggedIn(false);
+    setActiveTab('fila');
+  };
+
   const handleLogin = (email: string, role: 'admin' | 'client') => {
     setUserRole(role);
     localStorage.setItem('user_role', role);
@@ -137,7 +146,6 @@ const App: React.FC = () => {
   const handleCallNext = async () => {
     if (!currentEst) return;
     
-    // 1. Se já tem alguém sendo atendido, abre o modal de finalização para liberar a vaga
     const servingItem = queue.find(i => i.status === 'serving');
     if (servingItem) {
       setSelectedQueueItem(servingItem);
@@ -145,7 +153,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // 2. Senão, busca o próximo na fila de espera
     const nextItem = queue.find(i => i.status === 'waiting');
     if (nextItem) {
       try {
@@ -164,21 +171,14 @@ const App: React.FC = () => {
   const handleFinishService = async (method: PaymentMethod, amount: number) => {
     if (!currentEst || !selectedQueueItem) return;
     try {
-      // Registrar receita
       await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
         amount, method, serviceName: selectedQueueItem.service,
         clientName: selectedQueueItem.name, date: new Date().toISOString(),
         establishmentId: currentEst.id
       });
-      
-      // Remover quem foi atendido
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-      
       setIsCompletionModalOpen(false);
       setSelectedQueueItem(null);
-
-      // 3. Após finalizar, verifica se já quer chamar o próximo automaticamente
-      // (Opcional: você pode deixar o admin clicar no botão "Chamar" manualmente de novo)
     } catch (e) {
       alert("Erro ao finalizar atendimento.");
     }
@@ -195,7 +195,7 @@ const App: React.FC = () => {
 
   if (!isLoggedIn) return <AuthView onLogin={handleLogin} />;
   
-  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
+  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={handleLogout} />;
 
   return (
     <Layout 
@@ -283,7 +283,7 @@ const App: React.FC = () => {
       {activeTab === 'config' && (
         <div className="flex flex-col items-center py-12 space-y-10">
            <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter leading-none">Perfil de Usuário</h2>
-           <button onClick={() => auth.signOut()} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500 tracking-widest">Encerrar Sessão</button>
+           <button onClick={handleLogout} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500 tracking-widest">Encerrar Sessão</button>
         </div>
       )}
 
