@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Settings, AlertTriangle, WifiOff } from 'lucide-react';
+import { Settings, WifiOff } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
 
+  // 1. Gerenciamento de Autenticação
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, async (user) => {
@@ -43,9 +45,6 @@ const App: React.FC = () => {
             const data = userDoc.data();
             setUserRole(data.role);
             localStorage.setItem('user_role', data.role);
-          } else {
-            const savedRole = localStorage.getItem('user_role') as 'admin' | 'client';
-            if (savedRole) setUserRole(savedRole);
           }
         } catch (e) {
           console.error("Erro ao carregar perfil:", e);
@@ -54,18 +53,28 @@ const App: React.FC = () => {
         setIsLoggedIn(false);
         setCurrentEst(null);
         setUserEmail('');
-        localStorage.removeItem('user_role');
       }
     });
   }, []);
 
+  // 2. Listener em Tempo Real para a Unidade Selecionada (ESSENCIAL PARA O VIP)
   useEffect(() => {
-    if (!currentEst || !isConfigured || !isLoggedIn) {
-      setQueue([]);
-      setServices([]);
-      setProfessionals([]);
-      setRevenue([]);
-      setLoyaltyCount(0);
+    if (!currentEst?.id || !isLoggedIn) return;
+
+    // Escuta mudanças no documento da barbearia (status, loyaltyEnabled, name, etc)
+    const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
+      if (docSnap.exists()) {
+        setCurrentEst({ id: docSnap.id, ...docSnap.data() } as Establishment);
+      }
+    });
+
+    return () => unsubEst();
+  }, [currentEst?.id, isLoggedIn]);
+
+  // 3. Listeners em Tempo Real para Coleções (Fila, Serviços, Profissionais, Financeiro)
+  useEffect(() => {
+    if (!currentEst?.id || !isConfigured || !isLoggedIn) {
+      setQueue([]); setServices([]); setProfessionals([]); setRevenue([]); setLoyaltyCount(0);
       return;
     }
 
@@ -94,7 +103,7 @@ const App: React.FC = () => {
     return () => {
       unsubQueue(); unsubServices(); unsubPros(); unsubRevenue(); unsubLoyalty();
     };
-  }, [currentEst, isLoggedIn, userEmail]);
+  }, [currentEst?.id, isLoggedIn, userEmail]);
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -103,49 +112,32 @@ const App: React.FC = () => {
     setActiveTab('fila');
   };
 
-  const handleLogin = (email: string, role: 'admin' | 'client') => {
-    setUserEmail(email);
-    setUserRole(role);
-    setIsLoggedIn(true);
-  };
-
   const handleUpdateEstablishment = async (data: Partial<Establishment>) => {
     if (!currentEst) return;
     try {
       await updateDoc(doc(db, "establishments", currentEst.id), data);
-      setCurrentEst({ ...currentEst, ...data });
     } catch (e) {
       alert("Erro ao atualizar unidade.");
-    }
-  };
-
-  const handleDeleteEstablishment = async () => {
-    if (!currentEst) return;
-    if (confirm(`Deseja excluir permanentemente a unidade "${currentEst.name}"?`)) {
-      try {
-        await deleteDoc(doc(db, "establishments", currentEst.id));
-        setCurrentEst(null);
-      } catch (e) {
-        alert("Erro ao excluir.");
-      }
     }
   };
 
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      // Remover campos indefinidos explicitamente por precaução
-      const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([_, v]) => v !== undefined)
-      );
-
-      const payload = {
-        ...cleanData,
+      // Limpeza de dados para evitar erro 'undefined'
+      const payload: any = {
+        name: data.name,
+        professionalId: data.professionalId,
+        service: data.service,
+        type: data.type,
         userEmail,
         establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
       };
+
+      if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
+
       await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) {
@@ -163,14 +155,12 @@ const App: React.FC = () => {
         establishmentId: currentEst.id
       });
 
-      // 2. Incrementar fidelidade se o cliente tiver email e a função estiver ativa
+      // 2. Incrementar fidelidade
       if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
         const loyaltyRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
         const loyaltySnap = await getDoc(loyaltyRef);
-        
         if (loyaltySnap.exists()) {
           const newCount = (loyaltySnap.data().count || 0) + 1;
-          // Reseta para 1 após o resgate (11º atendimento)
           await updateDoc(loyaltyRef, { count: newCount > 10 ? 1 : newCount });
         } else {
           await setDoc(loyaltyRef, { count: 1 });
@@ -179,7 +169,6 @@ const App: React.FC = () => {
 
       // 3. Remover da fila
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-      
       setIsCompletionModalOpen(false);
       setSelectedQueueItem(null);
     } catch (e) {
@@ -188,7 +177,7 @@ const App: React.FC = () => {
   };
 
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
-  if (!isLoggedIn) return <AuthView onLogin={handleLogin} />;
+  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email); setUserRole(role); setIsLoggedIn(true); }} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={handleLogout} />;
 
   return (
@@ -199,9 +188,7 @@ const App: React.FC = () => {
     >
       {dbError && (
         <div className="mb-8 p-6 bg-slate-900 border border-amber-500/20 rounded-[40px] flex items-center gap-4">
-           <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
-              <WifiOff size={24}/>
-           </div>
+           <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500"><WifiOff size={24}/></div>
            <div>
               <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Erro de Conexão</h4>
               <p className="text-[11px] text-white font-bold uppercase mt-1">O banco de dados não respondeu corretamente.</p>
@@ -239,7 +226,7 @@ const App: React.FC = () => {
           estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
           plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} 
           loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
-          onUpdateEstablishment={handleUpdateEstablishment} onDeleteEstablishment={handleDeleteEstablishment}
+          onUpdateEstablishment={handleUpdateEstablishment} onDeleteEstablishment={() => {}}
           onSetPixKey={(k) => handleUpdateEstablishment({ pixKey: k })}
           onUpdateStatus={(s) => handleUpdateEstablishment({ status: s })}
           onSetBookingModel={(m) => handleUpdateEstablishment({ bookingModel: m })}
