@@ -35,7 +35,6 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const [isAppointment, setIsAppointment] = useState(bookingModel === 'appointment');
   const [scheduledTime, setScheduledTime] = useState('');
 
-  // Calcula o tempo de espera por profissional ou a menor fila (any)
   const calculateWait = (proId: string) => {
     const proServing = currentQueue.find(i => i.status === 'serving' && i.professionalId === proId);
     const proWaiting = currentQueue.filter(i => i.status === 'waiting' && i.professionalId === proId);
@@ -55,13 +54,10 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
   const estimatedStartIn = useMemo(() => {
     if (isAppointment) return null;
-    
     if (professionalId === 'any') {
-      // Pega o menor tempo de espera entre todos os profissionais
       const allTimes = professionals.map(p => calculateWait(p.id));
-      return Math.min(...allTimes);
+      return professionals.length > 0 ? Math.min(...allTimes) : 0;
     }
-    
     return calculateWait(professionalId);
   }, [currentQueue, isAppointment, services, professionalId, professionals]);
 
@@ -72,7 +68,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
       professionalId, 
       service: serviceName, 
       type: isAppointment ? 'appointment' : 'walk-in',
-      scheduledTime: isAppointment ? scheduledTime : undefined
+      scheduledTime: isAppointment ? (scheduledTime || undefined) : undefined
     });
   };
 
@@ -165,7 +161,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
           )}
 
           <button onClick={handleAction} className="w-full py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2">
-            Confirmar e Entrar <ChevronRight size={16} />
+            Ingressar na Fila <ChevronRight size={16} />
           </button>
         </div>
       </div>

@@ -1,12 +1,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft } from 'lucide-react';
+import { Clock, User as UserIcon, CheckCircle, ClipboardList, Coffee, DoorClosed, UserX, Lock, Timer, Calendar, Zap, ArrowRightLeft, LogOut } from 'lucide-react';
 import { formatDuration } from './JoinQueueModal';
 
 interface QueueViewProps {
   queue: QueueItem[];
   isAdmin: boolean;
+  currentUserEmail?: string;
   estStatus: EstStatus;
   bookingModel: BookingModel;
   openingHours?: string;
@@ -15,10 +16,11 @@ interface QueueViewProps {
   onCallNext?: () => void;
   onNoShow?: () => void;
   onOpenJoinModal?: () => void;
+  onLeaveQueue?: (id: string) => void;
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, estStatus, bookingModel, openingHours, professionals, services, onCallNext, onNoShow, onOpenJoinModal 
+  queue, isAdmin, currentUserEmail, estStatus, bookingModel, openingHours, professionals, services, onCallNext, onNoShow, onOpenJoinModal, onLeaveQueue 
 }) => {
   const [now, setNow] = useState(Date.now());
 
@@ -30,23 +32,16 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const currentTurn = queue.find(item => item.status === 'serving');
   const waitingList = queue.filter(item => item.status === 'waiting');
 
-  // Identifica se há um desequilíbrio nas filas para notificar o cliente
   const queueSuggestion = useMemo(() => {
     if (isAdmin || waitingList.length < 2) return null;
-
     const proStats = professionals.map(pro => {
       const wait = queue.filter(i => i.status === 'waiting' && i.professionalId === pro.id).length;
       const isServing = queue.some(i => i.status === 'serving' && i.professionalId === pro.id);
       return { id: pro.id, name: pro.name, wait, active: isServing };
     });
-
     const busyPro = proStats.find(p => p.wait >= 2);
     const freePro = proStats.find(p => p.wait === 0 && !p.active);
-
-    if (busyPro && freePro) {
-      return { from: busyPro.name, to: freePro.name };
-    }
-    return null;
+    return (busyPro && freePro) ? { from: busyPro.name, to: freePro.name } : null;
   }, [queue, professionals, isAdmin, waitingList.length]);
 
   const getClientWaitTime = (item: QueueItem) => {
@@ -65,7 +60,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
       });
       return Math.min(...allTimes);
     }
-
     let wait = 0;
     const proServing = queue.find(i => i.status === 'serving' && i.professionalId === item.professionalId);
     if (proServing) {
@@ -85,26 +79,24 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* NOTIFICAÇÃO DE OTIMIZAÇÃO DE FILA */}
       {queueSuggestion && (
         <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-[32px] flex items-center gap-4 animate-bounce-subtle">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20">
+          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-slate-950 shadow-lg">
             <ArrowRightLeft size={24} />
           </div>
           <div className="flex-1">
             <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest">Dica de Atendimento</p>
-            <p className="text-[11px] text-white font-medium leading-tight">A fila de <span className="font-bold">{queueSuggestion.to.split(' ')[0]}</span> está vazia! Avise no balcão se quiser trocar.</p>
+            <p className="text-[11px] text-white font-medium">A fila de <span className="font-bold">{queueSuggestion.to.split(' ')[0]}</span> está vazia! Avise no balcão se quiser trocar.</p>
           </div>
         </div>
       )}
 
-      {/* ESTIMATIVA DE TEMPO GLOBAL */}
       <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-7 flex items-center justify-between relative overflow-hidden group shadow-2xl">
         <div className="absolute -right-6 -top-6 opacity-5 group-hover:rotate-12 transition-transform duration-1000">
            <Timer size={120} />
         </div>
         <div className="flex items-center gap-5">
-          <div className="px-4 py-3 bg-teal-500/10 rounded-2xl flex flex-col items-center justify-center border border-teal-500/20 shadow-inner min-w-[100px]">
+          <div className="px-4 py-3 bg-teal-500/10 rounded-2xl flex flex-col items-center justify-center border border-teal-500/20 min-w-[100px]">
              <span className="text-teal-400 font-black text-xl leading-none">FLUXO</span>
              <span className="text-teal-400/50 text-[8px] font-black uppercase tracking-tighter mt-1">Tempo Real</span>
           </div>
@@ -121,7 +113,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       </div>
 
-      {/* CLIENTE SENDO ATENDIDO AGORA */}
       {currentTurn && (
         <section className="space-y-4">
           <div className={`bg-gradient-to-br rounded-[40px] p-8 shadow-2xl relative overflow-hidden transition-all duration-700 ${currentTurn.type === 'appointment' ? 'from-indigo-600/90 to-slate-950 border border-indigo-500/30 shadow-indigo-500/20' : 'from-teal-600/90 to-slate-950 border border-teal-500/30 shadow-teal-500/20'}`}>
@@ -149,7 +140,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </section>
       )}
 
-      {/* LISTA DE ESPERA */}
       <section className="space-y-4">
         <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] ml-3">Fila de Espera</h2>
         <div className="space-y-3.5">
@@ -157,30 +147,51 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const clientWait = getClientWaitTime(item);
             const pro = professionals.find(p => p.id === item.professionalId);
             const proName = pro ? pro.name.split(' ')[0] : 'Qualquer um';
+            const isMe = item.userEmail === currentUserEmail;
             
             return (
-              <div key={item.id} className={`bg-slate-900 border border-slate-800 rounded-[32px] p-6 flex items-center justify-between transition-all group hover:border-slate-700 shadow-lg ${item.professionalId === 'any' ? 'border-teal-500/30' : ''}`}>
+              <div key={item.id} className={`bg-slate-900 border border-slate-800 rounded-[32px] p-6 flex items-center justify-between transition-all group hover:border-slate-700 shadow-lg ${isMe ? 'border-teal-500/50 bg-teal-500/5' : ''}`}>
                 <div className="flex items-center gap-5">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${item.professionalId === 'any' ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>{index + 1}</div>
                   <div className="space-y-1">
-                    <h4 className="font-bold text-white text-[17px] leading-none uppercase tracking-tight">{item.name}</h4>
+                    <h4 className="font-bold text-white text-[17px] leading-none uppercase tracking-tight">
+                      {item.name} {isMe && <span className="text-[8px] bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded ml-2 font-black">VOCÊ</span>}
+                    </h4>
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{item.service}</p>
                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
                       <div className="flex items-center gap-1.5">
-                        {item.professionalId === 'any' ? <Zap size={11} className="text-teal-500" /> : <UserIcon size={11} className="text-indigo-400" />}
                         <span className="text-[10px] text-slate-400 font-black uppercase">{proName}</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-1">
-                  <span className="text-[11px] text-white font-black">{formatDuration(clientWait)}</span>
-                  <p className="text-[8px] text-slate-600 font-black uppercase tracking-tighter">Espera</p>
+                  {isMe ? (
+                    <button 
+                      onClick={() => onLeaveQueue?.(item.id)}
+                      className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all group"
+                      title="Sair da Fila"
+                    >
+                      <LogOut size={16} />
+                      <span className="text-[8px] font-black block mt-1">SAIR</span>
+                    </button>
+                  ) : (
+                    <>
+                      <span className="text-[11px] text-white font-black">{formatDuration(clientWait)}</span>
+                      <p className="text-[8px] text-slate-600 font-black uppercase tracking-tighter">Espera</p>
+                    </>
+                  )}
                 </div>
               </div>
             );
           })}
+          {waitingList.length === 0 && (
+            <div className="text-center py-10 opacity-20 flex flex-col items-center">
+              <Coffee size={48} className="mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest">Ninguém na fila. Momento de descanso!</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -189,7 +200,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
           onClick={onOpenJoinModal} 
           className="w-full font-black py-7 rounded-[32px] flex items-center justify-center gap-4 shadow-2xl transition-all uppercase text-[11px] tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 hover:bg-teal-400 active:scale-95"
         >
-          <CheckCircle size={22} /> Entrar no Portal do Cliente
+          <CheckCircle size={22} /> Entrar na Fila
         </button>
       )}
     </div>

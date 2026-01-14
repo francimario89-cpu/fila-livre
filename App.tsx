@@ -31,15 +31,13 @@ const App: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
 
-  // Monitorar autenticação e perfil no Firestore
+  // Monitorar autenticação
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserEmail(user.email || user.uid);
         setIsLoggedIn(true);
-        
-        // Busca perfil no Firestore para garantir o papel correto
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
@@ -47,7 +45,6 @@ const App: React.FC = () => {
             setUserRole(data.role);
             localStorage.setItem('user_role', data.role);
           } else {
-            // Caso falhe, usa o que tiver no localStorage
             const savedRole = localStorage.getItem('user_role') as 'admin' | 'client';
             if (savedRole) setUserRole(savedRole);
           }
@@ -61,17 +58,15 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Monitorar dados da empresa selecionada
+  // Monitorar dados da empresa
   useEffect(() => {
-    if (!currentEst) {
+    if (!currentEst || !isConfigured || !isLoggedIn) {
       setQueue([]);
       setServices([]);
       setProfessionals([]);
       setRevenue([]);
       return;
     }
-
-    if (!isConfigured || !isLoggedIn) return;
 
     const qQueue = query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc"));
     
@@ -110,15 +105,33 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      await addDoc(collection(db, "establishments", currentEst.id, "queue"), {
+      // Limpeza de campos undefined para evitar invalid-argument
+      const payload = {
         ...data,
+        userEmail, // Adiciona o e-mail do usuário para controle de saída
         establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
-      });
+      };
+      
+      Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+      await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) {
+      console.error("Erro ao entrar na fila:", e);
       alert(`Erro: ${e.code || e.message}`);
+    }
+  };
+
+  const handleLeaveQueue = async (itemId: string) => {
+    if (!currentEst) return;
+    if (confirm("Deseja realmente sair da fila?")) {
+      try {
+        await deleteDoc(doc(db, "establishments", currentEst.id, "queue", itemId));
+      } catch (e) {
+        alert("Erro ao remover da fila.");
+      }
     }
   };
 
@@ -188,13 +201,8 @@ const App: React.FC = () => {
                </p>
             </div>
           </div>
-          
           <div className="pt-2 flex flex-col gap-2">
-            <a 
-              href="https://console.firebase.google.com/project/_/firestore" 
-              target="_blank" 
-              className="w-full py-3 bg-amber-500 text-slate-950 rounded-2xl text-[9px] font-black uppercase flex items-center justify-center gap-2"
-            >
+            <a href="https://console.firebase.google.com/project/_/firestore" target="_blank" className="w-full py-3 bg-amber-500 text-slate-950 rounded-2xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
               Verificar Cloud Firestore <ExternalLink size={14}/>
             </a>
             <button onClick={clearFirestoreCache} className="w-full py-3 bg-slate-800 text-white rounded-2xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
@@ -206,11 +214,17 @@ const App: React.FC = () => {
 
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} estStatus={currentEst.status} 
-          bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} 
+          queue={queue} 
+          isAdmin={userRole === 'admin'} 
+          currentUserEmail={userEmail}
+          estStatus={currentEst.status} 
+          bookingModel={currentEst.bookingModel || 'both'} 
+          professionals={professionals} 
+          services={services} 
           onCallNext={handleCallNext} 
           onNoShow={() => queue[0] && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue[0].id))} 
-          onOpenJoinModal={() => setIsJoinModalOpen(true)} 
+          onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          onLeaveQueue={handleLeaveQueue}
         />
       )}
       

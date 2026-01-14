@@ -64,6 +64,7 @@ export interface QueueItem {
   timestamp: number;
   type: 'walk-in' | 'appointment';
   scheduledTime?: string; 
+  userEmail?: string; // Para identificar dono do registro
 }
 
 export interface UserProfile {
