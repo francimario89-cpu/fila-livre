@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { LOGO_SVG } from '../constants';
-import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database } from 'lucide-react';
+import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database, Trash2 } from 'lucide-react';
 import { Establishment } from '../types';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -43,6 +43,15 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       setError({ code: e.code, message: e.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRemoveConnection = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Evita entrar na loja ao clicar na lixeira
+    if (confirm("Deseja remover esta loja do seu histórico?")) {
+      const updated = connections.filter(c => c.id !== id);
+      setConnections(updated);
+      localStorage.setItem(`client_history_${userEmail}`, JSON.stringify(updated));
     }
   };
 
@@ -149,17 +158,27 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
               <div className="space-y-3">
                 <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Recentes</p>
                 {connections.map(est => (
-                  <button 
-                    key={est.id} 
-                    onClick={() => onSelect(est)} 
-                    className="w-full bg-slate-900/40 border border-slate-800 p-7 rounded-[40px] flex items-center justify-between group hover:border-teal-500/50 transition-all shadow-xl"
-                  >
-                    <div className="text-left">
-                      <span className="text-white font-black uppercase font-orbitron block">{est.name}</span>
-                      <span className="text-[8px] text-slate-500 font-bold uppercase mt-1">ID: {est.id}</span>
-                    </div>
-                    <ArrowRight size={20} className="text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-                  </button>
+                  <div key={est.id} className="relative group">
+                    <button 
+                      onClick={() => onSelect(est)} 
+                      className="w-full bg-slate-900/40 border border-slate-800 p-7 rounded-[40px] flex items-center justify-between group-hover:border-teal-500/50 transition-all shadow-xl"
+                    >
+                      <div className="text-left">
+                        <span className="text-white font-black uppercase font-orbitron block">{est.name}</span>
+                        <span className="text-[8px] text-slate-500 font-bold uppercase mt-1">ID: {est.id}</span>
+                      </div>
+                      <ArrowRight size={20} className="text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
+                    </button>
+                    
+                    {userRole === 'client' && (
+                      <button 
+                        onClick={(e) => handleRemoveConnection(e, est.id)}
+                        className="absolute -top-2 -right-2 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shadow-lg backdrop-blur-md"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
