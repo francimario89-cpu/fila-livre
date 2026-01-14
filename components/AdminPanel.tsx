@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, QrCode, UserCircle, Clock, Zap, Gift, Lock, Timer, FileText, Settings2, Rocket, ArrowRight
+  Plus, Trash2, BarChart3, Users2, QrCode, UserCircle, Clock, Zap, Gift, Lock, Timer, FileText, Settings2, Rocket, ArrowRight, Store, AlertTriangle, Save
 } from 'lucide-react';
-import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, ProfStatus, PlanType, ServiceRating } from '../types';
+import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, ProfStatus, PlanType, ServiceRating, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
 
 interface AdminPanelProps {
+  establishment: Establishment;
   queue: QueueItem[];
   services: Service[];
   professionals: Professional[];
@@ -19,8 +20,10 @@ interface AdminPanelProps {
   revenue: RevenueRecord[];
   ratings?: ServiceRating[];
   pixKey: string;
+  onUpdateEstablishment: (data: Partial<Establishment>) => void;
+  onDeleteEstablishment: () => void;
   onSetPixKey: (key: string) => void;
-  onSetOpeningHours: (hours: string) => void;
+  onSetOpeningHours?: (hours: string) => void;
   onSetBookingModel: (model: BookingModel) => void;
   onSetLoyaltyEnabled: (enabled: boolean) => void;
   onCallNext: () => void;
@@ -31,8 +34,8 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  queue, services, professionals, estStatus, bookingModel, plan, trialStartedAt, loyaltyEnabled, revenue, ratings = [], pixKey,
-  onSetPixKey, onSetBookingModel, onCallNext, onNoShow, onUpdateStatus, onUpdateServices, onUpdatePros
+  establishment, queue, services, professionals, estStatus, bookingModel, plan, trialStartedAt, loyaltyEnabled, revenue, ratings = [], pixKey,
+  onUpdateEstablishment, onDeleteEstablishment, onSetPixKey, onSetBookingModel, onCallNext, onNoShow, onUpdateStatus, onUpdateServices, onUpdatePros
 }) => {
   const [newProName, setNewProName] = useState('');
   const [isAddingPro, setIsAddingPro] = useState(false);
@@ -43,8 +46,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newServicePrice, setNewServicePrice] = useState('');
   const [newServiceDuration, setNewServiceDuration] = useState('30');
 
-  const [editingPix, setEditingPix] = useState(false);
-  const [tempPix, setTempPix] = useState(pixKey);
+  const [editEstName, setEditEstName] = useState(establishment.name);
+  const [isSavingEst, setIsSavingEst] = useState(false);
 
   const trialDaysRemaining = useMemo(() => {
     const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
@@ -56,10 +59,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isTrialActive = trialDaysRemaining > 0;
   const canAccessProFeatures = plan === 'pro' || isTrialActive;
 
-  const handleUpdateProStatus = (proId: string, status: ProfStatus) => {
-    onUpdatePros(professionals.map(p => p.id === proId ? { ...p, status } : p));
-  };
-
   const handleAddPro = () => {
     if (!canAccessProFeatures && professionals.length >= 1) {
       alert("⚠️ Limite Atingido: O Plano Grátis permite apenas 1 profissional.");
@@ -70,16 +69,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       id: Math.random().toString(36).substr(2, 9),
       name: newProName.toUpperCase().trim(),
       status: 'available',
-      establishmentId: 'current'
+      establishmentId: establishment.id
     };
     onUpdatePros([...professionals, newPro]);
     setNewProName('');
     setIsAddingPro(false);
-  };
-
-  const handleSavePix = () => {
-    onSetPixKey(tempPix);
-    setEditingPix(false);
   };
 
   const handleAddService = () => {
@@ -89,7 +83,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       name: newServiceName.toUpperCase().trim(),
       price: newServicePrice,
       duration: parseInt(newServiceDuration),
-      establishmentId: 'current'
+      establishmentId: establishment.id
     };
     onUpdateServices([...services, newSrv]);
     setNewServiceName('');
@@ -97,11 +91,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setIsAddingService(false);
   };
 
+  const handleSaveEstSettings = async () => {
+    setIsSavingEst(true);
+    await onUpdateEstablishment({ name: editEstName.toUpperCase() });
+    setIsSavingEst(false);
+    alert("Nome da empresa atualizado!");
+  };
+
   const totalEarnings = useMemo(() => {
     return revenue.reduce((acc, curr) => acc + curr.amount, 0);
   }, [revenue]);
 
-  // Se não houver nada configurado, mostra o guia de teste
   const showTutorial = professionals.length === 0 && services.length === 0;
 
   return (
@@ -115,21 +115,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
             <div>
               <h3 className="text-white font-black text-sm uppercase tracking-tighter">Guia de Teste Rápido</h3>
-              <p className="text-[9px] text-teal-400 font-bold uppercase">Siga os passos abaixo para ver a mágica</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">1</div>
-              Cadastre um Profissional abaixo
-            </div>
-            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">2</div>
-              Cadastre um Serviço (ex: Corte)
-            </div>
-            <div className="flex items-center gap-3 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-              <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 text-[8px]">3</div>
-              Abra o app em outro celular como "Cliente"
+              <p className="text-[9px] text-teal-400 font-bold uppercase">Siga os passos abaixo para configurar</p>
             </div>
           </div>
         </div>
@@ -160,7 +146,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <BarChart3 size={14} className="text-emerald-500" /> Painel de Faturamento
         </h3>
-
         {canAccessProFeatures ? (
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] relative overflow-hidden space-y-6 shadow-xl">
             <div className="relative z-10">
@@ -188,11 +173,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <Users2 size={14} className="text-indigo-400" /> Equipe de Trabalho
           </h3>
-          {!canAccessProFeatures && (
-            <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-black uppercase">Limite Grátis: {professionals.length}/1</span>
-          )}
         </div>
-        
         <div className="space-y-3">
           {professionals.map(p => (
             <div key={p.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] space-y-4 shadow-lg">
@@ -205,20 +186,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
           ))}
-
           {!isAddingPro ? (
-            <button 
-              onClick={() => setIsAddingPro(true)} 
-              className={`w-full border-2 border-dashed p-7 rounded-[32px] uppercase text-[10px] font-black flex items-center justify-center gap-3 transition-all ${(!canAccessProFeatures && professionals.length >= 1) ? 'border-slate-900 text-slate-800 cursor-not-allowed bg-slate-900/10' : 'border-slate-800 text-slate-600 hover:border-indigo-500 hover:text-indigo-400'}`}
-            >
-              {(!canAccessProFeatures && professionals.length >= 1) ? <><Lock size={16}/> Limite Grátis Atingido</> : <><Plus size={16}/> Adicionar Profissional</>}
+            <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-7 rounded-[32px] text-slate-600 uppercase text-[10px] font-black flex items-center justify-center gap-3 hover:border-indigo-500 hover:text-indigo-400 transition-all">
+              <Plus size={16}/> Adicionar Profissional
             </button>
           ) : (
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 animate-in slide-in-from-top-4 shadow-2xl">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 shadow-2xl animate-in slide-in-from-top-4">
               <input autoFocus placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white uppercase font-black outline-none ring-1 ring-white/5" />
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
-                <button onClick={handleAddPro} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20">Confirmar</button>
+              <div className="flex gap-2">
+                <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase tracking-widest">Cancelar</button>
+                <button onClick={handleAddPro} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-600/20">Confirmar</button>
               </div>
             </div>
           )}
@@ -248,15 +225,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <Plus size={16}/> Novo Serviço
             </button>
           ) : (
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 animate-in slide-in-from-top-4 shadow-2xl">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 shadow-2xl animate-in slide-in-from-top-4">
               <input autoFocus placeholder="NOME DO SERVIÇO" value={newServiceName} onChange={e => setNewServiceName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white uppercase font-black outline-none ring-1 ring-white/5" />
               <input type="number" placeholder="PREÇO (EX: 30)" value={newServicePrice} onChange={e => setNewServicePrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white font-black outline-none ring-1 ring-white/5" />
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
-                <button onClick={handleAddService} className="flex-1 bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-teal-500/20">Confirmar</button>
+              <div className="flex gap-2">
+                <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase tracking-widest">Cancelar</button>
+                <button onClick={handleAddService} className="flex-1 bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-500/20">Confirmar</button>
               </div>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* AJUSTES DA UNIDADE */}
+      <section className="space-y-4 pt-10">
+        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <Store size={14} className="text-indigo-400" /> Ajustes da Unidade
+        </h3>
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 space-y-6 shadow-2xl">
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
+            <div className="flex gap-2">
+              <input 
+                value={editEstName} 
+                onChange={e => setEditEstName(e.target.value)} 
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-white font-bold uppercase outline-none focus:border-indigo-500" 
+              />
+              <button 
+                onClick={handleSaveEstSettings}
+                disabled={isSavingEst}
+                className="bg-indigo-600 text-white p-4 rounded-2xl hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+              >
+                <Save size={18} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Código de Acesso (ID)</label>
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-xs text-slate-500 font-mono flex items-center justify-between">
+              {establishment.id}
+              <Lock size={12} className="opacity-30" />
+            </div>
+            <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">Este código é único e não pode ser alterado após criado.</p>
+          </div>
+
+          <div className="pt-6 border-t border-white/5 space-y-4">
+             <div className="flex items-center gap-3 text-red-500/50">
+                <AlertTriangle size={16} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Zona de Perigo</span>
+             </div>
+             <button 
+              onClick={onDeleteEstablishment}
+              className="w-full bg-red-500/10 border border-red-500/20 text-red-500 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all shadow-xl shadow-red-500/5"
+             >
+                Excluir Unidade Permanentemente
+             </button>
+          </div>
         </div>
       </section>
 

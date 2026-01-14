@@ -12,6 +12,7 @@ import { AuthView } from './components/AuthView';
 import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
+import { MagicMirror } from './components/MagicMirror';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod } from './types';
 
 const App: React.FC = () => {
@@ -106,9 +107,34 @@ const App: React.FC = () => {
     setActiveTab('fila');
   };
 
+  // Fix: Implemented missing handleLogin function required by AuthView component
   const handleLogin = (email: string, role: 'admin' | 'client') => {
+    setUserEmail(email);
     setUserRole(role);
-    localStorage.setItem('user_role', role);
+    setIsLoggedIn(true);
+  };
+
+  const handleUpdateEstablishment = async (data: Partial<Establishment>) => {
+    if (!currentEst) return;
+    try {
+      await updateDoc(doc(db, "establishments", currentEst.id), data);
+      setCurrentEst({ ...currentEst, ...data });
+    } catch (e) {
+      alert("Erro ao atualizar dados da unidade.");
+    }
+  };
+
+  const handleDeleteEstablishment = async () => {
+    if (!currentEst) return;
+    if (confirm(`AVISO CRÍTICO: Você tem certeza que deseja excluir permanentemente a unidade "${currentEst.name}"? Todos os dados de faturamento, serviços e fila serão perdidos.`)) {
+      try {
+        await deleteDoc(doc(db, "establishments", currentEst.id));
+        setCurrentEst(null);
+        setActiveTab('fila');
+      } catch (e) {
+        alert("Erro ao excluir unidade.");
+      }
+    }
   };
 
   const handleJoinQueue = async (data: any) => {
@@ -230,9 +256,22 @@ const App: React.FC = () => {
           professionals={professionals} 
           services={services} 
           onCallNext={handleCallNext} 
-          onNoShow={() => queue.find(i => i.status === 'serving') && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue.find(i => i.status === 'serving')!.id))} 
+          onNoShow={() => {
+            const serving = queue.find(i => i.status === 'serving');
+            if (serving) deleteDoc(doc(db, "establishments", currentEst.id, "queue", serving.id));
+          }} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={handleLeaveQueue}
+        />
+      )}
+
+      {/* Fix: Added integration for the MagicMirror AI feature */}
+      {activeTab === 'mirror' && (
+        <MagicMirror 
+          plan={currentEst.plan || 'free'} 
+          aiCredits={5} 
+          onPurchaseRequest={() => alert("Recurso de compra em breve!")} 
+          onUseCredit={() => {}} 
         />
       )}
       
@@ -240,25 +279,31 @@ const App: React.FC = () => {
 
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
+          establishment={currentEst}
           queue={queue} services={services} professionals={professionals} 
           estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
           plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} 
           loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} 
           pixKey={currentEst.pixKey || ''} 
+          onUpdateEstablishment={handleUpdateEstablishment}
+          onDeleteEstablishment={handleDeleteEstablishment}
           onSetPixKey={async (k) => {
-            await updateDoc(doc(db, "establishments", currentEst.id!), { pixKey: k });
+            await handleUpdateEstablishment({ pixKey: k });
           }} 
           onUpdateStatus={async (s) => {
-            await updateDoc(doc(db, "establishments", currentEst.id!), { status: s });
+            await handleUpdateEstablishment({ status: s });
           }}
           onSetBookingModel={async (m) => {
-             await updateDoc(doc(db, "establishments", currentEst.id!), { bookingModel: m });
+             await handleUpdateEstablishment({ bookingModel: m });
           }}
           onSetLoyaltyEnabled={async (e) => {
-             await updateDoc(doc(db, "establishments", currentEst.id!), { loyaltyEnabled: e });
+             await handleUpdateEstablishment({ loyaltyEnabled: e });
           }}
           onCallNext={handleCallNext} 
-          onNoShow={() => queue.find(i => i.status === 'serving') && deleteDoc(doc(db, "establishments", currentEst.id, "queue", queue.find(i => i.status === 'serving')!.id))} 
+          onNoShow={() => {
+            const serving = queue.find(i => i.status === 'serving');
+            if (serving) deleteDoc(doc(db, "establishments", currentEst.id, "queue", serving.id));
+          }} 
           onUpdateServices={async (sList) => {
              const lastService = sList[sList.length - 1];
              if (sList.length > services.length) {

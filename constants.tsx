@@ -6,7 +6,8 @@ import {
   Settings, 
   Gift,
   Zap,
-  UserCircle
+  UserCircle,
+  Sparkles
 } from 'lucide-react';
 
 export const APP_THEME = {
@@ -47,6 +48,7 @@ export interface NavItem {
 
 export const NAVIGATION_ITEMS: NavItem[] = [
   { id: 'fila', label: 'FILA', icon: <Users size={20} />, roles: ['admin', 'client'] },
+  { id: 'mirror', label: 'IA MIRROR', icon: <Sparkles size={20} />, roles: ['client'] },
   { id: 'fidelidade', label: 'VIP', icon: <Gift size={20} />, roles: ['client'] },
   { id: 'admin', label: 'GESTÃO', icon: <LayoutDashboard size={20} />, roles: ['admin'] },
   { id: 'config', label: 'PERFIL', icon: <UserCircle size={20} />, roles: ['admin', 'client'] },
