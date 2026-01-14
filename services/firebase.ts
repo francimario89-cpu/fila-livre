@@ -3,7 +3,9 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth";
 import { 
   getFirestore, 
-  terminate
+  terminate,
+  initializeFirestore,
+  memoryLocalCache
 } from "firebase/firestore";
 
 export const firebaseConfig = {
@@ -20,7 +22,12 @@ export const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const db = getFirestore(app);
+
+// Inicializamos o Firestore com cache em memória para evitar o erro 'unavailable' 
+// que acontece quando o IndexedDB do navegador falha ou o banco não existe.
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+});
 
 export { sendPasswordResetEmail };
 

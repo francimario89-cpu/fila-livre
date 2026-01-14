@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { LOGO_SVG } from '../constants';
-import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search } from 'lucide-react';
+import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database } from 'lucide-react';
 import { Establishment } from '../types';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -20,7 +20,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{code: string, message: string} | null>(null);
 
   useEffect(() => {
     loadConnections();
@@ -28,33 +28,29 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
   const loadConnections = async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
       if (userRole === 'admin') {
         const q = query(collection(db, "establishments"), where("ownerEmail", "==", userEmail));
         const snap = await getDocs(q);
         setConnections(snap.docs.map(d => ({ id: d.id, ...d.data() } as Establishment)));
       } else {
-        // Para clientes, carrega do histórico local
         const saved = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
         setConnections(saved);
       }
     } catch (e: any) {
       console.error("Load Connections Error:", e);
-      if (e.code === 'permission-denied') {
-        setError("Erro de permissão no Firebase. Verifique as Regras.");
-      }
+      setError({ code: e.code, message: e.message });
     } finally {
       setLoading(false);
     }
   };
 
   const handleAction = async () => {
-    if (!newCode) return setError('O código é obrigatório.');
-    // Normaliza o código: remove espaços e deixa em maiúsculo
+    if (!newCode) return setError({ code: 'required', message: 'O código é obrigatório.' });
     const cleanCode = newCode.trim().toUpperCase();
     setActionLoading(true);
-    setError('');
+    setError(null);
 
     try {
       const docRef = doc(db, "establishments", cleanCode);
@@ -62,7 +58,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
       if (userRole === 'admin') {
         if (docSnap.exists() && docSnap.data().ownerEmail !== userEmail) {
-          setError("Este código já pertence a outra empresa.");
+          setError({ code: 'taken', message: "Este código já pertence a outra empresa." });
         } else {
           const estData: Establishment = {
             id: cleanCode,
@@ -78,29 +74,19 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
           onSelect(estData);
         }
       } else {
-        // Lógica de Cliente: Entrar em um salão existente
         if (docSnap.exists()) {
           const estData = { id: docSnap.id, ...docSnap.data() } as Establishment;
-          
-          // Atualiza histórico local do cliente
           const saved = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
           const updated = [estData, ...saved.filter((s: Establishment) => s.id !== estData.id)].slice(0, 5);
           localStorage.setItem(`client_history_${userEmail}`, JSON.stringify(updated));
-          
           onSelect(estData);
         } else {
-          setError(`Código "${cleanCode}" não encontrado. Verifique com o estabelecimento.`);
+          setError({ code: 'not-found', message: `Código "${cleanCode}" não encontrado.` });
         }
       }
     } catch (e: any) {
       console.error("Action Error:", e);
-      if (e.code === 'permission-denied') {
-        setError("Acesso Negado: Verifique se você publicou as regras 'allow read, write: if true' no Firebase.");
-      } else if (e.code === 'unavailable') {
-        setError("Banco de dados offline. Verifique sua conexão ou se criou o banco Firestore.");
-      } else {
-        setError(`Erro inesperado: ${e.code || e.message}`);
-      }
+      setError({ code: e.code, message: e.message });
     } finally {
       setActionLoading(false);
     }
@@ -123,6 +109,35 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       </div>
 
       <div className="space-y-4 flex-1">
+        {error && (error.code === 'unavailable' || error.code === 'permission-denied') && (
+          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-[32px] space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center gap-4 text-amber-500">
+              <Database size={24} />
+              <h4 className="text-xs font-black uppercase tracking-widest">Banco de Dados não Iniciado</h4>
+            </div>
+            <p className="text-[10px] text-white/70 font-bold uppercase leading-relaxed">
+              O Google Cloud informou que seu banco de dados ainda não foi criado ou está com as regras bloqueadas.
+            </p>
+            <div className="space-y-2">
+              <p className="text-[8px] text-slate-500 font-black uppercase">Como resolver agora:</p>
+              <ul className="text-[9px] text-white font-medium space-y-1 ml-4 list-disc">
+                <li>Acesse o Console do Firebase</li>
+                <li>Clique em "Cloud Firestore" no menu lateral</li>
+                <li>Clique no botão azul "Criar banco de dados"</li>
+                <li>Escolha "Modo de Teste" e finalize</li>
+              </ul>
+            </div>
+            <a 
+              href="https://console.firebase.google.com/project/fila-livre-5d28d/firestore" 
+              target="_blank" 
+              className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-slate-950 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-amber-500/20"
+            >
+              Abrir Console do Firebase <ExternalLink size={14} />
+            </a>
+            <button onClick={() => window.location.reload()} className="w-full text-[9px] text-amber-500 font-black uppercase py-2">Já criei, tentar novamente</button>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="animate-spin text-teal-500" size={32} />
@@ -151,14 +166,10 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
             {isAdding ? (
               <div className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] space-y-6 shadow-2xl animate-in slide-in-from-bottom-4">
-                {error && (
-                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-red-500">
-                      <AlertCircle size={16}/>
-                      <p className="text-[10px] font-black uppercase">Falha na Comunicação</p>
-                    </div>
-                    <p className="text-[10px] text-white/70 font-bold">{error}</p>
-                    <button onClick={() => window.location.reload()} className="text-[9px] text-red-500 underline font-black uppercase text-left mt-1">Recarregar App</button>
+                {error && error.code !== 'unavailable' && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
+                    <AlertCircle size={16}/>
+                    <p className="text-[10px] font-black uppercase">{error.message}</p>
                   </div>
                 )}
                 
@@ -182,11 +193,10 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                       className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-6 text-white font-orbitron focus:border-teal-500 outline-none" 
                     />
                   </div>
-                  <p className="text-[8px] text-slate-600 font-bold uppercase ml-1">O código deve ser idêntico ao informado pela empresa.</p>
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button onClick={() => { setIsAdding(false); setError(''); }} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
+                  <button onClick={() => { setIsAdding(false); setError(null); }} className="flex-1 py-4 text-slate-500 font-black text-[10px] uppercase">Cancelar</button>
                   <button 
                     disabled={actionLoading}
                     onClick={handleAction} 
