@@ -63,7 +63,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     return calculateWait(professionalId);
   }, [currentQueue, type, services, professionalId, professionals]);
 
-  const estimatedTime = useMemo(() => {
+  const callPredictedTime = useMemo(() => {
     if (estimatedWait === null || estimatedWait === 999) return null;
     const date = new Date(Date.now() + estimatedWait * 60000);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -90,31 +90,40 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-slate-900 rounded-[40px] p-8 border border-white/5 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-slate-900 rounded-[40px] p-8 border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <header className="flex justify-between items-center mb-6">
-           <h2 className="text-xl font-black text-white uppercase tracking-tighter">Fazer Reserva</h2>
+           <h2 className="text-xl font-black text-white uppercase tracking-tighter">Reservar Vaga</h2>
            <button onClick={onClose} className="p-3 bg-slate-800 rounded-xl text-slate-500"><X size={20}/></button>
         </header>
 
         <div className="space-y-6">
           {bookingModel === 'both' && (
             <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-               <button onClick={() => setType('walk-in')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}>Agora (Fila)</button>
+               <button onClick={() => setType('walk-in')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}>Fila Agora</button>
                <button onClick={() => setType('appointment')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'appointment' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>Agendar Hora</button>
             </div>
           )}
 
           <div className="space-y-4">
-            <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="SEU NOME" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
+            <div className="space-y-1.5">
+               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu Nome</label>
+               <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="JOÃO SILVA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500 transition-all" />
+            </div>
             
-            <select value={serviceName} onChange={e => setServiceName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none">
-              {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Serviço Desejado</label>
+              <select value={serviceName} onChange={e => setServiceName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
+                {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
+              </select>
+            </div>
 
-            <select value={professionalId} onChange={e => setProfessionalId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none">
-              <option value="any">Qualquer Barbeiro</option>
-              {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Com quem?</label>
+              <select value={professionalId} onChange={e => setProfessionalId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
+                <option value="any">Primeiro Disponível</option>
+                {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
 
             {type === 'appointment' && (
               <div className="grid grid-cols-2 gap-2">
@@ -124,20 +133,20 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             )}
           </div>
 
-          {type === 'walk-in' && estimatedTime && (
-            <div className="bg-teal-500/10 border border-teal-500/20 rounded-3xl p-5 flex items-center gap-4">
-               <div className="w-12 h-12 bg-teal-500 rounded-2xl flex flex-col items-center justify-center text-slate-950 shadow-lg">
-                  <Clock size={20} />
+          {type === 'walk-in' && callPredictedTime && (
+            <div className="bg-teal-500/10 border border-teal-500/20 rounded-[32px] p-6 flex items-center gap-5 shadow-2xl">
+               <div className="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-slate-950 shadow-lg">
+                  <Timer size={24} />
                </div>
                <div>
                   <p className="text-[10px] text-teal-400 font-black uppercase tracking-widest leading-none">Previsão de Chamada</p>
-                  <p className="text-xl font-black text-white mt-1 uppercase">Às {estimatedTime}</p>
+                  <p className="text-xl font-black text-white mt-1.5 uppercase tracking-tighter">Será chamado às {callPredictedTime}</p>
                </div>
             </div>
           )}
 
-          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'bg-indigo-600 text-white'}`}>
-            {type === 'walk-in' ? 'Entrar na Fila Agora' : 'Confirmar Agendamento'}
+          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl ${type === 'walk-in' ? 'bg-teal-500 text-slate-950 shadow-teal-500/20' : 'bg-indigo-600 text-white shadow-indigo-600/20'}`}>
+            {type === 'walk-in' ? 'Confirmar Entrada' : 'Agendar Horário'}
           </button>
         </div>
       </div>

@@ -1,23 +1,32 @@
 
 import React, { useState } from 'react';
 import { QueueItem, Service, PaymentMethod } from '../types';
-import { X, CreditCard, Banknote, QrCode, CheckCircle2 } from 'lucide-react';
+import { X, CreditCard, Banknote, QrCode, CheckCircle2, Copy } from 'lucide-react';
 
 interface ServiceCompletionModalProps {
   item: QueueItem;
   services: Service[];
+  pixKey?: string;
   onClose: () => void;
   onConfirm: (method: PaymentMethod, amount: number) => void;
 }
 
 export const ServiceCompletionModal: React.FC<ServiceCompletionModalProps> = ({
-  item, services, onClose, onConfirm
+  item, services, pixKey, onClose, onConfirm
 }) => {
   const serviceData = services.find(s => s.name === item.service);
   const defaultPrice = serviceData ? parseFloat(serviceData.price.replace(',', '.')) : 0;
   
   const [amount, setAmount] = useState(defaultPrice.toString());
   const [method, setMethod] = useState<PaymentMethod>('pix');
+  const [copied, setCopied] = useState(false);
+
+  const copyPix = () => {
+    if (!pixKey) return;
+    navigator.clipboard.writeText(pixKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
@@ -40,6 +49,18 @@ export const ServiceCompletionModal: React.FC<ServiceCompletionModalProps> = ({
               className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 px-6 text-white text-2xl font-black text-center focus:border-indigo-500 focus:outline-none transition-all"
             />
           </div>
+
+          {method === 'pix' && pixKey && (
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2">
+               <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Chave PIX do Estabelecimento</span>
+                  <button onClick={copyPix} className="text-indigo-400 p-1">
+                    {copied ? <span className="text-[8px] font-black">COPIADO!</span> : <Copy size={14} />}
+                  </button>
+               </div>
+               <p className="text-xs font-mono font-bold text-white break-all">{pixKey}</p>
+            </div>
+          )}
 
           <div className="space-y-3">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Método de Pagamento</label>
@@ -70,7 +91,7 @@ export const ServiceCompletionModal: React.FC<ServiceCompletionModalProps> = ({
             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transform active:scale-95 transition-all uppercase text-xs tracking-widest"
           >
             <CheckCircle2 size={18} />
-            Confirmar e Fechar
+            Confirmar e Concluir
           </button>
         </div>
       </div>
