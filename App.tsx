@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, collectionGroup, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Settings, WifiOff } from 'lucide-react';
+import { Settings, WifiOff, AlertTriangle } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -13,7 +13,7 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod } from './types';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, PaymentMethod, BookingModel } from './types';
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
@@ -45,7 +45,6 @@ const App: React.FC = () => {
           if (userDoc.exists()) {
             const data = userDoc.data();
             setUserRole(data.role);
-            localStorage.setItem('user_role', data.role);
           }
         } catch (e) {
           console.error("Erro ao carregar perfil:", e);
@@ -101,85 +100,50 @@ const App: React.FC = () => {
     };
   }, [currentEst?.id, isLoggedIn, userEmail]);
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    setCurrentEst(null);
-    setIsLoggedIn(false);
-    setActiveTab('fila');
-  };
-
-  const handleUpdateEstablishment = async (data: Partial<Establishment>) => {
-    if (!currentEst) return;
-    try {
-      await updateDoc(doc(db, "establishments", currentEst.id), data);
-    } catch (e) {
-      alert("Erro ao atualizar unidade.");
-    }
-  };
-
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
+    
+    // Bloqueio de múltiplos agendamentos
     try {
+      const q = query(collectionGroup(db, "queue"), where("userEmail", "==", userEmail), where("status", "in", ["waiting", "serving"]));
+      const activeBookings = await getDocs(q);
+      
+      if (!activeBookings.empty && userRole === 'client') {
+        alert("Ops! Você já possui um atendimento ativo ou está em uma fila. Finalize seu atendimento atual para entrar em outro.");
+        return;
+      }
+
       const payload: any = {
         name: data.name,
         professionalId: data.professionalId,
         service: data.service,
         type: data.type,
-        userEmail: data.userEmail || (userRole === 'client' ? userEmail : null),
+        userEmail: userRole === 'client' ? userEmail : (data.userEmail || null),
         establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
       };
       if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
+      
       await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) {
-      alert(`Erro ao entrar na fila: ${e.message}`);
+      alert(`Erro ao processar reserva: ${e.message}`);
     }
   };
 
-  const handleFinishService = async (method: PaymentMethod, amount: number) => {
-    if (!currentEst || !selectedQueueItem) return;
-    try {
-      await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
-        amount, method, serviceName: selectedQueueItem.service,
-        clientName: selectedQueueItem.name, date: new Date().toISOString(),
-        establishmentId: currentEst.id
-      });
-
-      if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
-        const loyaltyRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
-        const loyaltySnap = await getDoc(loyaltyRef);
-        if (loyaltySnap.exists()) {
-          const newCount = (loyaltySnap.data().count || 0) + 1;
-          await updateDoc(loyaltyRef, { count: newCount > 10 ? 1 : newCount });
-        } else {
-          await setDoc(loyaltyRef, { count: 1 });
-        }
-      }
-
-      await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-      setIsCompletionModalOpen(false);
-      setSelectedQueueItem(null);
-    } catch (e) {
-      alert("Erro ao finalizar atendimento.");
-    }
+  const handleUpdateEstablishment = async (data: Partial<Establishment>) => {
+    if (!currentEst) return;
+    await updateDoc(doc(db, "establishments", currentEst.id), data);
   };
 
   if (isTVMode && currentEst) {
-    return (
-      <TVView 
-        queue={queue} 
-        professionals={professionals} 
-        establishmentName={currentEst.name} 
-        onClose={() => setIsTVMode(false)} 
-      />
-    );
+    return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
   }
 
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email); setUserRole(role); setIsLoggedIn(true); }} />;
-  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={handleLogout} />;
+  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   return (
     <Layout 
@@ -224,29 +188,14 @@ const App: React.FC = () => {
           onSetLoyaltyEnabled={(e) => handleUpdateEstablishment({ loyaltyEnabled: e })}
           onCallNext={() => {}} onNoShow={() => {}}
           onUpdateServices={async (sList) => {
-            const last = sList[sList.length - 1];
-            if (sList.length > services.length) await setDoc(doc(db, "establishments", currentEst.id, "services", last.id), last);
-            else if (sList.length < services.length) { 
-              const rem = services.find(s => !sList.find(sl => sl.id === s.id)); 
-              if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "services", rem.id)); 
-            } else {
-              // Atualização de serviço existente
-              sList.forEach(async (s) => await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s));
-            }
+             for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s);
+             const ids = sList.map(x => x.id);
+             services.forEach(async (s) => { if (!ids.includes(s.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id)); });
           }}
           onUpdatePros={async (pList) => {
-            if (pList.length > professionals.length) {
-              const last = pList[pList.length - 1];
-              await setDoc(doc(db, "establishments", currentEst.id, "professionals", last.id), last);
-            } else if (pList.length < professionals.length) {
-              const rem = professionals.find(p => !pList.find(pl => pl.id === p.id));
-              if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", rem.id));
-            } else {
-              // Sincroniza todos os profissionais para garantir que o status seja salvo
-              for (const p of pList) {
-                await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
-              }
-            }
+             for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
+             const ids = pList.map(x => x.id);
+             professionals.forEach(async (p) => { if (!ids.includes(p.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id)); });
           }}
           onManualJoin={handleJoinQueue}
           onToggleTVMode={() => setIsTVMode(true)}
@@ -256,12 +205,29 @@ const App: React.FC = () => {
       {activeTab === 'config' && (
         <div className="flex flex-col items-center py-12 space-y-10">
            <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">Perfil</h2>
-           <button onClick={handleLogout} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Encerrar Sessão</button>
+           <button onClick={() => auth.signOut()} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Encerrar Sessão</button>
         </div>
       )}
 
       {isJoinModalOpen && <JoinQueueModal services={services} currentQueue={queue} professionals={professionals} bookingModel={currentEst.bookingModel || 'both'} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
-      {isCompletionModalOpen && selectedQueueItem && <ServiceCompletionModal item={selectedQueueItem} services={services} onClose={() => setIsCompletionModalOpen(false)} onConfirm={handleFinishService} />}
+      {isCompletionModalOpen && selectedQueueItem && (
+        <ServiceCompletionModal 
+          item={selectedQueueItem} 
+          services={services} 
+          onClose={() => setIsCompletionModalOpen(false)} 
+          onConfirm={async (method, amount) => {
+            await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
+            if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
+              const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
+              const lSnap = await getDoc(lRef);
+              const count = lSnap.exists() ? (lSnap.data().count || 0) + 1 : 1;
+              await setDoc(lRef, { count: count > 10 ? 1 : count });
+            }
+            await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
+            setIsCompletionModalOpen(false);
+          }} 
+        />
+      )}
     </Layout>
   );
 };
