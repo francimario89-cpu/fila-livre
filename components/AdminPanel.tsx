@@ -52,7 +52,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const serving = useMemo(() => queue.find(i => i.status === 'serving'), [queue]);
-  const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
+  const nextInLine = useMemo(() => queue.filter(i => i.status === 'waiting')[0], [queue]);
 
   const handleAddService = () => {
     if (!newSName || !newSPrice) return;
@@ -82,10 +82,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-24 animate-in fade-in duration-500">
       
-      {/* 1. CONTROLE DE CHAMADA (PRIORIDADE) */}
+      {/* 1. ATENDIMENTO E CHAMADA (O QUE ESTAVA FALTANDO) */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <BellRing size={14} className="text-teal-400" /> Atendimento em Tempo Real
+          <BellRing size={14} className="text-teal-400" /> Controle de Chamada
         </h3>
         
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-6 shadow-2xl">
@@ -112,16 +112,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           ) : nextInLine ? (
             <div className="flex flex-col items-center py-4 space-y-4">
               <div className="flex flex-col items-center">
-                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Próximo na Espera</p>
+                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Próximo da Fila</p>
                  <h4 className="text-xl font-black text-white uppercase mt-1">{nextInLine.name}</h4>
               </div>
               <button onClick={onCallNext} className="w-full bg-teal-500 text-slate-950 py-5 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-3">
-                <Zap size={20} /> Chamar Agora
+                <Zap size={20} /> Chamar Próximo
               </button>
             </div>
           ) : (
             <div className="py-6 text-center">
-              <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Ninguém aguardando na fila</p>
+              <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Fila vazia. Chame um cliente manual se desejar.</p>
             </div>
           )}
         </div>
@@ -130,7 +130,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 2. OPERAÇÃO RÁPIDA & TV */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Store size={14} className="text-indigo-400" /> Operação & Visibilidade
+          <Store size={14} className="text-indigo-400" /> Painel de Controle
         </h3>
         <div className="grid grid-cols-3 gap-2">
           <button onClick={() => onUpdateStatus('open')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'open' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
@@ -150,11 +150,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl hover:border-teal-500/30 transition-all active:scale-95">
             <Monitor size={22} className="text-teal-400" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Painel TV</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">Modo TV</span>
           </button>
           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl shadow-indigo-500/20 active:scale-95 transition-all">
             <UserPlus size={22} className="text-white" />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Inserir Manual</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">Inserir Cliente</span>
           </button>
         </div>
       </section>
@@ -162,12 +162,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 3. FINANCEIRO & PIX */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <BarChart3 size={14} className="text-emerald-500" /> Gestão Financeira
+          <BarChart3 size={14} className="text-emerald-500" /> Financeiro & PIX
         </h3>
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
            <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p>
+                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Faturamento Total</p>
                 <h4 className="text-3xl font-black text-white mt-1 font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
               </div>
               <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all">
@@ -183,14 +183,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
              <input 
                 value={pixKey}
                 onChange={(e) => onSetPixKey(e.target.value)}
-                placeholder="Ex: seuemail@pix.com"
+                placeholder="E-mail, CPF ou Chave Aleatória"
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-800"
              />
+             <p className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter ml-1">* Necessário para que o cliente pague via App.</p>
            </div>
         </div>
       </section>
 
-      {/* 4. GESTÃO DE SERVIÇOS (RESTAURADO) */}
+      {/* 4. GESTÃO DE SERVIÇOS (RESTAURADO COMPLETO) */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Scissors size={14} className="text-indigo-400" /> Serviços Ofertados
@@ -219,26 +220,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {isAddingService ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
-               <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
+               <input placeholder="NOME DO SERVIÇO (EX: CORTE)" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                      <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Preço (R$)</label>
-                     <input placeholder="Ex: 25,00" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
+                     <input placeholder="25,00" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
                   </div>
                   <div className="space-y-1">
-                     <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Tempo Médio (Min)</label>
+                     <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Tempo (Minutos)</label>
                      <input type="number" placeholder="30" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
                   </div>
                </div>
                <div className="flex gap-2 pt-2">
-                 <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-[9px] font-black text-slate-500 uppercase">Voltar</button>
+                 <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-[9px] font-black text-slate-500 uppercase">Cancelar</button>
                  <button onClick={handleAddService} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[9px] font-black uppercase shadow-lg shadow-indigo-500/20">Salvar Serviço</button>
                </div>
             </div>
           ) : (
             <button onClick={() => setIsAddingService(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
                <Plus size={24} />
-               <span className="text-[9px] font-black uppercase tracking-widest">Adicionar Serviço</span>
+               <span className="text-[9px] font-black uppercase tracking-widest">Novo Serviço</span>
             </button>
           )}
         </div>
@@ -258,7 +259,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-black text-white uppercase">{p.name}</h4>
-                  <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : 'Pausa/Ausente'}</p>
+                  <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Disponível' : 'Indisponível'}</p>
                 </div>
               </div>
               <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors">
@@ -269,10 +270,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {isAddingPro ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
-               <input placeholder="NOME COMPLETO" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
+               <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
                <div className="flex gap-2 pt-2">
-                 <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-[9px] font-black text-slate-500 uppercase">Voltar</button>
-                 <button onClick={handleAddProfessional} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[9px] font-black uppercase shadow-lg shadow-indigo-500/20">Cadastrar</button>
+                 <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-[9px] font-black text-slate-500 uppercase">Cancelar</button>
+                 <button onClick={handleAddProfessional} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[9px] font-black uppercase shadow-lg shadow-indigo-500/20">Confirmar</button>
                </div>
             </div>
           ) : (
@@ -287,18 +288,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 6. CONFIGURAÇÕES DO SISTEMA */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Settings size={14} className="text-indigo-400" /> Regras do Negócio
+          <Settings size={14} className="text-indigo-400" /> Configurações de Regra
         </h3>
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
           <div className="p-8 border-b border-slate-800 space-y-5">
             <div className="flex items-center gap-3">
                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><ListOrdered size={18} /></div>
-               <span className="text-[10px] font-black text-white uppercase tracking-widest">Fluxo de Atendimento</span>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Modelo de Fila</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'queue', label: 'Só Fila' },
-                { id: 'appointment', label: 'Agendar' },
+                { id: 'queue', label: 'Fila Agora' },
+                { id: 'appointment', label: 'Sempre Agendar' },
                 { id: 'both', label: 'Híbrido' }
               ].map(m => (
                 <button 
@@ -316,7 +317,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
              <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Gift size={18} /></div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Fidelidade VIP</span>
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Cartão VIP (Fidelidade)</span>
                   <span className="text-[7px] font-bold text-slate-500 uppercase mt-1.5">{loyaltyEnabled ? 'Ativado' : 'Desativado'}</span>
                 </div>
              </div>

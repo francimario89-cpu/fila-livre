@@ -129,6 +129,7 @@ const App: React.FC = () => {
       const docRef = await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
 
       if (userRole === 'client') {
+        // CORREÇÃO CRÍTICA: setDoc com merge: true evita erro se o doc não existir
         await setDoc(doc(db, "users", auth.currentUser.uid), {
           activeBooking: { establishmentId: currentEst.id, queueId: docRef.id }
         }, { merge: true });
@@ -148,7 +149,6 @@ const App: React.FC = () => {
         const q = query(collection(db, "users"), where("email", "==", clientEmail));
         const snap = await getDocs(q);
         if (!snap.empty) {
-          // CORREÇÃO: Usar setDoc com merge para evitar erro de documento inexistente ao remover
           await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
         }
       }
@@ -165,7 +165,9 @@ const App: React.FC = () => {
       setIsCompletionModalOpen(true); 
     } else {
       const next = queue.find(i => i.status === 'waiting');
-      if (next) await updateDoc(doc(db, "establishments", currentEst.id, "queue", next.id), { status: 'serving', timestamp: Date.now() });
+      if (next) {
+        await updateDoc(doc(db, "establishments", currentEst.id, "queue", next.id), { status: 'serving', timestamp: Date.now() });
+      }
     }
   };
 
@@ -262,7 +264,6 @@ const App: React.FC = () => {
               const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
               const snap = await getDocs(q);
               if (!snap.empty) {
-                // CORREÇÃO: Usar setDoc com merge: true
                 await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
               }
               if (currentEst.loyaltyEnabled) {
