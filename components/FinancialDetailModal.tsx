@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { X, TrendingUp, Download, Calendar, ArrowUpRight, Award, DollarSign, Wallet, CreditCard } from 'lucide-react';
 import { RevenueRecord } from '../types';
@@ -102,34 +101,34 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                 <Wallet size={16} /> <span className="text-[9px] font-black uppercase">PIX</span>
               </div>
               <h4 className="text-xl font-black text-white">R$ {(statsByMethod.pix?.total || 0).toFixed(2)}</h4>
-              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.pix?.count || 0)} Cortes</p>
+              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.pix?.count || 0)} cortes</p>
             </div>
             <div className="bg-slate-900 p-5 rounded-3xl border border-emerald-500/10">
               <div className="flex items-center gap-3 mb-3 text-emerald-400">
                 <DollarSign size={16} /> <span className="text-[9px] font-black uppercase">Dinheiro</span>
               </div>
               <h4 className="text-xl font-black text-white">R$ {(statsByMethod.cash?.total || 0).toFixed(2)}</h4>
-              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.cash?.count || 0)} Cortes</p>
+              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.cash?.count || 0)} cortes</p>
             </div>
             <div className="bg-slate-900 p-5 rounded-3xl border border-indigo-500/10">
               <div className="flex items-center gap-3 mb-3 text-indigo-400">
                 <CreditCard size={16} /> <span className="text-[9px] font-black uppercase">Cartão</span>
               </div>
               <h4 className="text-xl font-black text-white">R$ {(statsByMethod.card?.total || 0).toFixed(2)}</h4>
-              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.card?.count || 0)} Cortes</p>
+              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">{(statsByMethod.card?.count || 0)} cortes</p>
             </div>
           </section>
 
           <section className="bg-emerald-500/10 border border-emerald-500/20 p-8 rounded-[40px] text-center space-y-2">
-            <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em]">Receita Total no Período</p>
+            <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em]">Receita Total do Período</p>
             <h3 className="text-5xl font-black text-white font-orbitron">R$ {totalEarnings.toFixed(2)}</h3>
-            <p className="text-xs text-slate-400 font-bold uppercase">{filteredRevenue.length} Cortes realizados</p>
+            <p className="text-xs text-slate-400 font-bold uppercase">{filteredRevenue.length} Atendimentos realizados</p>
           </section>
 
           {/* RANKING */}
           <section className="space-y-4">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <Award size={14} className="text-amber-500" /> Mais Procurados
+              <Award size={14} className="text-amber-500" /> Serviços Mais Lucrativos
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {topServices.map(([name, stats], index) => (
@@ -138,7 +137,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                     <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center text-xs font-black text-teal-400">#{index + 1}</div>
                     <div className="truncate max-w-[120px]">
                       <p className="text-xs font-black text-white uppercase truncate">{name}</p>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase">{stats.count} Cortes</p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase">{stats.count} cortes</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -152,13 +151,13 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           {/* LISTA */}
           <section className="space-y-4">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <Calendar size={14} className="text-indigo-500" /> Movimentações Recentes
+              <Calendar size={14} className="text-indigo-500" /> Fluxo de Caixa Recente
             </h3>
             <div className="space-y-2">
               {filteredRevenue.slice(0, 20).map((rec) => (
                 <div key={rec.id} className="bg-slate-900/50 border border-white/5 p-4 rounded-2xl flex items-center justify-between group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center text-slate-600">
+                    <div className="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center text-slate-600 group-hover:text-emerald-500 transition-colors">
                        <ArrowUpRight size={18} />
                     </div>
                     <div>
@@ -183,7 +182,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
 
         <footer className="p-8 border-t border-white/5 bg-slate-900/30">
           <button className="w-full bg-slate-100 text-slate-950 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
-            <Download size={18} /> Exportar Relatório PDF
+            <Download size={18} /> Exportar Extrato Completo
           </button>
         </footer>
       </div>

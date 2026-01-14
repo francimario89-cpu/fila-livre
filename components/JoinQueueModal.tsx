@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Service, Professional, BookingModel, QueueItem } from '../types';
 import { X, User, ClipboardList, Clock, CalendarCheck, UserCheck, Timer, ChevronRight, Zap } from 'lucide-react';
@@ -30,7 +29,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   services, professionals, bookingModel, currentQueue, onClose, onSubmit 
 }) => {
   const [name, setName] = useState('');
-  const [professionalId, setProfessionalId] = useState('any'); // Default: Sem preferência
+  const [professionalId, setProfessionalId] = useState('any');
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
   const [isAppointment, setIsAppointment] = useState(bookingModel === 'appointment');
   const [scheduledTime, setScheduledTime] = useState('');
@@ -63,13 +62,20 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
   const handleAction = () => {
     if (!name.trim()) return alert("Por favor, informe seu nome.");
-    onSubmit({ 
-      name: name.toUpperCase().trim(), 
-      professionalId, 
-      service: serviceName, 
-      type: isAppointment ? 'appointment' : 'walk-in',
-      scheduledTime: isAppointment ? (scheduledTime || undefined) : undefined
-    });
+    
+    // Construção limpa do objeto para evitar 'undefined' no Firestore
+    const payload: any = {
+      name: name.toUpperCase().trim(),
+      professionalId,
+      service: serviceName,
+      type: isAppointment ? 'appointment' : 'walk-in'
+    };
+
+    if (isAppointment && scheduledTime) {
+      payload.scheduledTime = scheduledTime;
+    }
+
+    onSubmit(payload);
   };
 
   return (
@@ -78,7 +84,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
       
       <div className="relative w-full max-w-md glass-card rounded-[40px] p-8 shadow-2xl border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter">Portal do Cliente</h2>
+          <h2 className="text-xl font-black text-white uppercase tracking-tighter">Entrar na Fila</h2>
           <button onClick={onClose} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 hover:text-white transition-all"><X size={20} /></button>
         </div>
 
@@ -161,7 +167,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
           )}
 
           <button onClick={handleAction} className="w-full py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] bg-teal-500 text-slate-950 shadow-teal-500/20 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2">
-            Ingressar na Fila <ChevronRight size={16} />
+            INGRESSAR NA FILA <ChevronRight size={16} />
           </button>
         </div>
       </div>

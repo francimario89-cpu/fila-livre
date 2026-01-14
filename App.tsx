@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, increment } from 'firebase/firestore';
@@ -87,7 +86,6 @@ const App: React.FC = () => {
       setRevenue(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RevenueRecord)));
     });
 
-    // Sincronizar contagem de fidelidade real
     const unsubLoyalty = onSnapshot(doc(db, "establishments", currentEst.id, "loyalty", userEmail), (doc) => {
       if (doc.exists()) setLoyaltyCount(doc.data().count || 0);
       else setLoyaltyCount(0);
@@ -136,8 +134,13 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
+      // Remover campos indefinidos explicitamente por precaução
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, v]) => v !== undefined)
+      );
+
       const payload = {
-        ...data,
+        ...cleanData,
         userEmail,
         establishmentId: currentEst.id,
         status: 'waiting',
@@ -160,14 +163,14 @@ const App: React.FC = () => {
         establishmentId: currentEst.id
       });
 
-      // 2. Incrementar fidelidade se o cliente tiver email
+      // 2. Incrementar fidelidade se o cliente tiver email e a função estiver ativa
       if (selectedQueueItem.userEmail && currentEst.loyaltyEnabled) {
         const loyaltyRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
         const loyaltySnap = await getDoc(loyaltyRef);
         
         if (loyaltySnap.exists()) {
           const newCount = (loyaltySnap.data().count || 0) + 1;
-          // Se chegou em 11 (atendido no 10, próximo reseta), reseta para 1
+          // Reseta para 1 após o resgate (11º atendimento)
           await updateDoc(loyaltyRef, { count: newCount > 10 ? 1 : newCount });
         } else {
           await setDoc(loyaltyRef, { count: 1 });
