@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured, clearFirestoreCache } from './services/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Settings, RefreshCcw, AlertTriangle, WifiOff, ExternalLink } from 'lucide-react';
 import { Layout } from './components/Layout';
@@ -31,8 +31,8 @@ const App: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
+  const [loyaltyCount, setLoyaltyCount] = useState(0);
 
-  // Monitorar autenticação
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, async (user) => {
@@ -61,44 +61,49 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Monitorar dados da empresa
   useEffect(() => {
     if (!currentEst || !isConfigured || !isLoggedIn) {
       setQueue([]);
       setServices([]);
       setProfessionals([]);
       setRevenue([]);
+      setLoyaltyCount(0);
       return;
     }
 
-    const qQueue = query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc"));
-    
-    const unsubscribeQueue = onSnapshot(qQueue, (snapshot) => {
+    const unsubscribeQueue = onSnapshot(query(collection(db, "establishments", currentEst.id, "queue"), orderBy("timestamp", "asc")), (snapshot) => {
       setQueue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem)));
-      setDbError(null);
-    }, (err) => {
-      setDbError({ code: err.code, message: err.message });
     });
 
     const unsubscribeServices = onSnapshot(collection(db, "establishments", currentEst.id, "services"), (snapshot) => {
       setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
-    }, () => {});
+    });
 
     const unsubscribePros = onSnapshot(collection(db, "establishments", currentEst.id, "professionals"), (snapshot) => {
       setProfessionals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)));
-    }, () => {});
+    });
 
     const unsubscribeRevenue = onSnapshot(collection(db, "establishments", currentEst.id, "revenue"), (snapshot) => {
       setRevenue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RevenueRecord)));
-    }, () => {});
+    });
+
+    // Monitorar contagem de fidelidade do usuário atual
+    const unsubscribeLoyalty = onSnapshot(doc(db, "establishments", currentEst.id, "loyalty", userEmail), (doc) => {
+      if (doc.exists()) {
+        setLoyaltyCount(doc.data().count || 0);
+      } else {
+        setLoyaltyCount(0);
+      }
+    });
 
     return () => {
       unsubscribeQueue();
       unsubscribeServices();
       unsubscribePros();
       unsubscribeRevenue();
+      unsubscribeLoyalty();
     };
-  }, [currentEst, isLoggedIn]);
+  }, [currentEst, isLoggedIn, userEmail]);
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -107,7 +112,6 @@ const App: React.FC = () => {
     setActiveTab('fila');
   };
 
-  // Fix: Implemented missing handleLogin function required by AuthView component
   const handleLogin = (email: string, role: 'admin' | 'client') => {
     setUserEmail(email);
     setUserRole(role);
@@ -120,19 +124,18 @@ const App: React.FC = () => {
       await updateDoc(doc(db, "establishments", currentEst.id), data);
       setCurrentEst({ ...currentEst, ...data });
     } catch (e) {
-      alert("Erro ao atualizar dados da unidade.");
+      alert("Erro ao atualizar dados.");
     }
   };
 
   const handleDeleteEstablishment = async () => {
     if (!currentEst) return;
-    if (confirm(`AVISO CRÍTICO: Você tem certeza que deseja excluir permanentemente a unidade "${currentEst.name}"? Todos os dados de faturamento, serviços e fila serão perdidos.`)) {
+    if (confirm(`Excluir permanentemente "${currentEst.name}"?`)) {
       try {
         await deleteDoc(doc(db, "establishments", currentEst.id));
         setCurrentEst(null);
-        setActiveTab('fila');
       } catch (e) {
-        alert("Erro ao excluir unidade.");
+        alert("Erro ao excluir.");
       }
     }
   };
@@ -140,69 +143,43 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      const payload = {
+      await addDoc(collection(db, "establishments", currentEst.id, "queue"), {
         ...data,
         userEmail,
-        establishmentId: currentEst.id,
         status: 'waiting',
         timestamp: Date.now()
-      };
-      
-      Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
-
-      await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
+      });
       setIsJoinModalOpen(false);
-    } catch (e: any) {
-      console.error("Erro ao entrar na fila:", e);
-      alert(`Erro: ${e.code || e.message}`);
-    }
-  };
-
-  const handleLeaveQueue = async (itemId: string) => {
-    if (!currentEst) return;
-    if (confirm("Deseja realmente sair da fila?")) {
-      try {
-        await deleteDoc(doc(db, "establishments", currentEst.id, "queue", itemId));
-      } catch (e) {
-        alert("Erro ao remover da fila.");
-      }
-    }
-  };
-
-  const handleCallNext = async () => {
-    if (!currentEst) return;
-    
-    const servingItem = queue.find(i => i.status === 'serving');
-    if (servingItem) {
-      setSelectedQueueItem(servingItem);
-      setIsCompletionModalOpen(true);
-      return;
-    }
-
-    const nextItem = queue.find(i => i.status === 'waiting');
-    if (nextItem) {
-      try {
-        await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), {
-          status: 'serving',
-          timestamp: Date.now()
-        });
-      } catch (e) {
-        alert("Erro ao chamar o próximo cliente.");
-      }
-    } else {
-      alert("A fila está vazia!");
+    } catch (e) {
+      alert("Erro ao entrar na fila.");
     }
   };
 
   const handleFinishService = async (method: PaymentMethod, amount: number) => {
     if (!currentEst || !selectedQueueItem) return;
     try {
+      // 1. Gravar Faturamento
       await addDoc(collection(db, "establishments", currentEst.id, "revenue"), {
         amount, method, serviceName: selectedQueueItem.service,
         clientName: selectedQueueItem.name, date: new Date().toISOString(),
         establishmentId: currentEst.id
       });
+
+      // 2. Incrementar Fidelidade (se tiver e-mail)
+      if (selectedQueueItem.userEmail) {
+        const loyaltyRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
+        const loyaltyDoc = await getDoc(loyaltyRef);
+        if (loyaltyDoc.exists()) {
+          const newCount = (loyaltyDoc.data().count || 0) + 1;
+          await updateDoc(loyaltyRef, { count: newCount > 10 ? 1 : newCount });
+        } else {
+          await setDoc(loyaltyRef, { count: 1 });
+        }
+      }
+
+      // 3. Remover da Fila
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
+      
       setIsCompletionModalOpen(false);
       setSelectedQueueItem(null);
     } catch (e) {
@@ -210,138 +187,76 @@ const App: React.FC = () => {
     }
   };
 
-  if (!isConfigured) {
-    return (
-      <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 text-center space-y-8">
-        <Settings size={48} className="text-teal-500 animate-spin-slow" />
-        <h1 className="text-xl font-bold text-white uppercase font-orbitron tracking-widest leading-none">Iniciando Cloud...</h1>
-      </div>
-    );
-  }
-
+  if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
   if (!isLoggedIn) return <AuthView onLogin={handleLogin} />;
-  
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={handleLogout} />;
 
   return (
     <Layout 
       activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} 
       establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)}
+      loyaltyEnabled={currentEst.loyaltyEnabled}
     >
-      {dbError && (
-        <div className="mb-8 p-6 bg-slate-900 border border-amber-500/20 rounded-[40px] space-y-4 animate-in fade-in zoom-in-95">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
-               {dbError.code === 'unavailable' ? <WifiOff size={24}/> : <AlertTriangle size={24}/>}
-            </div>
-            <div className="flex-1">
-               <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Status da Conexão</h4>
-               <p className="text-[11px] text-white font-bold uppercase leading-tight mt-1">
-                 {dbError.code === 'unavailable' 
-                    ? "O Google Cloud não está respondendo. O banco Firestore foi criado no console?" 
-                    : "Erro de Permissão: Verifique se você publicou as regras de segurança."}
-               </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} 
-          isAdmin={userRole === 'admin'} 
-          currentUserEmail={userEmail}
-          estStatus={currentEst.status} 
-          bookingModel={currentEst.bookingModel || 'both'} 
-          professionals={professionals} 
-          services={services} 
-          onCallNext={handleCallNext} 
+          queue={queue} isAdmin={userRole === 'admin'} currentUserEmail={userEmail}
+          estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
+          professionals={professionals} services={services} 
+          onCallNext={() => {
+            const servingItem = queue.find(i => i.status === 'serving');
+            if (servingItem) { setSelectedQueueItem(servingItem); setIsCompletionModalOpen(true); }
+            else {
+              const next = queue.find(i => i.status === 'waiting');
+              if (next) updateDoc(doc(db, "establishments", currentEst.id, "queue", next.id), { status: 'serving', timestamp: Date.now() });
+            }
+          }} 
           onNoShow={() => {
             const serving = queue.find(i => i.status === 'serving');
             if (serving) deleteDoc(doc(db, "establishments", currentEst.id, "queue", serving.id));
           }} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
-          onLeaveQueue={handleLeaveQueue}
+          onLeaveQueue={async (id) => { if(confirm("Sair da fila?")) await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id)); }}
         />
       )}
 
-      {/* Fix: Added integration for the MagicMirror AI feature */}
-      {activeTab === 'mirror' && (
-        <MagicMirror 
-          plan={currentEst.plan || 'free'} 
-          aiCredits={5} 
-          onPurchaseRequest={() => alert("Recurso de compra em breve!")} 
-          onUseCredit={() => {}} 
-        />
-      )}
+      {activeTab === 'mirror' && <MagicMirror plan={currentEst.plan || 'free'} aiCredits={5} onPurchaseRequest={() => {}} onUseCredit={() => {}} />}
       
-      {activeTab === 'fidelidade' && <LoyaltyView cutsCount={5} />}
+      {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
 
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
-          establishment={currentEst}
-          queue={queue} services={services} professionals={professionals} 
+          establishment={currentEst} queue={queue} services={services} professionals={professionals} 
           estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
           plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} 
-          loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} 
-          pixKey={currentEst.pixKey || ''} 
-          onUpdateEstablishment={handleUpdateEstablishment}
-          onDeleteEstablishment={handleDeleteEstablishment}
-          onSetPixKey={async (k) => {
-            await handleUpdateEstablishment({ pixKey: k });
-          }} 
-          onUpdateStatus={async (s) => {
-            await handleUpdateEstablishment({ status: s });
-          }}
-          onSetBookingModel={async (m) => {
-             await handleUpdateEstablishment({ bookingModel: m });
-          }}
-          onSetLoyaltyEnabled={async (e) => {
-             await handleUpdateEstablishment({ loyaltyEnabled: e });
-          }}
-          onCallNext={handleCallNext} 
-          onNoShow={() => {
-            const serving = queue.find(i => i.status === 'serving');
-            if (serving) deleteDoc(doc(db, "establishments", currentEst.id, "queue", serving.id));
-          }} 
+          loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
+          onUpdateEstablishment={handleUpdateEstablishment} onDeleteEstablishment={handleDeleteEstablishment}
+          onSetPixKey={(k) => handleUpdateEstablishment({ pixKey: k })}
+          onUpdateStatus={(s) => handleUpdateEstablishment({ status: s })}
+          onSetBookingModel={(m) => handleUpdateEstablishment({ bookingModel: m })}
+          onSetLoyaltyEnabled={(e) => handleUpdateEstablishment({ loyaltyEnabled: e })}
+          onCallNext={() => {}} onNoShow={() => {}}
           onUpdateServices={async (sList) => {
-             const lastService = sList[sList.length - 1];
-             if (sList.length > services.length) {
-                await setDoc(doc(db, "establishments", currentEst.id, "services", lastService.id), lastService);
-             } else {
-                const removed = services.find(s => !sList.find(sl => sl.id === s.id));
-                if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "services", removed.id));
-             }
+            const last = sList[sList.length - 1];
+            if (sList.length > services.length) await setDoc(doc(db, "establishments", currentEst.id, "services", last.id), last);
+            else { const rem = services.find(s => !sList.find(sl => sl.id === s.id)); if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "services", rem.id)); }
           }}
           onUpdatePros={async (pList) => {
-             const lastPro = pList[pList.length - 1];
-             if (pList.length > professionals.length) {
-                await setDoc(doc(db, "establishments", currentEst.id, "professionals", lastPro.id), lastPro);
-             } else {
-                const removed = professionals.find(p => !pList.find(pl => pl.id === p.id));
-                if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", removed.id));
-             }
+            const last = pList[pList.length - 1];
+            if (pList.length > professionals.length) await setDoc(doc(db, "establishments", currentEst.id, "professionals", last.id), last);
+            else { const rem = professionals.find(p => !pList.find(pl => pl.id === p.id)); if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", rem.id)); }
           }}
         />
       )}
 
       {activeTab === 'config' && (
         <div className="flex flex-col items-center py-12 space-y-10">
-           <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter leading-none">Perfil de Usuário</h2>
-           <button onClick={handleLogout} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500 tracking-widest">Encerrar Sessão</button>
+           <h2 className="text-2xl font-black text-white font-orbitron uppercase">Perfil</h2>
+           <button onClick={handleLogout} className="w-full max-w-xs py-5 bg-red-500/10 border border-red-500/20 rounded-3xl text-[10px] font-black uppercase text-red-500">Encerrar Sessão</button>
         </div>
       )}
 
       {isJoinModalOpen && <JoinQueueModal services={services} currentQueue={queue} professionals={professionals} bookingModel={currentEst.bookingModel || 'both'} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
-      
-      {isCompletionModalOpen && selectedQueueItem && (
-        <ServiceCompletionModal 
-          item={selectedQueueItem} 
-          services={services} 
-          onClose={() => setIsCompletionModalOpen(false)} 
-          onConfirm={handleFinishService} 
-        />
-      )}
+      {isCompletionModalOpen && selectedQueueItem && <ServiceCompletionModal item={selectedQueueItem} services={services} onClose={() => setIsCompletionModalOpen(false)} onConfirm={handleFinishService} />}
     </Layout>
   );
 };
