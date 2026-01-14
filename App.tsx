@@ -226,12 +226,27 @@ const App: React.FC = () => {
           onUpdateServices={async (sList) => {
             const last = sList[sList.length - 1];
             if (sList.length > services.length) await setDoc(doc(db, "establishments", currentEst.id, "services", last.id), last);
-            else { const rem = services.find(s => !sList.find(sl => sl.id === s.id)); if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "services", rem.id)); }
+            else if (sList.length < services.length) { 
+              const rem = services.find(s => !sList.find(sl => sl.id === s.id)); 
+              if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "services", rem.id)); 
+            } else {
+              // Atualização de serviço existente
+              sList.forEach(async (s) => await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s));
+            }
           }}
           onUpdatePros={async (pList) => {
-            const last = pList[pList.length - 1];
-            if (pList.length > professionals.length) await setDoc(doc(db, "establishments", currentEst.id, "professionals", last.id), last);
-            else { const rem = professionals.find(p => !pList.find(pl => pl.id === p.id)); if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", rem.id)); }
+            if (pList.length > professionals.length) {
+              const last = pList[pList.length - 1];
+              await setDoc(doc(db, "establishments", currentEst.id, "professionals", last.id), last);
+            } else if (pList.length < professionals.length) {
+              const rem = professionals.find(p => !pList.find(pl => pl.id === p.id));
+              if (rem) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", rem.id));
+            } else {
+              // Sincroniza todos os profissionais para garantir que o status seja salvo
+              for (const p of pList) {
+                await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
+              }
+            }
           }}
           onManualJoin={handleJoinQueue}
           onToggleTVMode={() => setIsTVMode(true)}

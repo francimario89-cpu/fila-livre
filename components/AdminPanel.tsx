@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Clock, Zap, Gift, FileText, Store, Save, ToggleLeft, ToggleRight, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, UserMinus
+  Plus, Trash2, BarChart3, Users2, UserCircle, Clock, Zap, Gift, FileText, Store, Save, ToggleLeft, ToggleRight, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, UserMinus, Timer
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, ProfStatus } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -48,6 +48,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editEstName, setEditEstName] = useState(establishment.name);
 
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
+  
+  const avgServiceTime = useMemo(() => {
+    if (services.length === 0) return 30;
+    return Math.round(services.reduce((acc, s) => acc + (s.duration || 30), 0) / services.length);
+  }, [services]);
 
   const handleUpdateProStatus = (proId: string, status: ProfStatus) => {
     const updated = professionals.map(p => p.id === proId ? { ...p, status } : p);
@@ -81,6 +86,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <span className="text-[8px] font-black uppercase tracking-widest">{s.label}</span>
             </button>
           ))}
+        </div>
+      </section>
+
+      {/* MÉTRICAS RÁPIDAS */}
+      <section className="grid grid-cols-2 gap-4">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500 mb-1">
+                <BarChart3 size={16} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Faturamento</span>
+            </div>
+            <h4 className="text-xl font-black text-white">R$ {totalEarnings.toFixed(0)}</h4>
+            <p className="text-[8px] text-slate-500 font-bold uppercase">{revenue.length} atendimentos</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-2">
+            <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                <Timer size={16} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Tempo Médio</span>
+            </div>
+            <h4 className="text-xl font-black text-white">{avgServiceTime} min</h4>
+            <p className="text-[8px] text-slate-500 font-bold uppercase">por serviço</p>
         </div>
       </section>
 
@@ -121,7 +146,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div>
                     <span className="text-sm font-black text-white uppercase block">{p.name}</span>
                     <span className="text-[8px] text-slate-500 font-bold uppercase">
-                      {p.status === 'available' ? 'Disponível' : p.status === 'lunch' || p.status === 'busy' ? 'Pausa' : 'Ausente'}
+                      {p.status === 'available' ? 'Ativo / Online' : p.status === 'lunch' || p.status === 'busy' ? 'Em Pausa' : 'Offline / Ausente'}
                     </span>
                   </div>
                 </div>
@@ -132,19 +157,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => handleUpdateProStatus(p.id, 'available')}
-                  className={`py-2 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'available' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
+                  className={`py-3 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'available' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/10' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
                 >
                   Online
                 </button>
                 <button 
                   onClick={() => handleUpdateProStatus(p.id, 'lunch')}
-                  className={`py-2 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'lunch' || p.status === 'busy' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
+                  className={`py-3 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'lunch' || p.status === 'busy' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg shadow-amber-500/10' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
                 >
                   Pausa
                 </button>
                 <button 
                   onClick={() => handleUpdateProStatus(p.id, 'absent')}
-                  className={`py-2 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'absent' ? 'bg-red-500 border-red-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
+                  className={`py-3 rounded-xl text-[7px] font-black uppercase tracking-widest border transition-all ${p.status === 'absent' ? 'bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/10' : 'bg-slate-950 border-slate-800 text-slate-600'}`}
                 >
                   Offline
                 </button>
@@ -170,17 +195,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* FINANCEIRO RÁPIDO */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <BarChart3 size={14} className="text-emerald-500" /> Resumo Financeiro
+          <FileText size={14} className="text-emerald-500" /> Detalhes Financeiros
         </h3>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] space-y-4 shadow-xl">
-          <div>
-            <h4 className="text-4xl font-black text-white neon-text">R$ {totalEarnings.toFixed(2)}</h4>
-            <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">{revenue.length} Atendimentos concluídos</p>
-          </div>
-          <button onClick={() => setIsFinancialModalOpen(true)} className="w-full bg-slate-950 border border-slate-800 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-300 flex items-center justify-center gap-2">
-            <FileText size={16} className="text-emerald-500" /> Ver Relatório Completo
-          </button>
-        </div>
+        <button onClick={() => setIsFinancialModalOpen(true)} className="w-full bg-slate-900 border border-slate-800 p-8 rounded-[32px] text-[10px] font-black uppercase text-slate-300 flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 transition-colors">
+          <FileText size={18} className="text-emerald-500" /> Abrir Relatório Completo
+        </button>
       </section>
 
       {/* MODAL ADICIONAR MANUAL */}
