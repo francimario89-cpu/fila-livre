@@ -5,9 +5,7 @@ import {
   LayoutDashboard, 
   Settings, 
   Gift,
-  Zap,
-  UserCircle,
-  Sparkles
+  UserCircle
 } from 'lucide-react';
 
 export const APP_THEME = {
@@ -30,7 +28,6 @@ export const LOGO_SVG = (
     </defs>
     
     <g filter="url(#glow)">
-      {/* Ícone de Relógio/Fila Estilizado e Abstrato */}
       <circle cx="50" cy="50" r="40" fill="none" stroke="#2DD4BF" strokeWidth="6" strokeDasharray="180 60" />
       <path d="M 50 20 V 50 L 70 65" fill="none" stroke="#2DD4BF" strokeWidth="6" strokeLinecap="round" />
       <circle cx="50" cy="50" r="6" fill="#2DD4BF" />
@@ -48,7 +45,6 @@ export interface NavItem {
 
 export const NAVIGATION_ITEMS: NavItem[] = [
   { id: 'fila', label: 'FILA', icon: <Users size={20} />, roles: ['admin', 'client'] },
-  { id: 'mirror', label: 'IA MIRROR', icon: <Sparkles size={20} />, roles: ['client'] },
   { id: 'fidelidade', label: 'VIP', icon: <Gift size={20} />, roles: ['client'] },
   { id: 'admin', label: 'GESTÃO', icon: <LayoutDashboard size={20} />, roles: ['admin'] },
   { id: 'config', label: 'PERFIL', icon: <UserCircle size={20} />, roles: ['admin', 'client'] },
