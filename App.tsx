@@ -131,7 +131,6 @@ const App: React.FC = () => {
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst || professionals.length === 0) return;
     
-    // Identificar ID do profissional atual se for staff
     let myProId: string | null = null;
     if (userRole === 'staff') {
       const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -139,13 +138,20 @@ const App: React.FC = () => {
       else return alert("Vincule sua cadeira primeiro.");
     }
 
-    // Se houver um ID específico (clicou no botão de "play" do card da lista de espera)
+    // Chamada de um card específico
     if (specificId) {
       const item = queue.find(i => i.id === specificId);
       if (!item) return;
 
-      // Definir qual profissional vai atender
-      let targetProId = (item.professionalId && item.professionalId !== 'any') 
+      // REGRAS DE SEGURANÇA PARA BARBEIRO (STAFF)
+      if (userRole === 'staff' && myProId) {
+        // Se o cliente escolheu outro barbeiro e não é "Qualquer um"
+        if (item.professionalId !== 'any' && item.professionalId !== myProId) {
+          return alert("Atenção: Este cliente escolheu outro profissional especificamente. Apenas o gestor ou o próprio cliente podem alterar esta preferência.");
+        }
+      }
+
+      const targetProId = (item.professionalId && item.professionalId !== 'any') 
         ? item.professionalId 
         : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
 
@@ -157,8 +163,7 @@ const App: React.FC = () => {
       return;
     }
 
-    // Comportamento do Botão "Chamar Próximo" Geral
-    // 1. Se for STAFF (Colaborador), ele deve finalizar quem já está atendendo antes de chamar o próximo
+    // BOTÃO PRINCIPAL "CHAMAR PRÓXIMO"
     if (userRole === 'staff' && myProId) {
       const servingItem = queue.find(i => i.status === 'serving' && i.professionalId === myProId);
       if (servingItem) {
@@ -168,11 +173,16 @@ const App: React.FC = () => {
       }
     }
 
-    // 2. Se for ADMIN (Gestor), e ele clicar no botão geral, o sistema tenta achar o primeiro profissional livre para encaminhar o próximo da fila
-    const nextItem = queue.find(i => i.status === 'waiting');
+    // Busca o próximo respeitando a preferência se for Staff
+    const nextItem = queue.find(i => 
+      i.status === 'waiting' && 
+      (userRole === 'admin' ? true : (i.professionalId === 'any' || i.professionalId === myProId))
+    );
     
     if (nextItem) {
-      let finalProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
+      let finalProId = nextItem.professionalId !== 'any' 
+        ? nextItem.professionalId 
+        : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
 
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { 
         status: 'serving', 
@@ -180,7 +190,7 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       });
     } else {
-      alert("Não há clientes aguardando na fila.");
+      alert(userRole === 'admin' ? "Não há clientes na fila aguardando." : "Não há clientes na sua fila ou sem preferência.");
     }
   };
 
@@ -222,7 +232,7 @@ const App: React.FC = () => {
         setUserEmail(email.toLowerCase()); 
         setUserRole(role); 
         setIsLoggedIn(true); 
-        setActiveTab('fila'); // FORÇAR IR PARA FILA AO LOGAR
+        setActiveTab('fila'); 
       }} 
     />
   );
@@ -267,7 +277,19 @@ const App: React.FC = () => {
           )}
           {activeTab === 'fila' && (
             <QueueView 
-              queue={queue} isAdmin={isStaffOrAdmin} currentUserEmail={userEmail} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} onCallNext={handleCallNext} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} onSwitchQueue={handleSwitchQueue}
+              queue={queue} 
+              isAdmin={isStaffOrAdmin} 
+              userRole={userRole}
+              myProId={myStaffPro?.id}
+              currentUserEmail={userEmail} 
+              estStatus={currentEst.status} 
+              bookingModel={currentEst.bookingModel || 'both'} 
+              professionals={professionals} 
+              services={services} 
+              onCallNext={handleCallNext} 
+              onNoShow={handleNoShow} 
+              onOpenJoinModal={() => setIsJoinModalOpen(true)} 
+              onSwitchQueue={handleSwitchQueue}
               onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(isStaffOrAdmin ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
