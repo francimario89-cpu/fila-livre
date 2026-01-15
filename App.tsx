@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Settings, RefreshCw } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2 } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -33,7 +33,7 @@ const App: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
 
-  // 1. Monitorar Autenticação e Definir Role Inicial
+  // 1. Monitorar Autenticação e Definir Role Inicial do Perfil
   useEffect(() => {
     if (!isConfigured) return;
     return onAuthStateChanged(auth, async (user) => {
@@ -42,9 +42,16 @@ const App: React.FC = () => {
         setUserEmail(email);
         setIsLoggedIn(true);
         
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setUserRole(userDoc.data().role);
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            setUserRole(userDoc.data().role || 'client');
+          } else {
+            setUserRole('client');
+          }
+        } catch (e) {
+          console.error("Erro ao ler perfil:", e);
+          setUserRole('client');
         }
       } else {
         setIsLoggedIn(false);
@@ -55,21 +62,21 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // 2. Sincronizar Role se o usuário for o dono do estabelecimento selecionado
-  useEffect(() => {
-    if (currentEst && userEmail === currentEst.ownerEmail) {
-      setUserRole('admin');
-    }
-  }, [currentEst, userEmail]);
-
+  // 2. Sincronização em tempo real do estabelecimento e Role de Dono
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
+    
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as Establishment;
         setCurrentEst({ id: docSnap.id, ...data });
-        // Se eu sou o dono, eu SOU admin, independente do que diz o perfil
-        if (userEmail === data.ownerEmail) setUserRole('admin');
+        
+        // Lógica Crítica: Só vira Admin se for o Dono Real da Loja
+        if (userEmail && data.ownerEmail && userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) {
+          setUserRole('admin');
+        } else {
+          setUserRole('client');
+        }
       }
     });
     return () => unsubEst();
@@ -115,7 +122,7 @@ const App: React.FC = () => {
         const userSnap = await getDoc(userDocRef);
         const userData = userSnap.data() as UserProfile;
         if (userData?.activeBooking) {
-          alert("Você já está na fila.");
+          alert("Você já está na fila desta ou de outra loja.");
           return;
         }
       }
@@ -162,7 +169,6 @@ const App: React.FC = () => {
     if (!currentEst) return;
     const serving = queue.find(i => i.status === 'serving');
     
-    // Se já tem alguém sendo atendido, finaliza primeiro
     if (serving && !specificId) { 
       setSelectedQueueItem(serving); 
       setIsCompletionModalOpen(true); 
@@ -181,6 +187,16 @@ const App: React.FC = () => {
   const handleNoShow = (id?: string) => {
     const item = id ? queue.find(i => i.id === id) : queue.find(i => i.status === 'serving');
     if (item) handleRemoveFromQueue(item.id, item.userEmail);
+  };
+
+  const handleRemoveEstFromHistory = () => {
+    if (!currentEst) return;
+    if (confirm(`Deseja remover "${currentEst.name}" do seu histórico?`)) {
+      const saved = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
+      const updated = saved.filter((s: Establishment) => s.id !== currentEst.id);
+      localStorage.setItem(`client_history_${userEmail}`, JSON.stringify(updated));
+      setCurrentEst(null);
+    }
   };
 
   if (isTVMode && currentEst) {
@@ -250,12 +266,25 @@ const App: React.FC = () => {
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] text-center">
                   <p className="text-[10px] text-slate-500 font-black uppercase">E-mail</p>
                   <p className="text-sm font-bold text-white mt-1">{userEmail}</p>
-                  <p className="text-[8px] text-indigo-400 font-black uppercase mt-2">Nível: {userRole}</p>
+                  <p className="text-[8px] text-indigo-400 font-black uppercase mt-2">Permissão: {userRole === 'admin' ? 'Gestor' : 'Cliente'}</p>
               </div>
+              
               <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase">
                 <RefreshCw size={14} /> Atualizar App
               </button>
-              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-[32px] text-[10px] font-black uppercase text-red-500 shadow-xl active:scale-95 transition-all">Sair</button>
+
+              {userRole === 'client' && (
+                <button 
+                  onClick={handleRemoveEstFromHistory}
+                  className="w-full py-5 bg-orange-500/10 border border-orange-500/20 rounded-[32px] text-[10px] font-black uppercase text-orange-500 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Remover Loja do Histórico
+                </button>
+              )}
+
+              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-[32px] text-[10px] font-black uppercase text-red-500 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+                <LogOut size={16} /> Sair da Conta
+              </button>
            </div>
         </div>
       )}

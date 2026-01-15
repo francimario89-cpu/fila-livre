@@ -173,7 +173,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                     {userRole === 'client' && (
                       <button 
                         onClick={(e) => handleRemoveConnection(e, est.id)}
-                        className="absolute -top-2 -right-2 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shadow-lg backdrop-blur-md"
+                        className="absolute -top-1 -right-1 p-3 bg-slate-800 border border-white/10 text-red-500 rounded-2xl shadow-lg active:scale-90 transition-all z-10"
                       >
                         <Trash2 size={16} />
                       </button>
