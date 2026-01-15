@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2 } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -13,7 +13,7 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile } from './types';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus } from './types';
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
@@ -195,6 +195,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateStaffStatus = async (newStatus: ProfStatus) => {
+    if (!currentEst || userRole !== 'staff') return;
+    const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+    if (myPro) {
+      await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), {
+        status: newStatus
+      });
+    }
+  };
+
   const handleNoShow = (id?: string) => {
     const item = id ? queue.find(i => i.id === id) : queue.find(i => i.status === 'serving');
     if (item) handleRemoveFromQueue(item.id, item.userEmail);
@@ -286,6 +296,29 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* BARRA DE STATUS PARA STAFF (BARBEIRO) */}
+          {userRole === 'staff' && myStaffPro && (
+            <div className="mb-6 bg-slate-900/50 border border-slate-800 rounded-[32px] p-2 flex items-center gap-2 animate-in slide-in-from-top-4">
+               {[
+                 { id: 'available', label: 'Disponível', icon: <CheckCircle2 size={14} />, color: 'emerald' },
+                 { id: 'lunch', label: 'Almoço', icon: <Coffee size={14} />, color: 'amber' },
+                 { id: 'absent', label: 'Ausente', icon: <UserX size={14} />, color: 'red' }
+               ].map((st) => (
+                 <button 
+                  key={st.id}
+                  onClick={() => handleUpdateStaffStatus(st.id as ProfStatus)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[24px] text-[9px] font-black uppercase tracking-widest transition-all ${
+                    myStaffPro.status === st.id 
+                    ? `bg-${st.color}-500 text-slate-950 shadow-lg shadow-${st.color}-500/20` 
+                    : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                 >
+                   {st.icon} {st.label}
+                 </button>
+               ))}
+            </div>
+          )}
+
           {activeTab === 'fila' && (
             <QueueView 
               queue={queue} isAdmin={isStaffOrAdmin} currentUserEmail={userEmail}

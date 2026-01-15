@@ -188,9 +188,20 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* BOTÃO DE AÇÃO FLUTUANTE */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {isAdmin ? (
-          <button onClick={() => onCallNext?.()} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
-            <BellRing size={20} /> Chamar Próximo
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={onOpenJoinModal} 
+              className="w-16 h-16 bg-teal-500 text-slate-950 rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-slate-950"
+            >
+              <UserPlus size={24} />
+            </button>
+            <button 
+              onClick={() => onCallNext?.()} 
+              className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"
+            >
+              <BellRing size={20} /> Chamar Próximo
+            </button>
+          </div>
         ) : (
           estStatus === 'open' && (
             <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl shadow-teal-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
