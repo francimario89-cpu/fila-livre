@@ -24,6 +24,7 @@ export interface Professional {
   name: string;
   status: ProfStatus;
   establishmentId: string;
+  email?: string; // Vinculado para login de colaborador
 }
 
 export interface Service {
@@ -61,7 +62,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   name: string;
-  role: 'admin' | 'client';
+  role: 'admin' | 'staff' | 'client';
   activeBooking?: {
     establishmentId: string;
     queueId: string;

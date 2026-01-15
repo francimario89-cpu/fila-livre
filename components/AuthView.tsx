@@ -4,10 +4,10 @@ import { LOGO_SVG } from '../constants';
 import { auth, db, sendPasswordResetEmail } from '../services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2, Scissors } from 'lucide-react';
 
 interface AuthViewProps {
-  onLogin: (email: string, role: 'admin' | 'client') => void;
+  onLogin: (email: string, role: 'admin' | 'staff' | 'client') => void;
 }
 
 type AuthScreen = 'selection' | 'email' | 'forgot_password';
@@ -18,13 +18,13 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<'admin' | 'client' | null>(null);
+  const [role, setRole] = useState<'admin' | 'staff' | 'client' | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const syncUserProfile = async (user: any, userRole: 'admin' | 'client', displayName?: string) => {
+  const syncUserProfile = async (user: any, userRole: 'admin' | 'staff' | 'client', displayName?: string) => {
     const userRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -102,30 +102,45 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
           <button
             onClick={() => { setRole('client'); setScreen('email'); }}
-            className="group relative bg-slate-900/40 border-2 border-slate-800 p-8 rounded-[40px] hover:border-teal-500 transition-all duration-500 shadow-2xl"
+            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-teal-500 transition-all duration-500 shadow-2xl"
           >
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center border border-teal-500/20 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all">
-                <User size={32} />
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center border border-teal-500/20 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all">
+                <User size={24} />
               </div>
-              <div>
-                <h3 className="text-white font-black text-xl uppercase font-orbitron tracking-tight">Sou Cliente</h3>
-                <p className="text-[9px] text-slate-500 font-black uppercase mt-1 tracking-widest">Entrar na fila</p>
+              <div className="text-left">
+                <h3 className="text-white font-black text-lg uppercase font-orbitron tracking-tight">Sou Cliente</h3>
+                <p className="text-[8px] text-slate-500 font-black uppercase mt-1 tracking-widest">Entrar na fila</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => { setRole('staff'); setScreen('email'); }}
+            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-amber-500 transition-all duration-500 shadow-2xl"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all">
+                <Scissors size={24} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-white font-black text-lg uppercase font-orbitron tracking-tight">Colaborador</h3>
+                <p className="text-[8px] text-slate-500 font-black uppercase mt-1 tracking-widest">Acesso à cadeira</p>
               </div>
             </div>
           </button>
 
           <button
             onClick={() => { setRole('admin'); setScreen('email'); }}
-            className="group relative bg-slate-900/40 border-2 border-slate-800 p-8 rounded-[40px] hover:border-indigo-500 transition-all duration-500 shadow-2xl"
+            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-indigo-500 transition-all duration-500 shadow-2xl"
           >
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                <Building2 size={32} />
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <Building2 size={24} />
               </div>
-              <div>
-                <h3 className="text-white font-black text-xl uppercase font-orbitron tracking-tight">Sou Empresa</h3>
-                <p className="text-[9px] text-slate-500 font-black uppercase mt-1 tracking-widest">Gerir minha fila</p>
+              <div className="text-left">
+                <h3 className="text-white font-black text-lg uppercase font-orbitron tracking-tight">Empresa</h3>
+                <p className="text-[8px] text-slate-500 font-black uppercase mt-1 tracking-widest">Gerir minha loja</p>
               </div>
             </div>
           </button>
@@ -136,7 +151,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 relative">
-      <div className={`absolute inset-0 blur-[150px] opacity-10 ${role === 'admin' ? 'bg-indigo-600' : 'bg-teal-600'}`} />
+      <div className={`absolute inset-0 blur-[150px] opacity-10 ${role === 'admin' ? 'bg-indigo-600' : role === 'staff' ? 'bg-amber-600' : 'bg-teal-600'}`} />
       
       <div className="w-full max-w-sm relative z-10 space-y-6">
         <button onClick={() => { setScreen('selection'); setRole(null); setError(''); }} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest">
@@ -144,10 +159,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         </button>
 
         <div className="text-center space-y-2">
-          <h2 className={`text-2xl font-black uppercase font-orbitron ${role === 'admin' ? 'text-indigo-400' : 'text-teal-400'}`}>
+          <h2 className={`text-2xl font-black uppercase font-orbitron ${role === 'admin' ? 'text-indigo-400' : role === 'staff' ? 'text-amber-400' : 'text-teal-400'}`}>
             {screen === 'forgot_password' ? 'Recuperar Senha' : (isRegistering ? 'Criar Cadastro' : 'Acessar')}
           </h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{role === 'admin' ? 'Acesso Administrativo' : 'Acesso do Cliente'}</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+            {role === 'admin' ? 'Acesso Administrativo' : role === 'staff' ? 'Painel do Barbeiro' : 'Acesso do Cliente'}
+          </p>
         </div>
 
         {error && (
@@ -196,7 +213,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             <button type="button" onClick={() => setScreen('forgot_password')} className="text-[9px] font-black text-slate-600 uppercase tracking-widest hover:text-slate-300 py-1">Esqueceu a senha?</button>
 
             <button disabled={isLoading} type="submit" className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
-              role === 'admin' ? 'bg-indigo-600 text-white' : 'bg-teal-500 text-slate-950'
+              role === 'admin' ? 'bg-indigo-600 text-white' : role === 'staff' ? 'bg-amber-500 text-slate-950' : 'bg-teal-500 text-slate-950'
             }`}>
               {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "CONFIRMAR CADASTRO" : "ENTRAR")}
             </button>

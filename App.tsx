@@ -17,7 +17,7 @@ import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserPro
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState<'admin' | 'client'>('client');
+  const [userRole, setUserRole] = useState<'admin' | 'staff' | 'client'>('client');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const [currentEst, setCurrentEst] = useState<Establishment | null>(null);
@@ -62,7 +62,7 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // 2. Sincronização em tempo real do estabelecimento e Role de Dono
+  // 2. Sincronização em tempo real do estabelecimento e Role de Dono/Staff
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
     
@@ -71,12 +71,10 @@ const App: React.FC = () => {
         const data = docSnap.data() as Establishment;
         setCurrentEst({ id: docSnap.id, ...data });
         
-        // Lógica Crítica: Só vira Admin se for o Dono Real da Loja
+        // Se for o dono, assume Admin
         if (userEmail && data.ownerEmail && userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) {
           setUserRole('admin');
-        } else {
-          setUserRole('client');
-        }
+        } 
       }
     });
     return () => unsubEst();
@@ -167,7 +165,15 @@ const App: React.FC = () => {
 
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst) return;
-    const serving = queue.find(i => i.status === 'serving');
+    
+    // Se for colaborador, ele só pode chamar quem é dele ou da fila 'any'
+    let proId = 'any';
+    if (userRole === 'staff') {
+      const myPro = professionals.find(p => p.email === userEmail);
+      if (myPro) proId = myPro.id;
+    }
+
+    const serving = queue.find(i => i.status === 'serving' && (userRole === 'admin' ? true : i.professionalId === proId));
     
     if (serving && !specificId) { 
       setSelectedQueueItem(serving); 
@@ -175,10 +181,16 @@ const App: React.FC = () => {
       return;
     }
 
-    const nextId = specificId || queue.find(i => i.status === 'waiting')?.id;
+    // Prioridade: Minha fila específica -> Fila Geral ('any')
+    const myNext = queue.find(i => i.status === 'waiting' && i.professionalId === proId);
+    const generalNext = queue.find(i => i.status === 'waiting' && i.professionalId === 'any');
+    
+    const nextId = specificId || myNext?.id || generalNext?.id;
+    
     if (nextId) {
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextId), { 
         status: 'serving', 
+        professionalId: proId === 'any' ? professionals[0].id : proId, // Assume a cadeira se puxou da geral
         timestamp: Date.now() 
       });
     }
@@ -187,6 +199,15 @@ const App: React.FC = () => {
   const handleNoShow = (id?: string) => {
     const item = id ? queue.find(i => i.id === id) : queue.find(i => i.status === 'serving');
     if (item) handleRemoveFromQueue(item.id, item.userEmail);
+  };
+
+  const handleSwitchQueue = async (queueId: string, newProId: string) => {
+    if (!currentEst) return;
+    if (confirm("Deseja mudar para este barbeiro e ser atendido agora?")) {
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", queueId), {
+        professionalId: newProId
+      });
+    }
   };
 
   const handleRemoveEstFromHistory = () => {
@@ -207,6 +228,8 @@ const App: React.FC = () => {
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email); setUserRole(role); setIsLoggedIn(true); }} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
+  const isStaffOrAdmin = userRole === 'admin' || userRole === 'staff';
+
   return (
     <Layout 
       activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} 
@@ -215,15 +238,16 @@ const App: React.FC = () => {
     >
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} currentUserEmail={userEmail}
+          queue={queue} isAdmin={isStaffOrAdmin} currentUserEmail={userEmail}
           estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} 
           professionals={professionals} services={services} 
           onCallNext={handleCallNext} 
           onNoShow={handleNoShow} 
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          onSwitchQueue={handleSwitchQueue}
           onLeaveQueue={(id) => { 
             const item = queue.find(i => i.id === id);
-            if(confirm(userRole === 'admin' ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); 
+            if(confirm(isStaffOrAdmin ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); 
           }}
         />
       )}
@@ -259,6 +283,8 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* PAINEL SIMPLIFICADO PARA STAFF SE NECESSÁRIO NO FUTURO, POR ENQUANTO USA A FILA COM PODERES */}
+
       {activeTab === 'config' && (
         <div className="flex flex-col items-center py-12 space-y-10">
            <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter text-center">Configurações</h2>
@@ -266,7 +292,7 @@ const App: React.FC = () => {
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] text-center">
                   <p className="text-[10px] text-slate-500 font-black uppercase">E-mail</p>
                   <p className="text-sm font-bold text-white mt-1">{userEmail}</p>
-                  <p className="text-[8px] text-indigo-400 font-black uppercase mt-2">Permissão: {userRole === 'admin' ? 'Gestor' : 'Cliente'}</p>
+                  <p className="text-[8px] text-indigo-400 font-black uppercase mt-2">Permissão: {userRole === 'admin' ? 'Gestor' : userRole === 'staff' ? 'Colaborador' : 'Cliente'}</p>
               </div>
               
               <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase">
@@ -316,4 +342,5 @@ const App: React.FC = () => {
   );
 };
 
+// Fix for index.tsx error: adding missing default export
 export default App;
