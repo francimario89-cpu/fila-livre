@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -46,6 +46,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const [isAddingPro, setIsAddingPro] = useState(false);
   const [newProName, setNewProName] = useState('');
+  const [newProEmail, setNewProEmail] = useState('');
 
   const [manualName, setManualName] = useState('');
   const [manualService, setManualService] = useState(services[0]?.name || '');
@@ -73,16 +74,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       id: `pro-${Date.now()}`,
       name: newProName.toUpperCase(),
       status: 'available',
-      establishmentId: establishment.id
+      establishmentId: establishment.id,
+      email: newProEmail.toLowerCase() || undefined
     };
     onUpdatePros([...professionals, newPro]);
-    setNewProName(''); setIsAddingPro(false);
+    setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
+  };
+
+  const handleUpdateProEmail = (id: string, email: string) => {
+    const updated = professionals.map(p => p.id === id ? { ...p, email: email.toLowerCase() } : p);
+    onUpdatePros(updated);
   };
 
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 1. MÓDULO DE CHAMADA (O MAIS IMPORTANTE) */}
+      {/* 1. MÓDULO DE CHAMADA */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <BellRing size={14} className="text-teal-400" /> Atendimento Atual
@@ -190,7 +197,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* 4. GESTÃO DE SERVIÇOS (RESTAURADO) */}
+      {/* 4. GESTÃO DE SERVIÇOS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Scissors size={14} className="text-indigo-400" /> Catálogo de Serviços
@@ -238,32 +245,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* 5. GESTÃO DE PROFISSIONAIS */}
+      {/* 5. GESTÃO DE PROFISSIONAIS (UNIFICAÇÃO DE ACESSO) */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
         </h3>
         <div className="grid grid-cols-1 gap-3">
           {professionals.map(p => (
-            <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between shadow-xl">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                  <UserCircle size={24} />
+            <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                    <UserCircle size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-white uppercase">{p.name}</h4>
+                    <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : 'Pausa'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-black text-white uppercase">{p.name}</h4>
-                  <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : 'Pausa'}</p>
-                </div>
+                <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors">
+                  <Trash2 size={18}/>
+                </button>
               </div>
-              <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors">
-                <Trash2 size={18}/>
-              </button>
+              
+              <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
+                 <LinkIcon size={12} className="text-indigo-400" />
+                 <input 
+                   placeholder="Vincular E-mail do Colaborador" 
+                   value={p.email || ''} 
+                   onChange={(e) => handleUpdateProEmail(p.id, e.target.value)}
+                   className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none"
+                 />
+              </div>
             </div>
           ))}
 
           {isAddingPro ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
+               <input placeholder="E-MAIL (OPCIONAL)" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
                <div className="flex gap-2 pt-2">
                  <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-[9px] font-black text-slate-500 uppercase">Voltar</button>
                  <button onClick={handleAddProfessional} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[9px] font-black uppercase shadow-lg shadow-indigo-500/20">Cadastrar</button>
