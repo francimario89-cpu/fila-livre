@@ -25,7 +25,8 @@ interface AdminPanelProps {
   onSetBookingModel: (model: BookingModel) => void;
   onSetLoyaltyEnabled: (enabled: boolean) => void;
   onCallNext: () => void;
-  onNoShow: () => void;
+  onFinish: (item: QueueItem) => void;
+  onNoShow: (id?: string) => void;
   onUpdateServices: (s: Service[]) => void;
   onUpdatePros: (p: Professional[]) => void;
   onManualJoin: (data: any) => void;
@@ -34,7 +35,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   establishment, queue, services, professionals, estStatus, bookingModel, loyaltyEnabled, revenue, pixKey,
-  onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
+  onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
 }) => {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
@@ -52,7 +53,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [manualService, setManualService] = useState(services[0]?.name || '');
 
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
-  const serving = useMemo(() => queue.find(i => i.status === 'serving'), [queue]);
+  const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
   const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
 
   const handleAddService = () => {
@@ -89,47 +90,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 1. MÓDULO DE CHAMADA */}
+      {/* 1. MÓDULO DE CHAMADA (GESTÃO DE ATENDIMENTOS ATIVOS) */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <BellRing size={14} className="text-teal-400" /> Atendimento Atual
+          <BellRing size={14} className="text-teal-400" /> Atendimentos em Curso
         </h3>
         
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-6 shadow-2xl">
-          {serving ? (
-            <div className="flex items-center justify-between gap-4">
+        <div className="space-y-3">
+          {servingList.length > 0 ? servingList.map(serving => (
+            <div key={serving.id} className="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
-                  <UserCircle size={32} />
+                <div className="w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center justify-center">
+                  <UserCircle size={28} />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-white uppercase leading-none">{serving.name}</h4>
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase mt-1.5">{serving.service}</p>
+                  <h4 className="text-sm font-black text-white uppercase leading-none">{serving.name}</h4>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">
+                    {serving.service} • <span className="text-indigo-400">{professionals.find(p => p.id === serving.professionalId)?.name || 'Barbeiro'}</span>
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={onNoShow} className="p-4 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/20 active:scale-95 transition-all">
-                  <UserX size={20} />
+                <button onClick={() => onNoShow(serving.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                  <UserX size={16} />
                 </button>
-                <button onClick={onCallNext} className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                  Finalizar
+                <button onClick={() => onFinish(serving)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                  Concluir
                 </button>
               </div>
             </div>
-          ) : nextInLine ? (
-            <div className="flex flex-col items-center py-4 space-y-4">
-              <div className="text-center">
-                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Aguardando Próximo</p>
-                 <h4 className="text-xl font-black text-white uppercase mt-1">{nextInLine.name}</h4>
-              </div>
-              <button onClick={onCallNext} className="w-full bg-teal-500 text-slate-950 py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-3">
-                <Zap size={20} /> Chamar Próximo
-              </button>
+          )) : (
+            <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-[32px] p-8 text-center">
+              <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Nenhum atendimento ativo</p>
             </div>
-          ) : (
-            <div className="py-6 text-center">
-              <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Ninguém na fila de espera</p>
-            </div>
+          )}
+
+          {/* Botão Chamar Próximo (Sempre disponível se houver fila) */}
+          {nextInLine && (
+            <button onClick={onCallNext} className="w-full bg-teal-500 text-slate-950 py-5 rounded-[32px] font-black text-[11px] uppercase tracking-widest shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-3">
+              <Zap size={20} /> Chamar Próximo ({nextInLine.name})
+            </button>
           )}
         </div>
       </section>
@@ -223,7 +223,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                </button>
             </div>
           ))}
-
           {isAddingService ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
                <input placeholder="NOME (EX: CORTE SOCIAL)" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
@@ -255,31 +254,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 shadow-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : p.status === 'busy' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-red-500/10 text-red-500'}`}>
                     <UserCircle size={24} />
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-white uppercase">{p.name}</h4>
-                    <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : 'Pausa'}</p>
+                    <p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : p.status === 'busy' ? 'Atendendo' : 'Pausa'}</p>
                   </div>
                 </div>
                 <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors">
                   <Trash2 size={18}/>
                 </button>
               </div>
-              
               <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
                  <LinkIcon size={12} className="text-indigo-400" />
-                 <input 
-                   placeholder="Vincular E-mail do Colaborador" 
-                   value={p.email || ''} 
-                   onChange={(e) => handleUpdateProEmail(p.id, e.target.value)}
-                   className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none"
-                 />
+                 <input placeholder="Vincular E-mail do Colaborador" value={p.email || ''} onChange={(e) => handleUpdateProEmail(p.id, e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none" />
               </div>
             </div>
           ))}
-
           {isAddingPro ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
@@ -310,22 +302,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                <span className="text-[10px] font-black text-white uppercase tracking-widest">Modelo de Fila</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'queue', label: 'Só Fila' },
-                { id: 'appointment', label: 'Só Agenda' },
-                { id: 'both', label: 'Híbrido' }
-              ].map(m => (
-                <button 
-                  key={m.id} 
-                  onClick={() => onSetBookingModel(m.id as BookingModel)}
-                  className={`py-3 rounded-xl text-[7px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
-                >
+              {[{ id: 'queue', label: 'Só Fila' }, { id: 'appointment', label: 'Só Agenda' }, { id: 'both', label: 'Híbrido' }].map(m => (
+                <button key={m.id} onClick={() => onSetBookingModel(m.id as BookingModel)} className={`py-3 rounded-xl text-[7px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
                   {m.label}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="p-8 flex items-center justify-between">
              <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Settings size={18} /></div>
@@ -334,10 +317,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <span className="text-[7px] font-bold text-slate-500 uppercase mt-1.5">{loyaltyEnabled ? 'Ativo' : 'Desativado'}</span>
                 </div>
              </div>
-             <button 
-              onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)}
-              className={`w-16 h-9 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}
-             >
+             <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-16 h-9 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}>
                 <div className={`absolute top-1 w-7 h-7 bg-white rounded-full shadow-lg transition-all ${loyaltyEnabled ? 'left-8' : 'left-1'}`} />
              </button>
           </div>
@@ -355,12 +335,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               </select>
             </div>
-            <button 
-              onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: 'any', type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} 
-              className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 transition-all"
-            >
-              Inserir Agora
-            </button>
+            <button onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: 'any', type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 transition-all">Inserir Agora</button>
           </div>
         </div>
       )}
