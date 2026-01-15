@@ -132,22 +132,22 @@ const App: React.FC = () => {
     if (!currentEst || professionals.length === 0) return;
     
     // Identificar ID do profissional atual se for staff
-    let currentProId = 'any';
+    let myProId: string | null = null;
     if (userRole === 'staff') {
       const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-      if (myPro) currentProId = myPro.id;
+      if (myPro) myProId = myPro.id;
       else return alert("Vincule sua cadeira primeiro.");
     }
 
-    // Se o gestor ou staff clicar em um ID específico (do card de espera)
+    // Se houver um ID específico (clicou no botão de "play" do card da lista de espera)
     if (specificId) {
       const item = queue.find(i => i.id === specificId);
       if (!item) return;
 
-      // Se o item já tem profissional escolhido, usa ele. Senão, tenta o profissional logado ou o primeiro livre.
+      // Definir qual profissional vai atender
       let targetProId = (item.professionalId && item.professionalId !== 'any') 
         ? item.professionalId 
-        : (currentProId !== 'any' ? currentProId : professionals.find(p => p.status === 'available')?.id || professionals[0].id);
+        : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
 
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { 
         status: 'serving', 
@@ -158,9 +158,9 @@ const App: React.FC = () => {
     }
 
     // Comportamento do Botão "Chamar Próximo" Geral
-    // Se for STAFF e já estiver atendendo alguém, finaliza esse atendimento.
-    if (userRole === 'staff') {
-      const servingItem = queue.find(i => i.status === 'serving' && i.professionalId === currentProId);
+    // 1. Se for STAFF (Colaborador), ele deve finalizar quem já está atendendo antes de chamar o próximo
+    if (userRole === 'staff' && myProId) {
+      const servingItem = queue.find(i => i.status === 'serving' && i.professionalId === myProId);
       if (servingItem) {
         setSelectedQueueItem(servingItem);
         setIsCompletionModalOpen(true);
@@ -168,12 +168,11 @@ const App: React.FC = () => {
       }
     }
 
-    // Busca o próximo item na fila que este profissional (ou qualquer um se for admin) possa atender
-    const nextItem = queue.find(i => i.status === 'waiting' && (currentProId === 'any' ? true : (i.professionalId === 'any' || i.professionalId === currentProId)));
-
+    // 2. Se for ADMIN (Gestor), e ele clicar no botão geral, o sistema tenta achar o primeiro profissional livre para encaminhar o próximo da fila
+    const nextItem = queue.find(i => i.status === 'waiting');
+    
     if (nextItem) {
-      // Determina para qual cadeira enviar
-      let finalProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (currentProId !== 'any' ? currentProId : (professionals.find(p => p.status === 'available')?.id || professionals[0].id));
+      let finalProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
 
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { 
         status: 'serving', 
@@ -181,7 +180,7 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       });
     } else {
-      if (userRole !== 'client') alert("Não há clientes aguardando na fila.");
+      alert("Não há clientes aguardando na fila.");
     }
   };
 
@@ -217,7 +216,17 @@ const App: React.FC = () => {
   }
 
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
-  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); }} />;
+  if (!isLoggedIn) return (
+    <AuthView 
+      onLogin={(email, role) => { 
+        setUserEmail(email.toLowerCase()); 
+        setUserRole(role); 
+        setIsLoggedIn(true); 
+        setActiveTab('fila'); // FORÇAR IR PARA FILA AO LOGAR
+      }} 
+    />
+  );
+  
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   const myStaffPro = userRole === 'staff' ? professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase()) : null;
