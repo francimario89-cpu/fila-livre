@@ -38,12 +38,16 @@ const App: React.FC = () => {
     return onAuthStateChanged(auth, async (user) => {
       if (user) {
         const email = user.email || user.uid;
-        setUserEmail(email.toLowerCase());
+        const lowerEmail = email.toLowerCase();
+        setUserEmail(lowerEmail);
         setIsLoggedIn(true);
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) setUserRole(userDoc.data().role || 'client');
-          else setUserRole('client');
+          if (userDoc.exists()) {
+            setUserRole(userDoc.data().role || 'client');
+          } else {
+            setUserRole('client');
+          }
         } catch (e) { setUserRole('client'); }
       } else {
         setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client');
@@ -57,6 +61,7 @@ const App: React.FC = () => {
       if (docSnap.exists()) {
         const data = docSnap.data() as Establishment;
         setCurrentEst({ id: docSnap.id, ...data });
+        // Prioridade total para o dono (Gestor)
         if (userEmail && data.ownerEmail && userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) {
           setUserRole('admin');
         } 
@@ -136,9 +141,9 @@ const App: React.FC = () => {
     const item = queue.find(i => i.id === id);
     if (!item) return;
 
-    if (userRole === 'staff' || userRole === 'admin') {
+    if (userRole === 'staff') {
       const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-      if (userRole === 'staff' && item.professionalId !== 'any' && item.professionalId !== myPro?.id) {
+      if (item.professionalId !== 'any' && item.professionalId !== myPro?.id) {
         return alert("Você só pode dar falta em clientes da sua cadeira ou da fila geral.");
       }
     }
@@ -176,10 +181,7 @@ const App: React.FC = () => {
     if (!confirm("⚠️ ATENÇÃO: Deseja realmente DELETAR permanentemente esta unidade? Todos os dados de serviços, profissionais e faturamento serão perdidos!")) return;
     
     try {
-      // Deletar o documento principal do estabelecimento
       await deleteDoc(doc(db, "establishments", currentEst.id));
-      // Nota: Subcoleções no Firestore não são deletadas automaticamente ao deletar o pai, 
-      // mas para este MVP, o acesso será cortado pois o doc principal não existirá mais.
       setCurrentEst(null);
       alert("Unidade deletada com sucesso.");
     } catch (e: any) {
@@ -188,7 +190,10 @@ const App: React.FC = () => {
   };
 
   const handleCallNext = async (specificId?: string) => {
-    if (!currentEst || professionals.length === 0) return;
+    if (!currentEst) return;
+    if (professionals.length === 0) {
+      return alert("Você precisa cadastrar ao menos um profissional (barbeiro) na aba GESTÃO antes de chamar clientes.");
+    }
     
     let myProId: string | null = null;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -225,7 +230,7 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       });
     } else {
-      alert("Não há clientes aguardando.");
+      alert("Não há clientes aguardando na fila.");
     }
   };
 
@@ -252,7 +257,9 @@ const App: React.FC = () => {
   const handleUpdateStaffStatus = async (newStatus: ProfStatus) => {
     if (!currentEst) return;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-    if (myPro) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: newStatus });
+    if (myPro) {
+      await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: newStatus });
+    }
   };
 
   if (isTVMode && currentEst) {
@@ -269,16 +276,20 @@ const App: React.FC = () => {
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
       {isStaffNotLinked ? (
-        <div className="flex flex-col items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center py-20 text-center px-6">
            <Scissors size={40} className="text-amber-500 mb-4" />
            <h2 className="text-xl font-black text-white uppercase">Vincular Cadeira</h2>
-           <div className="w-full mt-6 space-y-3">
+           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2 mb-6">Você precisa se vincular a um profissional cadastrado para gerenciar o atendimento.</p>
+           <div className="w-full space-y-3 max-w-xs mx-auto">
               {professionals.filter(p => !p.email).map(pro => (
-                <button key={pro.id} onClick={() => handleStaffAssign(pro.id)} className="w-full bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between">
+                <button key={pro.id} onClick={() => handleStaffAssign(pro.id)} className="w-full bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between hover:border-amber-500 transition-all">
                   <span className="text-sm font-black text-white uppercase">{pro.name}</span>
                   <ArrowRight size={20} className="text-slate-700" />
                 </button>
               ))}
+              {professionals.filter(p => !p.email).length === 0 && (
+                <p className="text-xs text-slate-600 font-bold uppercase">Nenhum profissional disponível para vínculo. Peça ao gestor para cadastrar sua cadeira.</p>
+              )}
            </div>
         </div>
       ) : (
@@ -320,8 +331,17 @@ const App: React.FC = () => {
               onDeleteEstablishment={handleDeleteEstablishment} 
               onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
               onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow}
-              onUpdateServices={async (sList) => { for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true }); }}
-              onUpdatePros={async (pList) => { for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true }); }}
+              onUpdateServices={async (sList) => { 
+                for (const s of sList) {
+                  await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true });
+                }
+              }}
+              onUpdatePros={async (pList) => { 
+                // Atualização individual para evitar problemas de lista
+                for (const p of pList) {
+                  await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true });
+                }
+              }}
               onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}
             />
           )}
@@ -348,20 +368,22 @@ const App: React.FC = () => {
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 
           onConfirm={async (method, amount) => {
             if (!currentEst) return;
-            await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
-            if (selectedQueueItem.userEmail) {
-              const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
-              const snap = await getDocs(q);
-              if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
-              if (currentEst.loyaltyEnabled) {
-                const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
-                const lSnap = await getDoc(lRef);
-                const count = lSnap.exists() ? (lSnap.data().count || 0) + 1 : 1;
-                await setDoc(lRef, { count: count > 10 ? 1 : count }, { merge: true });
+            try {
+              await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
+              if (selectedQueueItem.userEmail) {
+                const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
+                const snap = await getDocs(q);
+                if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
+                if (currentEst.loyaltyEnabled) {
+                  const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
+                  const lSnap = await getDoc(lRef);
+                  const count = lSnap.exists() ? (lSnap.data().count || 0) + 1 : 1;
+                  await setDoc(lRef, { count: count > 10 ? 1 : count }, { merge: true });
+                }
               }
-            }
-            await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-            setIsCompletionModalOpen(false);
+              await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
+              setIsCompletionModalOpen(false);
+            } catch (e: any) { alert("Erro ao concluir: " + e.message); }
           }} 
         />
       )}
