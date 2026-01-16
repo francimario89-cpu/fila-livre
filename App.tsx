@@ -118,6 +118,8 @@ const App: React.FC = () => {
 
   const handleRemoveFromQueue = async (id: string, clientEmail?: string) => {
     if (!currentEst) return;
+    if (userRole === 'staff') return alert("Operação não permitida. Apenas o gestor pode excluir clientes da fila.");
+    
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
       if (clientEmail) {
@@ -138,16 +140,13 @@ const App: React.FC = () => {
       else return alert("Vincule sua cadeira primeiro.");
     }
 
-    // Chamada de um card específico
     if (specificId) {
       const item = queue.find(i => i.id === specificId);
       if (!item) return;
 
-      // REGRAS DE SEGURANÇA PARA BARBEIRO (STAFF)
       if (userRole === 'staff' && myProId) {
-        // Se o cliente escolheu outro barbeiro e não é "Qualquer um"
         if (item.professionalId !== 'any' && item.professionalId !== myProId) {
-          return alert("Atenção: Este cliente escolheu outro profissional especificamente. Apenas o gestor ou o próprio cliente podem alterar esta preferência.");
+          return alert("Este cliente escolheu outro profissional. Apenas o gestor pode remanejar esta fila.");
         }
       }
 
@@ -163,17 +162,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // BOTÃO PRINCIPAL "CHAMAR PRÓXIMO"
-    if (userRole === 'staff' && myProId) {
-      const servingItem = queue.find(i => i.status === 'serving' && i.professionalId === myProId);
-      if (servingItem) {
-        setSelectedQueueItem(servingItem);
-        setIsCompletionModalOpen(true);
-        return;
-      }
-    }
-
-    // Busca o próximo respeitando a preferência se for Staff
     const nextItem = queue.find(i => 
       i.status === 'waiting' && 
       (userRole === 'admin' ? true : (i.professionalId === 'any' || i.professionalId === myProId))
@@ -190,8 +178,19 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       });
     } else {
-      alert(userRole === 'admin' ? "Não há clientes na fila aguardando." : "Não há clientes na sua fila ou sem preferência.");
+      alert(userRole === 'admin' ? "Não há clientes na fila aguardando." : "Não há clientes aguardando na sua fila.");
     }
+  };
+
+  const handleFinish = (item: QueueItem) => {
+    if (userRole === 'staff') {
+      const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+      if (item.professionalId !== myPro?.id) {
+        return alert("Você só pode finalizar atendimentos da sua própria cadeira.");
+      }
+    }
+    setSelectedQueueItem(item);
+    setIsCompletionModalOpen(true);
   };
 
   const handleUpdateStaffStatus = async (newStatus: ProfStatus) => {
@@ -278,7 +277,8 @@ const App: React.FC = () => {
           {activeTab === 'fila' && (
             <QueueView 
               queue={queue} 
-              isAdmin={isStaffOrAdmin} 
+              isAdmin={userRole === 'admin'} 
+              isStaff={userRole === 'staff'}
               userRole={userRole}
               myProId={myStaffPro?.id}
               currentUserEmail={userEmail} 
@@ -287,17 +287,18 @@ const App: React.FC = () => {
               professionals={professionals} 
               services={services} 
               onCallNext={handleCallNext} 
+              onFinish={handleFinish}
               onNoShow={handleNoShow} 
               onOpenJoinModal={() => setIsJoinModalOpen(true)} 
               onSwitchQueue={handleSwitchQueue}
-              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(isStaffOrAdmin ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
+              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(userRole === 'admin' ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
           {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
           {activeTab === 'admin' && userRole === 'admin' && (
             <AdminPanel 
               establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} onDeleteEstablishment={() => {}} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-              onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }}
+              onCallNext={() => handleCallNext()} onFinish={handleFinish}
               onNoShow={(id) => handleNoShow(id)} onUpdateServices={async (sList) => { for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true }); const ids = sList.map(x => x.id); services.forEach(async (s) => { if (!ids.includes(s.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id)); }); }}
               onUpdatePros={async (pList) => { for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true }); const ids = pList.map(x => x.id); professionals.forEach(async (p) => { if (!ids.includes(p.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id)); }); }}
               onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}

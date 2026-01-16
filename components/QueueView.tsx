@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight } from 'lucide-react';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
   isAdmin: boolean;
+  isStaff?: boolean;
   userRole?: 'admin' | 'staff' | 'client';
   myProId?: string;
   currentUserEmail?: string;
@@ -14,6 +15,7 @@ interface QueueViewProps {
   professionals: Professional[];
   services: Service[];
   onCallNext?: (id?: string) => void;
+  onFinish?: (item: QueueItem) => void;
   onNoShow?: (id?: string) => void;
   onOpenJoinModal?: () => void;
   onLeaveQueue?: (id: string) => void;
@@ -21,7 +23,7 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, userRole, myProId, currentUserEmail, estStatus, professionals, services, onCallNext, onNoShow, onOpenJoinModal, onLeaveQueue, onSwitchQueue 
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onSwitchQueue 
 }) => {
   const [now, setNow] = useState(Date.now());
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
@@ -34,7 +36,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const myQueueItem = useMemo(() => queue.find(i => i.userEmail === currentUserEmail && i.status === 'waiting'), [queue, currentUserEmail]);
 
   const switchSuggestion = useMemo(() => {
-    if (!myQueueItem || isAdmin) return null;
+    if (!myQueueItem || isAdmin || isStaff) return null;
     const freePros = professionals.filter(pro => {
       if (pro.id === myQueueItem.professionalId || pro.status === 'absent') return false;
       const isServing = queue.some(i => i.status === 'serving' && i.professionalId === pro.id);
@@ -42,7 +44,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       return !isServing && !hasWaiting;
     });
     return freePros.length > 0 ? freePros[0] : null;
-  }, [myQueueItem, professionals, queue, isAdmin]);
+  }, [myQueueItem, professionals, queue, isAdmin, isStaff]);
 
   const filteredQueue = useMemo(() => {
     if (filterPro === 'all') return queue;
@@ -95,10 +97,20 @@ export const QueueView: React.FC<QueueViewProps> = ({
               <span className="w-1 h-1 bg-white/30 rounded-full"/>
               <span className="text-xs font-black text-white uppercase">Com {professionals.find(p => p.id === currentTurn.professionalId)?.name || 'Qualquer um'}</span>
             </div>
-            {isAdmin && (
+            
+            {(isAdmin || (isStaff && currentTurn.professionalId === myProId)) && (
               <div className="flex gap-2">
-                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all"><Trash2 size={20} /></button>
-                <button onClick={() => onCallNext?.()} className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-xl">Finalizar & Chamar Próximo</button>
+                {isAdmin && (
+                  <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all">
+                    <Trash2 size={20} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => onFinish?.(currentTurn)} 
+                  className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={18} /> Finalizar Atendimento
+                </button>
               </div>
             )}
           </div>
@@ -110,10 +122,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
         <div className="space-y-3">
           {waitingList.map((item, index) => {
             const isMe = item.userEmail === currentUserEmail;
-            
-            // LÓGICA DE VISIBILIDADE DO BOTÃO DE CHAMADA
-            // Se for Gestor, vê todos. Se for Barbeiro, só vê os seus ou os "Qualquer um".
-            const canThisStaffCall = userRole === 'admin' || item.professionalId === 'any' || item.professionalId === myProId;
+            const isMyTurn = isStaff && (item.professionalId === 'any' || item.professionalId === myProId);
+            const canSeeActions = isAdmin || isMyTurn;
 
             return (
               <div key={item.id} className={`bg-slate-900 border ${isMe ? 'border-teal-500/50 bg-teal-500/5' : 'border-slate-800'} rounded-[32px] p-6 flex items-center justify-between shadow-lg`}>
@@ -132,15 +142,28 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {isAdmin ? (
+                  {isAdmin || isMe ? (
                     <div className="flex gap-2">
-                       <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
-                       {canThisStaffCall && (
-                         <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg active:scale-90 transition-all"><Zap size={16} /></button>
+                       {isAdmin && (
+                         <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                           <Trash2 size={16} />
+                         </button>
+                       )}
+                       {canSeeActions && (
+                         <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg active:scale-90 transition-all">
+                           <Zap size={16} />
+                         </button>
+                       )}
+                       {isMe && !isAdmin && (
+                         <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20 px-3 py-1.5 rounded-lg">Sair da Fila</button>
                        )}
                     </div>
                   ) : (
-                    isMe && <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20 px-3 py-1.5 rounded-lg">Sair da Fila</button>
+                    isMyTurn && (
+                      <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg active:scale-90 transition-all">
+                         <Zap size={16} />
+                      </button>
+                    )
                   )}
                 </div>
               </div>
@@ -151,13 +174,19 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </section>
 
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
-        {isAdmin ? (
+        {isAdmin || isStaff ? (
           <div className="flex gap-3">
-            <button onClick={onOpenJoinModal} className="w-16 h-16 bg-teal-500 text-slate-950 rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-slate-950"><UserPlus size={24} /></button>
-            <button onClick={() => onCallNext?.()} className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><BellRing size={20} /> Chamar Próximo</button>
+            <button onClick={onOpenJoinModal} className="w-16 h-16 bg-teal-500 text-slate-950 rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-slate-950">
+              <UserPlus size={24} />
+            </button>
+            <button onClick={() => onCallNext?.()} className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
+              <BellRing size={20} /> Chamar Próximo
+            </button>
           </div>
         ) : (
-          estStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl shadow-teal-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={20} /> Entrar na Fila</button>
+          estStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl shadow-teal-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
+            <Zap size={20} /> Entrar na Fila
+          </button>
         )}
       </div>
     </div>
