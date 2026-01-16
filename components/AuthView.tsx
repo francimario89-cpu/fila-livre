@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { LOGO_SVG } from '../constants';
 import { auth, db, sendPasswordResetEmail } from '../services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2, Scissors, ArrowRight, UserPlus, Phone } from 'lucide-react';
+import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2, Scissors, ArrowRight, UserPlus, Phone, MessageCircle } from 'lucide-react';
 
 interface AuthViewProps {
   onLogin: (email: string, role: 'admin' | 'staff' | 'client') => void;
@@ -24,38 +24,20 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Função para tratar o identificador (se for número, transforma em e-mail fake para o Firebase)
-  const processIdentifier = (input: string) => {
-    const clean = input.trim().toLowerCase();
-    const digitsOnly = clean.replace(/\D/g, '');
-    const isPhone = /^\d+$/.test(digitsOnly);
-
-    if (isPhone && !clean.includes('@')) {
-      // Exige DDD (Mínimo 10 dígitos: DDD + 8 números, Máximo 11: DDD + 9 números)
-      if (digitsOnly.length < 10) {
-        throw new Error('phone-missing-ddd');
-      }
-      return `${digitsOnly}@telefone.com`;
-    }
-    return clean;
+  const isPhoneFormat = (input: string) => {
+    const digitsOnly = input.replace(/\D/g, '');
+    return /^\d+$/.test(digitsOnly) && !input.includes('@') && digitsOnly.length >= 8;
   };
 
-  const syncUserProfile = async (user: any, userRole: 'admin' | 'staff' | 'client', displayName?: string) => {
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists() || isRegistering) {
-      const profile = {
-        uid: user.uid,
-        email: user.email,
-        name: displayName || user.displayName || 'Usuário',
-        role: userRole,
-        createdAt: Date.now()
-      };
-      await setDoc(userRef, profile, { merge: true });
-      return profile;
+  const findEmailByPhone = async (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    const q = query(collection(db, "users"), where("phone", "==", digits));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return snap.docs[0].data().email;
     }
-    return userSnap.data();
+    // Se não achar vínculo, tenta o alias padrão para contas criadas só com telefone
+    return `${digits}@telefone.com`;
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -65,13 +47,28 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setIsLoading(true);
     
     try {
-      const finalIdentifier = processIdentifier(identifier);
+      let finalIdentifier = identifier.trim().toLowerCase();
+      
+      if (isPhoneFormat(finalIdentifier)) {
+        if (finalIdentifier.replace(/\D/g, '').length < 10) {
+          throw new Error('phone-missing-ddd');
+        }
+        finalIdentifier = await findEmailByPhone(finalIdentifier);
+      }
       
       if (isRegistering) {
         if (!name) throw new Error('name-required');
         const result = await createUserWithEmailAndPassword(auth, finalIdentifier, password);
         await updateProfile(result.user, { displayName: name });
-        await syncUserProfile(result.user, role, name);
+        const userRef = doc(db, "users", result.user.uid);
+        await setDoc(userRef, {
+          uid: result.user.uid,
+          email: result.user.email,
+          name: name,
+          role: role,
+          phone: isPhoneFormat(identifier) ? identifier.replace(/\D/g, '') : null,
+          createdAt: Date.now()
+        }, { merge: true });
         onLogin(result.user.email!, role);
       } else {
         const result = await signInWithEmailAndPassword(auth, finalIdentifier, password);
@@ -84,10 +81,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       console.error(err);
       if (err.message === 'phone-missing-ddd') setError('O número deve conter o DDD (Ex: 11999999999)');
       else if (err.message === 'name-required') setError('Informe seu nome completo.');
-      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') setError('Dados incorretos.');
-      else if (err.code === 'auth/email-already-in-use') setError('E-mail ou Celular já cadastrado.');
-      else if (err.code === 'auth/invalid-email') setError('Formato inválido.');
-      else setError(`Erro: Verifique seus dados.`);
+      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') setError('E-mail/Telefone ou senha incorretos.');
+      else if (err.code === 'auth/email-already-in-use') setError('Este E-mail ou Celular já está cadastrado.');
+      else setError(`Erro: Dados inválidos ou sem conexão.`);
     } finally {
       setIsLoading(false);
     }
@@ -97,14 +93,24 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+
     try {
-      const finalIdentifier = processIdentifier(identifier);
+      let finalIdentifier = identifier.trim().toLowerCase();
+      if (isPhoneFormat(finalIdentifier)) {
+        finalIdentifier = await findEmailByPhone(finalIdentifier);
+      }
+
+      if (finalIdentifier.includes('@telefone.com')) {
+        setError('Contas de telefone devem ser resetadas pelo gestor via WhatsApp.');
+        setIsLoading(false);
+        return;
+      }
+
       await sendPasswordResetEmail(auth, finalIdentifier);
-      setSuccessMsg('Link de recuperação enviado!');
+      setSuccessMsg('Link enviado para o seu E-mail!');
       setTimeout(() => { setScreen('email'); setSuccessMsg(''); }, 3000);
     } catch (err: any) {
-      if (err.message === 'phone-missing-ddd') setError('Inclua o DDD para recuperar a conta.');
-      else setError('Usuário não encontrado.');
+      setError('E-mail não encontrado ou inválido.');
     } finally {
       setIsLoading(false);
     }
@@ -122,10 +128,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         </div>
 
         <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
-          <button
-            onClick={() => { setRole('client'); setScreen('email'); }}
-            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-teal-500 transition-all duration-500 shadow-2xl"
-          >
+          <button onClick={() => { setRole('client'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-teal-500 transition-all duration-500">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center border border-teal-500/20 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all">
                 <User size={24} />
@@ -137,10 +140,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </div>
           </button>
 
-          <button
-            onClick={() => { setRole('staff'); setScreen('email'); }}
-            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-amber-500 transition-all duration-500 shadow-2xl"
-          >
+          <button onClick={() => { setRole('staff'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-amber-500 transition-all duration-500">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all">
                 <Scissors size={24} />
@@ -152,10 +152,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </div>
           </button>
 
-          <button
-            onClick={() => { setRole('admin'); setScreen('email'); }}
-            className="group relative bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-indigo-500 transition-all duration-500 shadow-2xl"
-          >
+          <button onClick={() => { setRole('admin'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-indigo-500 transition-all duration-500">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                 <Building2 size={24} />
@@ -171,7 +168,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     );
   }
 
-  const isIdentifierPhone = /^\d+$/.test(identifier.replace(/\D/g, '')) && identifier.length > 5;
+  const isIdentifierPhone = isPhoneFormat(identifier);
 
   return (
     <div className="min-h-screen bg-[#050810] flex flex-col items-center justify-center p-6 relative">
@@ -184,10 +181,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
         <div className="text-center space-y-2">
           <h2 className={`text-2xl font-black uppercase font-orbitron ${role === 'admin' ? 'text-indigo-400' : role === 'staff' ? 'text-amber-400' : 'text-teal-400'}`}>
-            {screen === 'forgot_password' ? 'Recuperar Senha' : (isRegistering ? 'Criar Cadastro' : 'Acessar')}
+            {screen === 'forgot_password' ? 'Recuperar Acesso' : (isRegistering ? 'Novo Cadastro' : 'Entrar')}
           </h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
-            {role === 'admin' ? 'Acesso Administrativo' : role === 'staff' ? 'Painel do Barbeiro' : 'Acesso do Cliente'}
+            {role === 'admin' ? 'Acesso Administrativo' : role === 'staff' ? 'Painel do Colaborador' : 'Portal do Cliente'}
           </p>
         </div>
 
@@ -207,30 +204,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           <form onSubmit={handleEmailAuth} className="space-y-4">
             {isRegistering && (
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu Nome Completo</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input required type="text" placeholder="EX: MARCOS SILVA" value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" />
+                  <input required type="text" placeholder="EX: MARCOS SILVA" value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none" />
                 </div>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (com DDD)</label>
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (COM DDD)</label>
               <div className="relative">
-                {isIdentifierPhone ? (
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500 transition-colors" size={18} />
-                ) : (
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                )}
-                <input 
-                  required 
-                  type="text" 
-                  placeholder="EX: 11999999999" 
-                  value={identifier} 
-                  onChange={(e) => setIdentifier(e.target.value)} 
-                  className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" 
-                />
+                {isIdentifierPhone ? <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500" size={18} /> : <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />}
+                <input required type="text" placeholder="EX: 11999999999" value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none" />
               </div>
             </div>
             
@@ -238,7 +224,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                <input required type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-white text-sm outline-none focus:border-white/20" />
+                <input required type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-white text-sm outline-none" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -250,54 +236,60 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             <button disabled={isLoading} type="submit" className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
               role === 'admin' ? 'bg-indigo-600 text-white shadow-indigo-600/20' : role === 'staff' ? 'bg-amber-500 text-slate-950 shadow-amber-500/20' : 'bg-teal-500 text-slate-950 shadow-teal-500/20'
             } shadow-xl`}>
-              {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "FINALIZAR MEU CADASTRO" : "ENTRAR NO APP")}
+              {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "CONFIRMAR E CADASTRAR" : "ENTRAR NO SISTEMA")}
             </button>
 
-            <div className="pt-8 mt-4 border-t border-slate-800/50">
-              <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest text-center mb-4">Primeira vez acessando?</p>
-              
+            <div className="pt-8 mt-4 border-t border-slate-800/50 text-center">
               <button 
                 type="button" 
                 onClick={() => { setIsRegistering(!isRegistering); setError(''); }} 
                 className={`w-full py-6 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-2 group relative overflow-hidden ${
                   isRegistering 
-                  ? 'border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white' 
-                  : role === 'admin' 
-                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] animate-pulse' 
-                    : role === 'staff'
-                      ? 'border-amber-500 bg-amber-500/10 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse'
-                      : 'border-teal-500 bg-teal-500/10 text-teal-400 shadow-[0_0_20px_rgba(45,212,191,0.2)] animate-pulse'
+                  ? 'border-slate-800 bg-slate-900/40 text-slate-400' 
+                  : 'border-teal-500 bg-teal-500/10 text-teal-400 animate-pulse'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {isRegistering ? <ChevronLeft size={20} /> : <UserPlus size={24} className="animate-bounce" />}
+                  {isRegistering ? <ChevronLeft size={20} /> : <UserPlus size={24} />}
                   <span className="text-xs font-black uppercase tracking-[0.1em]">
                     {isRegistering ? 'VOLTAR PARA O LOGIN' : 'SOU NOVO POR AQUI (CRIAR CONTA)'}
                   </span>
                   {!isRegistering && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
                 </div>
-                
-                {!isRegistering && (
-                  <span className="text-[8px] font-bold uppercase opacity-70 tracking-widest mt-1">Crie sua conta grátis em 10 segundos</span>
-                )}
-                
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {!isRegistering && <span className="text-[8px] font-bold uppercase opacity-70 tracking-widest mt-1 text-center">Cadastro rápido por E-mail ou Celular</span>}
               </button>
             </div>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-6">
              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (com DDD)</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (DDD)</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input required type="text" placeholder="EX: 11999999999" value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" />
+                  <input required type="text" placeholder="EX: 11999999999" value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none" />
                 </div>
               </div>
-              <button disabled={isLoading} type="submit" className="w-full py-5 bg-slate-100 text-slate-950 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all">
-                {isLoading ? <Loader2 className="animate-spin" size={20} /> : <><KeyRound size={18} /> RECUPERAR SENHA</>}
-              </button>
-              <button type="button" onClick={() => setScreen('email')} className="w-full text-center text-[10px] font-black text-slate-500 uppercase tracking-widest py-2">Voltar ao Login</button>
+
+              {isPhoneFormat(identifier) && identifier.includes('telefone.com') ? (
+                <div className="space-y-4">
+                  <p className="text-[10px] text-slate-400 font-medium leading-relaxed bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                    Contas de telefone direto devem ser resetadas via suporte. Se você vinculou um e-mail, use-o para recuperar agora.
+                  </p>
+                  <a 
+                    href={`https://wa.me/?text=Olá, preciso resetar minha senha no app Fila Livre. Meu número é ${identifier}.`}
+                    target="_blank"
+                    className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                  >
+                    <MessageCircle size={20} /> SUPORTE VIA WHATSAPP
+                  </a>
+                </div>
+              ) : (
+                <button disabled={isLoading} type="submit" className="w-full py-5 bg-slate-100 text-slate-950 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all">
+                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : <><KeyRound size={18} /> RECUPERAR POR E-MAIL</>}
+                </button>
+              )}
+              
+              <button type="button" onClick={() => { setScreen('email'); setError(''); }} className="w-full text-center text-[10px] font-black text-slate-500 uppercase tracking-widest py-2">Voltar ao Login</button>
           </form>
         )}
       </div>
