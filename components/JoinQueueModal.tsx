@@ -1,7 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { Service, Professional, BookingModel, QueueItem } from '../types';
-import { X, User, ClipboardList, Clock, CalendarCheck, UserCheck, Timer, ChevronRight, Zap, Circle, Calendar } from 'lucide-react';
+import { X, User, ClipboardList, Clock, CalendarCheck, UserCheck, Timer, ChevronRight, Zap, Circle, Calendar, Plus, Trash2, Users } from 'lucide-react';
+
+interface Companion {
+  id: string;
+  name: string;
+  service: string;
+}
 
 interface JoinQueueModalProps {
   services: Service[];
@@ -10,9 +16,9 @@ interface JoinQueueModalProps {
   currentQueue: QueueItem[];
   onClose: () => void;
   onSubmit: (data: { 
-    name: string; 
+    mainPerson: { name: string; service: string };
+    companions: { name: string; service: string }[];
     professionalId: string; 
-    service: string; 
     type: 'walk-in' | 'appointment';
     scheduledTime?: string;
   }) => void;
@@ -30,11 +36,30 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   services, professionals, bookingModel, currentQueue, onClose, onSubmit 
 }) => {
   const [name, setName] = useState('');
-  const [professionalId, setProfessionalId] = useState('any');
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
+  const [companions, setCompanions] = useState<Companion[]>([]);
+  
+  const [professionalId, setProfessionalId] = useState('any');
   const [type, setType] = useState<'walk-in' | 'appointment'>(bookingModel === 'appointment' ? 'appointment' : 'walk-in');
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [scheduledTime, setScheduledTime] = useState('');
+
+  const addCompanion = () => {
+    const newCompanion: Companion = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: '',
+      service: services[0]?.name || ''
+    };
+    setCompanions([...companions, newCompanion]);
+  };
+
+  const removeCompanion = (id: string) => {
+    setCompanions(companions.filter(c => c.id !== id));
+  };
+
+  const updateCompanion = (id: string, field: 'name' | 'service', value: string) => {
+    setCompanions(companions.map(c => c.id === id ? { ...c, [field]: value } : c));
+  };
 
   const calculateWait = (proId: string) => {
     const proServing = currentQueue.find(i => i.status === 'serving' && i.professionalId === proId);
@@ -57,10 +82,17 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     if (type === 'appointment') return null;
     const activePros = professionals.filter(p => p.status !== 'absent');
     if (activePros.length === 0) return 999;
+    
+    let baseWait = 0;
     if (professionalId === 'any') {
-      return Math.min(...activePros.map(p => calculateWait(p.id)));
+      baseWait = Math.min(...activePros.map(p => calculateWait(p.id)));
+    } else {
+      baseWait = calculateWait(professionalId);
     }
-    return calculateWait(professionalId);
+
+    // Soma a duração do serviço principal + acompanhantes para a previsão de término, 
+    // mas a previsão de INÍCIO é baseada no que já está na fila.
+    return baseWait;
   }, [currentQueue, type, services, professionalId, professionals]);
 
   const callPredictedTime = useMemo(() => {
@@ -71,12 +103,15 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
   const handleAction = () => {
     if (!name.trim()) return alert("Por favor, informe seu nome.");
+    const invalidCompanion = companions.find(c => !c.name.trim());
+    if (invalidCompanion) return alert("Por favor, informe o nome de todos os acompanhantes.");
+    
     if (type === 'appointment' && (!scheduledDate || !scheduledTime)) return alert("Escolha data e hora do agendamento.");
     
     const payload: any = {
-      name: name.toUpperCase().trim(),
+      mainPerson: { name: name.toUpperCase().trim(), service: serviceName },
+      companions: companions.map(c => ({ name: c.name.toUpperCase().trim(), service: c.service })),
       professionalId,
-      service: serviceName,
       type
     };
 
@@ -90,10 +125,13 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-slate-900 rounded-[40px] p-8 border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div className="relative w-full max-w-md bg-slate-900 rounded-[40px] p-8 border border-white/5 max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
         <header className="flex justify-between items-center mb-6">
-           <h2 className="text-xl font-black text-white uppercase tracking-tighter">Reservar Vaga</h2>
-           <button onClick={onClose} className="p-3 bg-slate-800 rounded-xl text-slate-500"><X size={20}/></button>
+           <div>
+             <h2 className="text-xl font-black text-white uppercase tracking-tighter">Reservar Vaga</h2>
+             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1">Sua vez com inteligência</p>
+           </div>
+           <button onClick={onClose} className="p-3 bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-colors"><X size={20}/></button>
         </header>
 
         <div className="space-y-6">
@@ -105,32 +143,72 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
           )}
 
           <div className="space-y-4">
-            <div className="space-y-1.5">
-               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu Nome</label>
-               <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="JOÃO SILVA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500 transition-all" />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Serviço Desejado</label>
-              <select value={serviceName} onChange={e => setServiceName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
-                {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Com quem?</label>
-              <select value={professionalId} onChange={e => setProfessionalId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
-                <option value="any">Primeiro Disponível</option>
-                {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+            {/* Pessoa Principal */}
+            <div className="bg-slate-950/40 p-6 rounded-[32px] border border-white/5 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                 <User size={14} className="text-teal-400" />
+                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Responsável / Pai</span>
+              </div>
+              <div className="space-y-4">
+                <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="SEU NOME" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500 transition-all" />
+                <select value={serviceName} onChange={e => setServiceName(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
+                  {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
+                </select>
+              </div>
             </div>
 
-            {type === 'appointment' && (
-              <div className="grid grid-cols-2 gap-2">
-                <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+            {/* Acompanhantes */}
+            {companions.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Acompanhantes (Filhos/Amigos)</p>
+                {companions.map((comp, idx) => (
+                  <div key={comp.id} className="bg-indigo-600/5 border border-indigo-500/10 p-5 rounded-[32px] space-y-3 animate-in slide-in-from-right-4">
+                    <div className="flex justify-between items-center">
+                       <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{idx + 1}º Acompanhante</span>
+                       <button onClick={() => removeCompanion(comp.id)} className="text-red-500/50 hover:text-red-500"><Trash2 size={14}/></button>
+                    </div>
+                    <input 
+                      value={comp.name} 
+                      onChange={e => updateCompanion(comp.id, 'name', e.target.value.toUpperCase())} 
+                      placeholder="NOME DO ACOMPANHANTE" 
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none focus:border-indigo-500" 
+                    />
+                    <select 
+                      value={comp.service} 
+                      onChange={e => updateCompanion(comp.id, 'service', e.target.value)} 
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none appearance-none"
+                    >
+                      {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
+                    </select>
+                  </div>
+                ))}
               </div>
             )}
+
+            <button 
+              onClick={addCompanion}
+              className="w-full py-4 border-2 border-dashed border-slate-800 rounded-[24px] text-slate-600 hover:text-teal-400 hover:border-teal-500/30 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={16} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Adicionar Acompanhante</span>
+            </button>
+
+            <div className="pt-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Com quem?</label>
+                <select value={professionalId} onChange={e => setProfessionalId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
+                  <option value="any">Primeiro Disponível</option>
+                  {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+
+              {type === 'appointment' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                  <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                </div>
+              )}
+            </div>
           </div>
 
           {type === 'walk-in' && callPredictedTime && (
@@ -145,8 +223,11 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             </div>
           )}
 
-          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl ${type === 'walk-in' ? 'bg-teal-500 text-slate-950 shadow-teal-500/20' : 'bg-indigo-600 text-white shadow-indigo-600/20'}`}>
-            {type === 'walk-in' ? 'Confirmar Entrada' : 'Agendar Horário'}
+          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3 ${type === 'walk-in' ? 'bg-teal-500 text-slate-950 shadow-teal-500/20' : 'bg-indigo-600 text-white shadow-indigo-600/20'}`}>
+            <Users size={18} />
+            {type === 'walk-in' 
+              ? `Confirmar ${companions.length + 1} Entrada${companions.length > 0 ? 's' : ''}` 
+              : 'Agendar Horário'}
           </button>
         </div>
       </div>

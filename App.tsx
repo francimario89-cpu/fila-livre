@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
 import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User } from 'lucide-react';
 import { Layout } from './components/Layout';
@@ -113,21 +113,14 @@ const App: React.FC = () => {
     try {
       if (auth.currentUser) {
         const targetEmail = linkEmail.toLowerCase().trim();
-        
-        // Verifica se o e-mail já existe no Firestore
         const q = query(collection(db, "users"), where("email", "==", targetEmail));
         const snap = await getDocs(q);
         if (!snap.empty) {
           alert("Este e-mail já está sendo usado por outra conta.");
           return;
         }
-
-        // Tenta atualizar no Firebase Auth
         await updateEmail(auth.currentUser, targetEmail);
-        
-        // Atualiza no Firestore
         await updateDoc(doc(db, "users", auth.currentUser.uid), { email: targetEmail });
-        
         setUserProfile({ ...userProfile, email: targetEmail });
         setUserEmail(targetEmail);
         setProfileMessage({ text: 'E-mail vinculado! Use-o para recuperar sua senha.', type: 'success' });
@@ -183,27 +176,51 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst || !auth.currentUser) return;
     try {
+      // Se for cliente, verifica se já tem algo ativo
       if (userRole === 'client') {
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         const userSnap = await getDoc(userDocRef);
         const userData = userSnap.data() as UserProfile;
-        if (userData?.activeBooking) { alert("Você já está na fila."); return; }
+        if (userData?.activeBooking) { 
+           alert("Você já possui agendamentos ativos. Finalize ou saia da fila para fazer novos."); 
+           return; 
+        }
       }
-      const payload: any = {
-        name: data.name,
-        professionalId: data.professionalId,
-        service: data.service,
-        type: data.type,
-        userEmail: userRole === 'client' ? userEmail : (data.userEmail || null),
-        establishmentId: currentEst.id,
-        status: 'waiting',
-        timestamp: Date.now(),
-        missedCount: 0
-      };
-      const docRef = await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
+
+      const baseTime = Date.now();
+      const allPeople = [data.mainPerson, ...(data.companions || [])];
+      const batch = [];
+      const createdIds = [];
+
+      for (let i = 0; i < allPeople.length; i++) {
+        const person = allPeople[i];
+        const payload: any = {
+          name: person.name,
+          professionalId: data.professionalId,
+          service: person.service,
+          type: data.type,
+          userEmail: userRole === 'client' ? userEmail : null,
+          establishmentId: currentEst.id,
+          status: 'waiting',
+          timestamp: baseTime + (i * 10), // Pequeno delay para manter ordem exata no Firestore
+          missedCount: 0
+        };
+        if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
+        
+        const docRef = await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
+        createdIds.push(docRef.id);
+      }
+
+      // Se for cliente, vincula o PRIMEIRO ID como o booking ativo (ou poderíamos vincular a lista)
       if (userRole === 'client') {
-        await setDoc(doc(db, "users", auth.currentUser.uid), { activeBooking: { establishmentId: currentEst.id, queueId: docRef.id } }, { merge: true });
+        await setDoc(doc(db, "users", auth.currentUser.uid), { 
+          activeBooking: { 
+            establishmentId: currentEst.id, 
+            queueId: createdIds[0] // Referência para gerenciar o grupo
+          } 
+        }, { merge: true });
       }
+      
       setIsJoinModalOpen(false);
     } catch (e: any) { alert(`Erro: ${e.message}`); }
   };
@@ -214,9 +231,14 @@ const App: React.FC = () => {
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
       if (clientEmail) {
-        const q = query(collection(db, "users"), where("email", "==", clientEmail));
-        const snap = await getDocs(q);
-        if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
+        // Verifica se ainda restam itens desse mesmo e-mail na fila
+        const qRemaining = query(collection(db, "establishments", currentEst.id, "queue"), where("userEmail", "==", clientEmail));
+        const snap = await getDocs(qRemaining);
+        if (snap.empty) {
+          const qUser = query(collection(db, "users"), where("email", "==", clientEmail));
+          const snapUser = await getDocs(qUser);
+          if (!snapUser.empty) await setDoc(doc(db, "users", snapUser.docs[0].id), { activeBooking: null }, { merge: true });
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -228,12 +250,7 @@ const App: React.FC = () => {
     const currentMissed = item.missedCount || 0;
     if (currentMissed + 1 >= 2) {
       if (confirm(`${item.name} faltou pela 2ª vez. Remover?`)) {
-        await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
-        if (item.userEmail) {
-          const q = query(collection(db, "users"), where("email", "==", item.userEmail));
-          const snap = await getDocs(q);
-          if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
-        }
+        await handleRemoveFromQueue(id, item.userEmail);
       }
       return;
     }
@@ -316,7 +333,7 @@ const App: React.FC = () => {
           {activeTab === 'fila' && (
             <QueueView 
               queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myOnDutyPro?.id} currentUserEmail={userEmail} estStatus={currentEst.status} openingHours={currentEst.openingHours} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} 
-              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm("Sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
+              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(`Remover "${item?.name}" da fila?`)) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
           {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
@@ -324,7 +341,8 @@ const App: React.FC = () => {
             <AdminPanel 
               establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
               onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-              onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}
+              onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
+              onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
             />
           )}
           {activeTab === 'config' && (
@@ -346,13 +364,11 @@ const App: React.FC = () => {
                )}
 
                <div className="space-y-4">
-                  {/* CARD: SEGURANÇA */}
                   <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
                     <div className="flex items-center gap-3 text-indigo-400">
                       <ShieldCheck size={18} />
                       <h3 className="text-[10px] font-black uppercase tracking-widest">Segurança da Conta</h3>
                     </div>
-
                     <div className="space-y-4">
                       <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha de Acesso</label>
@@ -367,15 +383,12 @@ const App: React.FC = () => {
                     </div>
                   </section>
 
-                  {/* CARD: IDENTIFICAÇÃO DUAL */}
                   <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
                     <div className="flex items-center gap-3 text-teal-400">
                       <RefreshCw size={18} />
                       <h3 className="text-[10px] font-black uppercase tracking-widest">Vínculos de Acesso</h3>
                     </div>
-
                     <div className="space-y-6">
-                      {/* Vínculo de Telefone */}
                       <div className="space-y-3">
                         <div className="flex justify-between items-center px-1">
                           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Seu Telefone</label>
@@ -389,8 +402,6 @@ const App: React.FC = () => {
                            {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "SALVAR TELEFONE"}
                         </button>
                       </div>
-
-                      {/* Vínculo de E-mail (Apenas se for conta fake de telefone) */}
                       <div className="space-y-3 pt-6 border-t border-slate-800/50">
                         <div className="flex justify-between items-center px-1">
                           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Seu E-mail</label>
@@ -406,12 +417,6 @@ const App: React.FC = () => {
                           </button>
                         )}
                       </div>
-                    </div>
-                    
-                    <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/5">
-                      <p className="text-[8px] text-slate-500 font-bold uppercase text-center leading-relaxed">
-                        Ao vincular ambos, você poderá entrar tanto com o e-mail quanto com o celular. O e-mail é essencial para recuperar sua senha com segurança.
-                      </p>
                     </div>
                   </section>
                </div>
@@ -434,7 +439,15 @@ const App: React.FC = () => {
             if (selectedQueueItem.userEmail) {
               const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
               const snap = await getDocs(q);
-              if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
+              if (!snap.empty) {
+                  // Acompanhantes podem não ter perfil individual, então limpamos o activeBooking do responsável
+                  // apenas se não houver mais nada dele na fila
+                  const qRemaining = query(collection(db, "establishments", currentEst.id, "queue"), where("userEmail", "==", selectedQueueItem.userEmail));
+                  const snapRemaining = await getDocs(qRemaining);
+                  if (snapRemaining.size <= 1) { // Só restou esse que está sendo finalizado agora
+                     await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
+                  }
+              }
               if (currentEst.loyaltyEnabled) {
                 const lRef = doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail);
                 const lSnap = await getDoc(lRef);
