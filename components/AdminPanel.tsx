@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -67,6 +67,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     };
     onUpdateServices([...services, newService]);
     setNewSName(''); setNewSPrice(''); setNewSDuration('30'); setIsAddingService(false);
+  };
+
+  const handleUpdateServiceField = (id: string, field: 'price' | 'duration', value: string) => {
+    const updated = services.map(s => {
+      if (s.id === id) {
+        return { 
+          ...s, 
+          [field]: field === 'duration' ? (parseInt(value) || 0) : value 
+        };
+      }
+      return s;
+    });
+    onUpdateServices(updated);
   };
 
   const handleAddProfessional = () => {
@@ -204,50 +217,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* NOVO: HORÁRIO DE FUNCIONAMENTO */}
+      {/* 4. GESTÃO DE SERVIÇOS - EDITÁVEL */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Clock size={14} className="text-teal-400" /> Horário de Funcionamento
-        </h3>
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] shadow-2xl">
-          <div className="space-y-3">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Exibido na tela de espera</label>
-            <input 
-              value={establishment.openingHours || ''}
-              onChange={(e) => onUpdateEstablishment({ openingHours: e.target.value })}
-              placeholder="Ex: Seg a Sáb: 08:00 - 19:00"
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all placeholder:text-slate-800 uppercase"
-            />
-          </div>
+        <div className="flex justify-between items-center px-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <Scissors size={14} className="text-indigo-400" /> Catálogo de Serviços
+          </h3>
+          <p className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter">Ajuste o tempo para mudar a agenda</p>
         </div>
-      </section>
-
-      {/* 4. GESTÃO DE SERVIÇOS */}
-      <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Scissors size={14} className="text-indigo-400" /> Catálogo de Serviços
-        </h3>
         <div className="grid grid-cols-1 gap-3">
           {services.map(s => (
-            <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between group shadow-xl">
-               <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center">
-                    <Scissors size={20} />
+            <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 group shadow-xl transition-all hover:border-indigo-500/20">
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center">
+                      <Scissors size={20} />
+                    </div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-tight">{s.name}</h4>
+                 </div>
+                 <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="p-2 text-slate-700 hover:text-red-500 transition-colors">
+                   <Trash2 size={18} />
+                 </button>
+               </div>
+
+               <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Preço Sugerido</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-500">R$</span>
+                      <input 
+                        type="text" 
+                        value={s.price} 
+                        onChange={(e) => handleUpdateServiceField(s.id, 'price', e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-3 text-[10px] font-black text-white outline-none focus:border-emerald-500 transition-all"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-black text-white uppercase">{s.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                       <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">R$ {s.price}</span>
-                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{s.duration} MIN</span>
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Duração da Sessão</label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={12} />
+                      <input 
+                        type="number" 
+                        value={s.duration} 
+                        onChange={(e) => handleUpdateServiceField(s.id, 'duration', e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-12 text-[10px] font-black text-white outline-none focus:border-indigo-500 transition-all"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-600 uppercase">Min</span>
                     </div>
                   </div>
                </div>
-               <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="p-2 text-slate-700 hover:text-red-500 transition-colors">
-                 <Trash2 size={18} />
-               </button>
             </div>
           ))}
+          
           {isAddingService ? (
             <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
                <input placeholder="NOME (EX: CORTE SOCIAL)" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none" />
@@ -349,23 +371,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* NOVO: PERIGO - DELETAR UNIDADE */}
-      <section className="pt-8 space-y-4">
-        <h3 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
-           ZONA DE PERIGO
-        </h3>
-        <button 
-          onClick={onDeleteEstablishment}
-          className="w-full bg-red-500/10 border border-red-500/20 py-6 rounded-[32px] text-red-500 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-500 hover:text-white transition-all shadow-xl active:scale-95"
-        >
-          <Trash2 size={20} /> Deletar Esta Unidade Permanentemente
-        </button>
-      </section>
-
       {isAddingManual && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => setIsAddingManual(false)} />
-          <div className="relative w-full max-w-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] space-y-6 shadow-2xl">
+          <div className="relative w-full max-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] space-y-6 shadow-2xl">
             <h3 className="text-xl font-black text-white uppercase tracking-tighter">Entrada de Balcão</h3>
             <div className="space-y-4">
               <input placeholder="NOME DO CLIENTE" value={manualName} onChange={e => setManualName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none" />
