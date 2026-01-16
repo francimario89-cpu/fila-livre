@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
-import { onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2 } from 'lucide-react';
+import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   // Estados para Perfil
   const [newPassword, setNewPassword] = useState('');
   const [linkPhone, setLinkPhone] = useState('');
+  const [linkEmail, setLinkEmail] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
 
@@ -73,7 +74,7 @@ const App: React.FC = () => {
         setNewPassword('');
       }
     } catch (e: any) {
-      alert("Erro ao alterar senha. Talvez você precise sair e entrar novamente por segurança.");
+      alert("Para alterar a senha, você precisa ter feito login recentemente. Saia e entre de novo.");
     } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
@@ -86,7 +87,6 @@ const App: React.FC = () => {
     setIsUpdatingProfile(true);
     try {
       if (auth.currentUser) {
-        // Verifica se esse telefone já está em uso por outro e-mail
         const q = query(collection(db, "users"), where("phone", "==", digits));
         const snap = await getDocs(q);
         if (!snap.empty && snap.docs[0].id !== auth.currentUser.uid) {
@@ -94,13 +94,48 @@ const App: React.FC = () => {
           return;
         }
 
-        await setDoc(doc(db, "users", auth.currentUser.uid), { phone: digits }, { merge: true });
+        await updateDoc(doc(db, "users", auth.currentUser.uid), { phone: digits });
         setUserProfile({ ...userProfile, phone: digits });
         setProfileMessage({ text: 'Celular vinculado com sucesso!', type: 'success' });
         setLinkPhone('');
       }
     } catch (e: any) {
       alert("Erro ao vincular celular.");
+    } finally {
+      setIsUpdatingProfile(false);
+      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+    }
+  };
+
+  const handleLinkRealEmail = async () => {
+    if (!linkEmail.includes('@') || !linkEmail.includes('.')) return alert("E-mail inválido.");
+    setIsUpdatingProfile(true);
+    try {
+      if (auth.currentUser) {
+        const targetEmail = linkEmail.toLowerCase().trim();
+        
+        // Verifica se o e-mail já existe no Firestore
+        const q = query(collection(db, "users"), where("email", "==", targetEmail));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          alert("Este e-mail já está sendo usado por outra conta.");
+          return;
+        }
+
+        // Tenta atualizar no Firebase Auth
+        await updateEmail(auth.currentUser, targetEmail);
+        
+        // Atualiza no Firestore
+        await updateDoc(doc(db, "users", auth.currentUser.uid), { email: targetEmail });
+        
+        setUserProfile({ ...userProfile, email: targetEmail });
+        setUserEmail(targetEmail);
+        setProfileMessage({ text: 'E-mail vinculado! Use-o para recuperar sua senha.', type: 'success' });
+        setLinkEmail('');
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Para vincular um novo e-mail, você deve ter feito login recentemente. Saia e entre novamente por segurança.");
     } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
@@ -293,55 +328,97 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'config' && (
-            <div className="space-y-8 pb-32">
-               <div className="text-center space-y-2">
-                 <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">MEU PERFIL</h2>
-                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{userEmail}</p>
+            <div className="space-y-8 pb-32 animate-in fade-in duration-500">
+               <div className="text-center space-y-4">
+                 <div className="w-20 h-20 bg-slate-900 rounded-[32px] flex items-center justify-center mx-auto border border-white/5 shadow-2xl">
+                    <User className="text-teal-400" size={32} />
+                 </div>
+                 <div>
+                   <h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">MEU PERFIL</h2>
+                   <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1">Gerenciamento de Acesso</p>
+                 </div>
                </div>
 
                {profileMessage.text && (
-                 <div className={`p-4 rounded-2xl text-center text-[10px] font-black uppercase animate-in zoom-in ${profileMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                 <div className={`p-5 rounded-[24px] text-center text-[10px] font-black uppercase animate-in zoom-in shadow-xl ${profileMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                     {profileMessage.text}
                  </div>
                )}
 
-               <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-                  <div className="flex items-center gap-3 text-indigo-400 mb-4">
-                    <ShieldCheck size={18} />
-                    <h3 className="text-[10px] font-black uppercase tracking-widest">Segurança e Acesso</h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nova Senha</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
-                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="NOVA SENHA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500" />
-                      </div>
-                    </div>
-                    <button disabled={isUpdatingProfile} onClick={handleUpdatePassword} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
-                      {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "ALTERAR SENHA"}
-                    </button>
-                  </div>
-
-                  <div className="pt-6 border-t border-slate-800 space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vincular Celular (DDD + NÚMERO)</label>
-                      <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
-                        <input type="text" value={linkPhone} onChange={(e) => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "EX: 11999999999"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-teal-500" />
-                      </div>
-                    </div>
-                    <button disabled={isUpdatingProfile} onClick={handleLinkPhone} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
-                       {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "VINCULAR NÚMERO"}
-                    </button>
-                    <p className="text-[8px] text-slate-600 font-bold uppercase text-center leading-relaxed px-4">Ao vincular seu número, você poderá entrar no app usando tanto seu e-mail quanto seu celular.</p>
-                  </div>
-               </section>
-
                <div className="space-y-4">
-                  <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase"><RefreshCw size={14} /> Sincronizar App</button>
-                  <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-[32px] text-[10px] font-black uppercase text-red-500 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"><LogOut size={16} /> Sair da Conta</button>
+                  {/* CARD: SEGURANÇA */}
+                  <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
+                    <div className="flex items-center gap-3 text-indigo-400">
+                      <ShieldCheck size={18} />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest">Segurança da Conta</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha de Acesso</label>
+                        <div className="relative">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
+                          <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="NOVA SENHA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all" />
+                        </div>
+                      </div>
+                      <button disabled={isUpdatingProfile} onClick={handleUpdatePassword} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all">
+                        {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "ATUALIZAR SENHA"}
+                      </button>
+                    </div>
+                  </section>
+
+                  {/* CARD: IDENTIFICAÇÃO DUAL */}
+                  <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
+                    <div className="flex items-center gap-3 text-teal-400">
+                      <RefreshCw size={18} />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest">Vínculos de Acesso</h3>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Vínculo de Telefone */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Seu Telefone</label>
+                          {userProfile?.phone && <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-black">VINCULADO</span>}
+                        </div>
+                        <div className="relative">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
+                          <input type="text" value={linkPhone} onChange={(e) => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "DDD + NÚMERO"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all" />
+                        </div>
+                        <button disabled={isUpdatingProfile} onClick={handleLinkPhone} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-700 hover:bg-slate-700 transition-all">
+                           {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "SALVAR TELEFONE"}
+                        </button>
+                      </div>
+
+                      {/* Vínculo de E-mail (Apenas se for conta fake de telefone) */}
+                      <div className="space-y-3 pt-6 border-t border-slate-800/50">
+                        <div className="flex justify-between items-center px-1">
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Seu E-mail</label>
+                          {!userEmail.includes('@telefone.com') && <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-black">VINCULADO</span>}
+                        </div>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
+                          <input type="email" value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder={userEmail.includes('@telefone.com') ? "ADICIONAR E-MAIL REAL" : userEmail} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all" />
+                        </div>
+                        {userEmail.includes('@telefone.com') && (
+                          <button disabled={isUpdatingProfile} onClick={handleLinkRealEmail} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                             {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "VINCULAR E-MAIL REAL"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/5">
+                      <p className="text-[8px] text-slate-500 font-bold uppercase text-center leading-relaxed">
+                        Ao vincular ambos, você poderá entrar tanto com o e-mail quanto com o celular. O e-mail é essencial para recuperar sua senha com segurança.
+                      </p>
+                    </div>
+                  </section>
+               </div>
+
+               <div className="space-y-3">
+                  <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800/50 text-slate-400 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-white/5"><RefreshCw size={14} /> Sincronizar Dados</button>
+                  <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-2xl shadow-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"><LogOut size={16} /> Encerrar Sessão</button>
                </div>
             </div>
           )}

@@ -29,15 +29,24 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     return /^\d+$/.test(digitsOnly) && !input.includes('@') && digitsOnly.length >= 8;
   };
 
-  const findEmailByPhone = async (phone: string) => {
-    const digits = phone.replace(/\D/g, '');
-    const q = query(collection(db, "users"), where("phone", "==", digits));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      return snap.docs[0].data().email;
+  const findEmailByIdentifier = async (input: string) => {
+    const clean = input.trim().toLowerCase();
+    
+    // Se for formato de telefone, busca no Firestore quem tem esse número vinculado
+    if (isPhoneFormat(clean)) {
+      const digits = clean.replace(/\D/g, '');
+      const q = query(collection(db, "users"), where("phone", "==", digits));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        // Retorna o e-mail real vinculado a esse telefone
+        return snap.docs[0].data().email;
+      }
+      // Se não achar vínculo, assume o alias padrão de contas só de telefone
+      return `${digits}@telefone.com`;
     }
-    // Se não achar vínculo, tenta o alias padrão para contas criadas só com telefone
-    return `${digits}@telefone.com`;
+    
+    return clean;
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -47,28 +56,25 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setIsLoading(true);
     
     try {
-      let finalIdentifier = identifier.trim().toLowerCase();
-      
-      if (isPhoneFormat(finalIdentifier)) {
-        if (finalIdentifier.replace(/\D/g, '').length < 10) {
-          throw new Error('phone-missing-ddd');
-        }
-        finalIdentifier = await findEmailByPhone(finalIdentifier);
-      }
+      const finalIdentifier = await findEmailByIdentifier(identifier);
       
       if (isRegistering) {
         if (!name) throw new Error('name-required');
         const result = await createUserWithEmailAndPassword(auth, finalIdentifier, password);
         await updateProfile(result.user, { displayName: name });
         const userRef = doc(db, "users", result.user.uid);
+        
+        const phoneData = isPhoneFormat(identifier) ? identifier.replace(/\D/g, '') : null;
+        
         await setDoc(userRef, {
           uid: result.user.uid,
           email: result.user.email,
           name: name,
           role: role,
-          phone: isPhoneFormat(identifier) ? identifier.replace(/\D/g, '') : null,
+          phone: phoneData,
           createdAt: Date.now()
         }, { merge: true });
+        
         onLogin(result.user.email!, role);
       } else {
         const result = await signInWithEmailAndPassword(auth, finalIdentifier, password);
@@ -81,7 +87,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       console.error(err);
       if (err.message === 'phone-missing-ddd') setError('O número deve conter o DDD (Ex: 11999999999)');
       else if (err.message === 'name-required') setError('Informe seu nome completo.');
-      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') setError('E-mail/Telefone ou senha incorretos.');
+      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') 
+        setError('E-mail/Telefone ou senha incorretos.');
       else if (err.code === 'auth/email-already-in-use') setError('Este E-mail ou Celular já está cadastrado.');
       else setError(`Erro: Dados inválidos ou sem conexão.`);
     } finally {
@@ -95,13 +102,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setIsLoading(true);
 
     try {
-      let finalIdentifier = identifier.trim().toLowerCase();
-      if (isPhoneFormat(finalIdentifier)) {
-        finalIdentifier = await findEmailByPhone(finalIdentifier);
-      }
+      const finalIdentifier = await findEmailByIdentifier(identifier);
 
       if (finalIdentifier.includes('@telefone.com')) {
-        setError('Contas de telefone devem ser resetadas pelo gestor via WhatsApp.');
+        setError('Esta conta não possui e-mail vinculado para recuperação automática. Fale com o suporte.');
         setIsLoading(false);
         return;
       }
@@ -128,7 +132,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         </div>
 
         <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
-          <button onClick={() => { setRole('client'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-teal-500 transition-all duration-500">
+          <button onClick={() => { setRole('client'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-teal-500 transition-all duration-500 shadow-2xl">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center border border-teal-500/20 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all">
                 <User size={24} />
@@ -140,7 +144,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </div>
           </button>
 
-          <button onClick={() => { setRole('staff'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-amber-500 transition-all duration-500">
+          <button onClick={() => { setRole('staff'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-amber-500 transition-all duration-500 shadow-2xl">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all">
                 <Scissors size={24} />
@@ -152,7 +156,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </div>
           </button>
 
-          <button onClick={() => { setRole('admin'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-indigo-500 transition-all duration-500">
+          <button onClick={() => { setRole('admin'); setScreen('email'); }} className="group bg-slate-900/40 border-2 border-slate-800 p-6 rounded-[32px] hover:border-indigo-500 transition-all duration-500 shadow-2xl">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                 <Building2 size={24} />
@@ -270,10 +274,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 </div>
               </div>
 
-              {isPhoneFormat(identifier) && identifier.includes('telefone.com') ? (
+              {isPhoneFormat(identifier) ? (
                 <div className="space-y-4">
                   <p className="text-[10px] text-slate-400 font-medium leading-relaxed bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                    Contas de telefone direto devem ser resetadas via suporte. Se você vinculou um e-mail, use-o para recuperar agora.
+                    Contas sem e-mail vinculado precisam de suporte manual. Se você vinculou um e-mail no seu perfil, use-o para recuperar agora.
                   </p>
                   <a 
                     href={`https://wa.me/?text=Olá, preciso resetar minha senha no app Fila Livre. Meu número é ${identifier}.`}
