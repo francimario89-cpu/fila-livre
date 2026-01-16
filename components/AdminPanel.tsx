@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -35,7 +35,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   establishment, queue, services, professionals, estStatus, bookingModel, loyaltyEnabled, revenue, pixKey,
-  onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
+  onUpdateEstablishment, onDeleteEstablishment, onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
 }) => {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
@@ -204,6 +204,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
+      {/* NOVO: HORÁRIO DE FUNCIONAMENTO */}
+      <section className="space-y-4">
+        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <Clock size={14} className="text-teal-400" /> Horário de Funcionamento
+        </h3>
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] shadow-2xl">
+          <div className="space-y-3">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Exibido na tela de espera</label>
+            <input 
+              value={establishment.openingHours || ''}
+              onChange={(e) => onUpdateEstablishment({ openingHours: e.target.value })}
+              placeholder="Ex: Seg a Sáb: 08:00 - 19:00"
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all placeholder:text-slate-800 uppercase"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* 4. GESTÃO DE SERVIÇOS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -329,6 +347,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
              </button>
           </div>
         </div>
+      </section>
+
+      {/* NOVO: PERIGO - DELETAR UNIDADE */}
+      <section className="pt-8 space-y-4">
+        <h3 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+           ZONA DE PERIGO
+        </h3>
+        <button 
+          onClick={onDeleteEstablishment}
+          className="w-full bg-red-500/10 border border-red-500/20 py-6 rounded-[32px] text-red-500 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-500 hover:text-white transition-all shadow-xl active:scale-95"
+        >
+          <Trash2 size={20} /> Deletar Esta Unidade Permanentemente
+        </button>
       </section>
 
       {isAddingManual && (

@@ -136,10 +136,9 @@ const App: React.FC = () => {
     const item = queue.find(i => i.id === id);
     if (!item) return;
 
-    // Verificar se o staff tem permissão para este item
-    if (userRole === 'staff') {
+    if (userRole === 'staff' || userRole === 'admin') {
       const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-      if (item.professionalId !== 'any' && item.professionalId !== myPro?.id) {
+      if (userRole === 'staff' && item.professionalId !== 'any' && item.professionalId !== myPro?.id) {
         return alert("Você só pode dar falta em clientes da sua cadeira ou da fila geral.");
       }
     }
@@ -148,7 +147,6 @@ const App: React.FC = () => {
     
     if (currentMissed + 1 >= 2) {
       if (confirm(`${item.name} faltou pela 2ª vez. Remover da fila agora?`)) {
-        // Exclusão direta permitida para STAFF via lógica de falta
         try {
           await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
           if (item.userEmail) {
@@ -166,10 +164,26 @@ const App: React.FC = () => {
 
     if (confirm(`${item.name} faltou. Ele será movido para o final da fila.`)) {
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", id), {
-        timestamp: Date.now() + 500, // Garante que vá para o final
+        timestamp: Date.now() + 500,
         status: 'waiting',
         missedCount: currentMissed + 1
       });
+    }
+  };
+
+  const handleDeleteEstablishment = async () => {
+    if (!currentEst) return;
+    if (!confirm("⚠️ ATENÇÃO: Deseja realmente DELETAR permanentemente esta unidade? Todos os dados de serviços, profissionais e faturamento serão perdidos!")) return;
+    
+    try {
+      // Deletar o documento principal do estabelecimento
+      await deleteDoc(doc(db, "establishments", currentEst.id));
+      // Nota: Subcoleções no Firestore não são deletadas automaticamente ao deletar o pai, 
+      // mas para este MVP, o acesso será cortado pois o doc principal não existirá mais.
+      setCurrentEst(null);
+      alert("Unidade deletada com sucesso.");
+    } catch (e: any) {
+      alert("Erro ao deletar: " + e.message);
     }
   };
 
@@ -177,11 +191,8 @@ const App: React.FC = () => {
     if (!currentEst || professionals.length === 0) return;
     
     let myProId: string | null = null;
-    if (userRole === 'staff') {
-      const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-      if (myPro) myProId = myPro.id;
-      else return alert("Vincule sua cadeira primeiro.");
-    }
+    const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+    if (myPro) myProId = myPro.id;
 
     if (specificId) {
       const item = queue.find(i => i.id === specificId);
@@ -239,7 +250,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateStaffStatus = async (newStatus: ProfStatus) => {
-    if (!currentEst || userRole !== 'staff') return;
+    if (!currentEst) return;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     if (myPro) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: newStatus });
   };
@@ -252,8 +263,8 @@ const App: React.FC = () => {
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
-  const myStaffPro = userRole === 'staff' ? professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase()) : null;
-  const isStaffNotLinked = userRole === 'staff' && !myStaffPro;
+  const myOnDutyPro = (userRole === 'staff' || userRole === 'admin') ? professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase()) : null;
+  const isStaffNotLinked = userRole === 'staff' && !myOnDutyPro;
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
@@ -272,10 +283,10 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
-          {userRole === 'staff' && myStaffPro && (
+          {(userRole === 'staff' || userRole === 'admin') && myOnDutyPro && (
             <div className="mb-6 bg-slate-900/50 border border-slate-800 rounded-[32px] p-2 flex items-center gap-2">
                {[{ id: 'available', label: 'Disponível', icon: <CheckCircle2 size={14} />, color: 'emerald' }, { id: 'lunch', label: 'Almoço', icon: <Coffee size={14} />, color: 'amber' }, { id: 'absent', label: 'Ausente', icon: <UserX size={14} />, color: 'red' }].map((st) => (
-                 <button key={st.id} onClick={() => handleUpdateStaffStatus(st.id as ProfStatus)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[24px] text-[9px] font-black uppercase tracking-widest transition-all ${myStaffPro.status === st.id ? `bg-${st.color}-500 text-slate-950` : 'text-slate-500'}`}>
+                 <button key={st.id} onClick={() => handleUpdateStaffStatus(st.id as ProfStatus)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[24px] text-[9px] font-black uppercase tracking-widest transition-all ${myOnDutyPro.status === st.id ? `bg-${st.color}-500 text-slate-950` : 'text-slate-500'}`}>
                    {st.icon} {st.label}
                  </button>
                ))}
@@ -287,9 +298,10 @@ const App: React.FC = () => {
               isAdmin={userRole === 'admin'} 
               isStaff={userRole === 'staff'}
               userRole={userRole}
-              myProId={myStaffPro?.id}
+              myProId={myOnDutyPro?.id}
               currentUserEmail={userEmail} 
               estStatus={currentEst.status} 
+              openingHours={currentEst.openingHours}
               bookingModel={currentEst.bookingModel || 'both'} 
               professionals={professionals} 
               services={services} 
@@ -303,7 +315,10 @@ const App: React.FC = () => {
           {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
           {activeTab === 'admin' && userRole === 'admin' && (
             <AdminPanel 
-              establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} onDeleteEstablishment={() => {}} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
+              establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
+              onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} 
+              onDeleteEstablishment={handleDeleteEstablishment} 
+              onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
               onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow}
               onUpdateServices={async (sList) => { for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true }); }}
               onUpdatePros={async (pList) => { for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true }); }}
@@ -318,7 +333,7 @@ const App: React.FC = () => {
                       <p className="text-[10px] text-slate-500 font-black uppercase">E-mail</p>
                       <p className="text-sm font-bold text-white mt-1">{userEmail}</p>
                       <p className="text-[8px] text-indigo-400 font-black uppercase mt-2">Permissão: {userRole === 'admin' ? 'Gestor' : userRole === 'staff' ? 'Colaborador' : 'Cliente'}</p>
-                      {myStaffPro && <p className="text-[7px] text-amber-500 font-black uppercase mt-1">Cadeira: {myStaffPro.name}</p>}
+                      {myOnDutyPro && <p className="text-[7px] text-amber-500 font-black uppercase mt-1">Cadeira: {myOnDutyPro.name}</p>}
                   </div>
                   <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase"><RefreshCw size={14} /> Atualizar App</button>
                   <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500/10 border border-red-500/20 rounded-[32px] text-[10px] font-black uppercase text-red-500 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"><LogOut size={16} /> Sair da Conta</button>

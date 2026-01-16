@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX } from 'lucide-react';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -11,6 +11,7 @@ interface QueueViewProps {
   myProId?: string;
   currentUserEmail?: string;
   estStatus: EstStatus;
+  openingHours?: string;
   bookingModel: BookingModel;
   professionals: Professional[];
   services: Service[];
@@ -23,7 +24,7 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onSwitchQueue 
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onSwitchQueue 
 }) => {
   const [now, setNow] = useState(Date.now());
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
@@ -52,15 +53,24 @@ export const QueueView: React.FC<QueueViewProps> = ({
          ))}
       </div>
 
-      <div className={`p-5 rounded-[32px] border-2 flex items-center justify-between shadow-lg transition-all ${estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-widest">{estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}</h4>
-            <p className="text-[8px] font-bold uppercase opacity-60">{estStatus === 'open' ? 'Sua vez está chegando' : 'Volte mais tarde'}</p>
+      <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest">{estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}</h4>
+              <p className="text-[8px] font-bold uppercase opacity-60">{estStatus === 'open' ? 'Sua vez está chegando' : 'Volte mais tarde'}</p>
+            </div>
           </div>
+          <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
         </div>
-        <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+        
+        {openingHours && (
+          <div className="mt-3 pt-3 border-t border-current border-opacity-10 flex items-center gap-2 opacity-80">
+            <Clock size={10} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{openingHours}</span>
+          </div>
+        )}
       </div>
 
       {currentTurn && (
@@ -96,7 +106,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
         <div className="space-y-3">
           {waitingList.map((item, index) => {
             const isMe = item.userEmail === currentUserEmail;
-            const isMyTurn = isStaff && (item.professionalId === 'any' || item.professionalId === myProId);
+            const isMyTurn = (isStaff || isAdmin) && (item.professionalId === 'any' || item.professionalId === myProId);
             const canAction = isAdmin || isMyTurn;
 
             return (
@@ -110,7 +120,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {isAdmin || isMe ? (
+                  {canAction || isMe ? (
                     <div className="flex gap-2">
                        {isAdmin && (
                          <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl">
@@ -129,18 +139,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                        )}
                        {isMe && !isAdmin && <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase border border-red-500/20 px-3 py-1.5 rounded-lg">Sair</button>}
                     </div>
-                  ) : (
-                    isMyTurn && (
-                      <div className="flex gap-2">
-                        <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
-                          <UserX size={16} />
-                        </button>
-                        <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl">
-                           <Zap size={16} />
-                        </button>
-                      </div>
-                    )
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
