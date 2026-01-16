@@ -106,7 +106,8 @@ const App: React.FC = () => {
         userEmail: userRole === 'client' ? userEmail : (data.userEmail || null),
         establishmentId: currentEst.id,
         status: 'waiting',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        missedCount: 0
       };
       const docRef = await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       if (userRole === 'client') {
@@ -118,7 +119,7 @@ const App: React.FC = () => {
 
   const handleRemoveFromQueue = async (id: string, clientEmail?: string) => {
     if (!currentEst) return;
-    if (userRole === 'staff') return alert("Operação não permitida. Apenas o gestor pode excluir clientes da fila.");
+    if (userRole === 'staff') return alert("Operação não permitida.");
     
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
@@ -128,6 +129,30 @@ const App: React.FC = () => {
         if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
       }
     } catch (e) { console.error(e); }
+  };
+
+  const handleNoShow = async (id: string) => {
+    if (!currentEst) return;
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+
+    const currentMissed = item.missedCount || 0;
+    
+    if (currentMissed + 1 >= 2) {
+      if (confirm(`${item.name} faltou pela 2ª vez. Remover da fila automaticamente?`)) {
+        await handleRemoveFromQueue(id, item.userEmail);
+        alert("Cliente removido por excesso de faltas.");
+      }
+      return;
+    }
+
+    if (confirm(`${item.name} faltou. Mover para o final da fila?`)) {
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", id), {
+        timestamp: Date.now() + 1000,
+        status: 'waiting',
+        missedCount: currentMissed + 1
+      });
+    }
   };
 
   const handleCallNext = async (specificId?: string) => {
@@ -146,17 +171,13 @@ const App: React.FC = () => {
 
       if (userRole === 'staff' && myProId) {
         if (item.professionalId !== 'any' && item.professionalId !== myProId) {
-          return alert("Este cliente escolheu outro profissional. Apenas o gestor pode remanejar esta fila.");
+          return alert("Este cliente é de outro profissional.");
         }
       }
 
-      const targetProId = (item.professionalId && item.professionalId !== 'any') 
-        ? item.professionalId 
-        : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
-
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { 
         status: 'serving', 
-        professionalId: targetProId,
+        professionalId: item.professionalId === 'any' ? (myProId || professionals[0].id) : item.professionalId,
         timestamp: Date.now() 
       });
       return;
@@ -168,29 +189,35 @@ const App: React.FC = () => {
     );
     
     if (nextItem) {
-      let finalProId = nextItem.professionalId !== 'any' 
-        ? nextItem.professionalId 
-        : (myProId || professionals.find(p => p.status === 'available')?.id || professionals[0].id);
-
+      let finalProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0].id);
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { 
         status: 'serving', 
         professionalId: finalProId,
         timestamp: Date.now() 
       });
     } else {
-      alert(userRole === 'admin' ? "Não há clientes na fila aguardando." : "Não há clientes aguardando na sua fila.");
+      alert("Ninguém aguardando na sua fila.");
     }
   };
 
   const handleFinish = (item: QueueItem) => {
     if (userRole === 'staff') {
       const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-      if (item.professionalId !== myPro?.id) {
-        return alert("Você só pode finalizar atendimentos da sua própria cadeira.");
-      }
+      if (item.professionalId !== myPro?.id) return alert("Ação não permitida para esta cadeira.");
     }
     setSelectedQueueItem(item);
     setIsCompletionModalOpen(true);
+  };
+
+  const handleStaffAssign = async (proId: string) => {
+    if (!currentEst) return;
+    try {
+      await updateDoc(doc(db, "establishments", currentEst.id, "professionals", proId), { 
+        email: userEmail.toLowerCase() 
+      });
+    } catch (e: any) {
+      alert(`Erro: ${e.message}`);
+    }
   };
 
   const handleUpdateStaffStatus = async (newStatus: ProfStatus) => {
@@ -199,65 +226,27 @@ const App: React.FC = () => {
     if (myPro) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: newStatus });
   };
 
-  const handleNoShow = (id?: string) => {
-    const item = id ? queue.find(i => i.id === id) : (userRole === 'staff' ? queue.find(i => i.status === 'serving' && i.professionalId === (professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase())?.id)) : queue.find(i => i.status === 'serving'));
-    if (item) handleRemoveFromQueue(item.id, item.userEmail);
-  };
-
-  const handleSwitchQueue = async (queueId: string, newProId: string) => {
-    if (!currentEst) return;
-    if (confirm("Deseja mudar para este barbeiro e ser atendido agora?")) {
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", queueId), { professionalId: newProId });
-    }
-  };
-
-  const handleStaffAssign = async (proId: string) => {
-    if (!currentEst) return;
-    const pro = professionals.find(p => p.id === proId);
-    if (pro?.email) return alert("Esta cadeira já está vinculada.");
-    if (confirm(`Deseja unificar seu acesso à cadeira "${pro?.name}"?`)) {
-       await updateDoc(doc(db, "establishments", currentEst.id, "professionals", proId), { email: userEmail.toLowerCase() });
-    }
-  };
-
   if (isTVMode && currentEst) {
     return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
   }
 
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
-  if (!isLoggedIn) return (
-    <AuthView 
-      onLogin={(email, role) => { 
-        setUserEmail(email.toLowerCase()); 
-        setUserRole(role); 
-        setIsLoggedIn(true); 
-        setActiveTab('fila'); 
-      }} 
-    />
-  );
-  
+  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   const myStaffPro = userRole === 'staff' ? professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase()) : null;
   const isStaffNotLinked = userRole === 'staff' && !myStaffPro;
-  const isStaffOrAdmin = userRole === 'admin' || !!myStaffPro;
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
       {isStaffNotLinked ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-8 animate-in fade-in zoom-in">
-           <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-[32px] flex items-center justify-center border border-amber-500/20 shadow-2xl"><Scissors size={40} /></div>
-           <div className="text-center space-y-2">
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Vincular Profissional</h2>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest px-10 leading-relaxed">Selecione abaixo para gerenciar sua fila.</p>
-           </div>
-           <div className="w-full space-y-3">
+        <div className="flex flex-col items-center justify-center py-20">
+           <Scissors size={40} className="text-amber-500 mb-4" />
+           <h2 className="text-xl font-black text-white uppercase">Vincular Cadeira</h2>
+           <div className="w-full mt-6 space-y-3">
               {professionals.filter(p => !p.email).map(pro => (
-                <button key={pro.id} onClick={() => handleStaffAssign(pro.id)} className="w-full bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between hover:border-amber-500 transition-all active:scale-[0.98]">
-                  <div className="flex items-center gap-4">
-                     <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-amber-500"><UserCheck size={20} /></div>
-                     <span className="text-sm font-black text-white uppercase">{pro.name}</span>
-                  </div>
+                <button key={pro.id} onClick={() => handleStaffAssign(pro.id)} className="w-full bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between">
+                  <span className="text-sm font-black text-white uppercase">{pro.name}</span>
                   <ArrowRight size={20} className="text-slate-700" />
                 </button>
               ))}
@@ -266,9 +255,9 @@ const App: React.FC = () => {
       ) : (
         <>
           {userRole === 'staff' && myStaffPro && (
-            <div className="mb-6 bg-slate-900/50 border border-slate-800 rounded-[32px] p-2 flex items-center gap-2 animate-in slide-in-from-top-4">
+            <div className="mb-6 bg-slate-900/50 border border-slate-800 rounded-[32px] p-2 flex items-center gap-2">
                {[{ id: 'available', label: 'Disponível', icon: <CheckCircle2 size={14} />, color: 'emerald' }, { id: 'lunch', label: 'Almoço', icon: <Coffee size={14} />, color: 'amber' }, { id: 'absent', label: 'Ausente', icon: <UserX size={14} />, color: 'red' }].map((st) => (
-                 <button key={st.id} onClick={() => handleUpdateStaffStatus(st.id as ProfStatus)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[24px] text-[9px] font-black uppercase tracking-widest transition-all ${myStaffPro.status === st.id ? `bg-${st.color}-500 text-slate-950 shadow-lg shadow-${st.color}-500/20` : 'text-slate-500 hover:text-slate-300'}`}>
+                 <button key={st.id} onClick={() => handleUpdateStaffStatus(st.id as ProfStatus)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[24px] text-[9px] font-black uppercase tracking-widest transition-all ${myStaffPro.status === st.id ? `bg-${st.color}-500 text-slate-950` : 'text-slate-500'}`}>
                    {st.icon} {st.label}
                  </button>
                ))}
@@ -290,17 +279,16 @@ const App: React.FC = () => {
               onFinish={handleFinish}
               onNoShow={handleNoShow} 
               onOpenJoinModal={() => setIsJoinModalOpen(true)} 
-              onSwitchQueue={handleSwitchQueue}
-              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(userRole === 'admin' ? `Remover ${item?.name}?` : "Deseja sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
+              onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(userRole === 'admin' ? `Remover ${item?.name}?` : "Sair da fila?")) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
           {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
           {activeTab === 'admin' && userRole === 'admin' && (
             <AdminPanel 
               establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} onDeleteEstablishment={() => {}} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-              onCallNext={() => handleCallNext()} onFinish={handleFinish}
-              onNoShow={(id) => handleNoShow(id)} onUpdateServices={async (sList) => { for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true }); const ids = sList.map(x => x.id); services.forEach(async (s) => { if (!ids.includes(s.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id)); }); }}
-              onUpdatePros={async (pList) => { for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true }); const ids = pList.map(x => x.id); professionals.forEach(async (p) => { if (!ids.includes(p.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id)); }); }}
+              onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow}
+              onUpdateServices={async (sList) => { for (const s of sList) await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true }); }}
+              onUpdatePros={async (pList) => { for (const p of pList) await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true }); }}
               onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}
             />
           )}

@@ -56,6 +56,7 @@ export interface QueueItem {
   type: 'walk-in' | 'appointment';
   scheduledTime?: string; 
   userEmail?: string;
+  missedCount?: number; // Contador de faltas
 }
 
 export interface UserProfile {
