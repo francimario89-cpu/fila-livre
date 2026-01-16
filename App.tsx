@@ -176,7 +176,6 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst || !auth.currentUser) return;
     try {
-      // Se for cliente, verifica se já tem algo ativo
       if (userRole === 'client') {
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         const userSnap = await getDoc(userDocRef);
@@ -189,7 +188,6 @@ const App: React.FC = () => {
 
       const baseTime = Date.now();
       const allPeople = [data.mainPerson, ...(data.companions || [])];
-      const batch = [];
       const createdIds = [];
 
       for (let i = 0; i < allPeople.length; i++) {
@@ -202,7 +200,7 @@ const App: React.FC = () => {
           userEmail: userRole === 'client' ? userEmail : null,
           establishmentId: currentEst.id,
           status: 'waiting',
-          timestamp: baseTime + (i * 10), // Pequeno delay para manter ordem exata no Firestore
+          timestamp: baseTime + (i * 10),
           missedCount: 0
         };
         if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
@@ -211,12 +209,11 @@ const App: React.FC = () => {
         createdIds.push(docRef.id);
       }
 
-      // Se for cliente, vincula o PRIMEIRO ID como o booking ativo (ou poderíamos vincular a lista)
       if (userRole === 'client') {
         await setDoc(doc(db, "users", auth.currentUser.uid), { 
           activeBooking: { 
             establishmentId: currentEst.id, 
-            queueId: createdIds[0] // Referência para gerenciar o grupo
+            queueId: createdIds[0]
           } 
         }, { merge: true });
       }
@@ -231,7 +228,6 @@ const App: React.FC = () => {
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
       if (clientEmail) {
-        // Verifica se ainda restam itens desse mesmo e-mail na fila
         const qRemaining = query(collection(db, "establishments", currentEst.id, "queue"), where("userEmail", "==", clientEmail));
         const snap = await getDocs(qRemaining);
         if (snap.empty) {
@@ -332,7 +328,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'fila' && (
             <QueueView 
-              queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myOnDutyPro?.id} currentUserEmail={userEmail} estStatus={currentEst.status} openingHours={currentEst.openingHours} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} 
+              queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myOnDutyPro?.id} currentUserEmail={userEmail} estStatus={currentEst.status} openingHours={currentEst.openingHours} pixKey={currentEst.pixKey} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} 
               onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(`Remover "${item?.name}" da fila?`)) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
@@ -412,7 +408,7 @@ const App: React.FC = () => {
                           <input type="email" value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder={userEmail.includes('@telefone.com') ? "ADICIONAR E-MAIL REAL" : userEmail} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all" />
                         </div>
                         {userEmail.includes('@telefone.com') && (
-                          <button disabled={isUpdatingProfile} onClick={handleLinkRealEmail} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+                          <button disabled={isUpdatingProfile} onClick={handleLinkRealEmail} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
                              {isUpdatingProfile ? <Loader2 size={16} className="animate-spin" /> : "VINCULAR E-MAIL REAL"}
                           </button>
                         )}
@@ -440,11 +436,9 @@ const App: React.FC = () => {
               const q = query(collection(db, "users"), where("email", "==", selectedQueueItem.userEmail));
               const snap = await getDocs(q);
               if (!snap.empty) {
-                  // Acompanhantes podem não ter perfil individual, então limpamos o activeBooking do responsável
-                  // apenas se não houver mais nada dele na fila
                   const qRemaining = query(collection(db, "establishments", currentEst.id, "queue"), where("userEmail", "==", selectedQueueItem.userEmail));
                   const snapRemaining = await getDocs(qRemaining);
-                  if (snapRemaining.size <= 1) { // Só restou esse que está sendo finalizado agora
+                  if (snapRemaining.size <= 1) {
                      await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
                   }
               }

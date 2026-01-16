@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar } from 'lucide-react';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -12,6 +12,7 @@ interface QueueViewProps {
   currentUserEmail?: string;
   estStatus: EstStatus;
   openingHours?: string;
+  pixKey?: string;
   bookingModel: BookingModel;
   professionals: Professional[];
   services: Service[];
@@ -24,16 +25,16 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue
 }) => {
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
+  const [copied, setCopied] = useState(false);
 
   const filteredQueue = useMemo(() => {
     let list = [...queue];
     if (filterPro !== 'all') {
       list = list.filter(i => i.professionalId === filterPro || i.professionalId === 'any');
     }
-    // Ordenação: 1. Serving primeiro, 2. Waiting (por timestamp ou agendamento)
     return list.sort((a, b) => {
       if (a.status === 'serving') return -1;
       if (b.status === 'serving') return 1;
@@ -43,6 +44,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
   const currentTurn = filteredQueue.find(item => item.status === 'serving');
   const waitingList = filteredQueue.filter(item => item.status === 'waiting');
+
+  const handleCopyPix = () => {
+    if (!pixKey) return;
+    navigator.clipboard.writeText(pixKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return '';
@@ -62,25 +70,51 @@ export const QueueView: React.FC<QueueViewProps> = ({
          ))}
       </div>
 
-      {/* Status da Loja */}
-      <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-widest">
-                {estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}
-              </h4>
-              <div className="flex items-center gap-1.5 mt-0.5 opacity-70">
-                <Clock size={10} />
-                <p className="text-[8px] font-bold uppercase">
-                  {openingHours || 'Horário não informado'}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Status da Loja */}
+        <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest">
+                  {estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}
+                </h4>
+                <div className="flex items-center gap-1.5 mt-0.5 opacity-70">
+                  <Clock size={10} />
+                  <p className="text-[8px] font-bold uppercase">
+                    {openingHours || 'Horário não informado'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          </div>
+        </div>
+
+        {/* Card de Pagamento PIX Rápido (Somente se houver chave) */}
+        {pixKey && (
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group hover:border-teal-500/30 transition-all">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl">
+                <QrCode size={22} />
+              </div>
+              <div>
+                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Pagamento PIX</h4>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5 truncate max-w-[120px]">
+                  {pixKey}
                 </p>
               </div>
             </div>
+            <button 
+              onClick={handleCopyPix}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-teal-400 hover:bg-slate-700'}`}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copiado!' : 'Copiar'}
+            </button>
           </div>
-          <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-        </div>
+        )}
       </div>
 
       {/* Atendimento Atual */}
