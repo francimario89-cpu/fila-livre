@@ -27,11 +27,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   // Função para tratar o identificador (se for número, transforma em e-mail fake para o Firebase)
   const processIdentifier = (input: string) => {
     const clean = input.trim().toLowerCase();
-    const isPhone = /^\d+$/.test(clean.replace(/\D/g, ''));
+    const digitsOnly = clean.replace(/\D/g, '');
+    const isPhone = /^\d+$/.test(digitsOnly);
+
     if (isPhone && !clean.includes('@')) {
-      // Se for apenas números (mínimo 8 dígitos), trata como telefone
-      const digits = clean.replace(/\D/g, '');
-      if (digits.length >= 8) return `${digits}@telefone.com`;
+      // Exige DDD (Mínimo 10 dígitos: DDD + 8 números, Máximo 11: DDD + 9 números)
+      if (digitsOnly.length < 10) {
+        throw new Error('phone-missing-ddd');
+      }
+      return `${digitsOnly}@telefone.com`;
     }
     return clean;
   };
@@ -60,9 +64,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setError('');
     setIsLoading(true);
     
-    const finalIdentifier = processIdentifier(identifier);
-    
     try {
+      const finalIdentifier = processIdentifier(identifier);
+      
       if (isRegistering) {
         if (!name) throw new Error('name-required');
         const result = await createUserWithEmailAndPassword(auth, finalIdentifier, password);
@@ -78,11 +82,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       }
     } catch (err: any) {
       console.error(err);
-      if (err.message === 'name-required') setError('Informe seu nome completo.');
-      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') setError('E-mail/Celular ou senha incorretos.');
-      else if (err.code === 'auth/email-already-in-use') setError('Este E-mail ou Celular já está cadastrado.');
-      else if (err.code === 'auth/invalid-email') setError('Formato de E-mail ou Celular inválido.');
-      else setError(`Erro ao acessar: Verifique seus dados.`);
+      if (err.message === 'phone-missing-ddd') setError('O número deve conter o DDD (Ex: 11999999999)');
+      else if (err.message === 'name-required') setError('Informe seu nome completo.');
+      else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') setError('Dados incorretos.');
+      else if (err.code === 'auth/email-already-in-use') setError('E-mail ou Celular já cadastrado.');
+      else if (err.code === 'auth/invalid-email') setError('Formato inválido.');
+      else setError(`Erro: Verifique seus dados.`);
     } finally {
       setIsLoading(false);
     }
@@ -90,16 +95,16 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalIdentifier = processIdentifier(identifier);
-    if (!identifier) return setError('Informe seu e-mail ou celular.');
-    setIsLoading(true);
     setError('');
+    setIsLoading(true);
     try {
+      const finalIdentifier = processIdentifier(identifier);
       await sendPasswordResetEmail(auth, finalIdentifier);
       setSuccessMsg('Link de recuperação enviado!');
       setTimeout(() => { setScreen('email'); setSuccessMsg(''); }, 3000);
     } catch (err: any) {
-      setError('E-mail não encontrado.');
+      if (err.message === 'phone-missing-ddd') setError('Inclua o DDD para recuperar a conta.');
+      else setError('Usuário não encontrado.');
     } finally {
       setIsLoading(false);
     }
@@ -211,7 +216,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular</label>
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (com DDD)</label>
               <div className="relative">
                 {isIdentifierPhone ? (
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500 transition-colors" size={18} />
@@ -221,7 +226,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 <input 
                   required 
                   type="text" 
-                  placeholder="email@site.com ou 11999999999" 
+                  placeholder="EX: 11999999999" 
                   value={identifier} 
                   onChange={(e) => setIdentifier(e.target.value)} 
                   className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" 
@@ -248,7 +253,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "FINALIZAR MEU CADASTRO" : "ENTRAR NO APP")}
             </button>
 
-            {/* DESTAQUE MÁXIMO PARA "NOVO POR AQUI" */}
             <div className="pt-8 mt-4 border-t border-slate-800/50">
               <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest text-center mb-4">Primeira vez acessando?</p>
               
@@ -277,7 +281,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                   <span className="text-[8px] font-bold uppercase opacity-70 tracking-widest mt-1">Crie sua conta grátis em 10 segundos</span>
                 )}
                 
-                {/* Efeito de brilho neon no hover */}
                 <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
@@ -285,10 +288,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-6">
              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular cadastrado</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular (com DDD)</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input required type="text" placeholder="email@site.com ou celular" value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" />
+                  <input required type="text" placeholder="EX: 11999999999" value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-sm outline-none focus:border-white/20" />
                 </div>
               </div>
               <button disabled={isLoading} type="submit" className="w-full py-5 bg-slate-100 text-slate-950 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all">
