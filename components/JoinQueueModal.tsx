@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Service, Professional, BookingModel, QueueItem } from '../types';
-import { X, User, ClipboardList, Clock, CalendarCheck, UserCheck, Timer, ChevronRight, Zap, Circle, Calendar, Plus, Trash2, Users } from 'lucide-react';
+import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface Companion {
   id: string;
@@ -24,14 +24,6 @@ interface JoinQueueModalProps {
   }) => void;
 }
 
-export const formatDuration = (totalMinutes: number) => {
-  if (totalMinutes < 5) return "Agora mesmo";
-  if (totalMinutes < 60) return `${totalMinutes} min`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
-};
-
 export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({ 
   services, professionals, bookingModel, currentQueue, onClose, onSubmit 
 }) => {
@@ -42,7 +34,12 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const [professionalId, setProfessionalId] = useState('any');
   const [type, setType] = useState<'walk-in' | 'appointment'>(bookingModel === 'appointment' ? 'appointment' : 'walk-in');
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+
+  // Configurações de funcionamento (Poderiam vir do DB, mas vamos usar padrões)
+  const START_HOUR = 8; // 08:00
+  const END_HOUR = 20;   // 20:00
+  const INTERVAL = 10;   // Granularidade de 10 min para os slots
 
   const addCompanion = () => {
     const newCompanion: Companion = {
@@ -60,6 +57,64 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const updateCompanion = (id: string, field: 'name' | 'service', value: string) => {
     setCompanions(companions.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
+
+  // Cálculo de duração total do grupo
+  const totalDuration = useMemo(() => {
+    const mainSrv = services.find(s => s.name === serviceName);
+    let duration = mainSrv?.duration || 30;
+    companions.forEach(c => {
+      const srv = services.find(s => s.name === c.service);
+      duration += (srv?.duration || 30);
+    });
+    return duration;
+  }, [serviceName, companions, services]);
+
+  // Gerador de Slots Livres
+  const availableSlots = useMemo(() => {
+    if (type !== 'appointment' || professionalId === 'any') return [];
+
+    const slots: string[] = [];
+    const proAppointments = currentQueue.filter(item => 
+      item.type === 'appointment' && 
+      item.professionalId === professionalId &&
+      item.scheduledTime?.startsWith(scheduledDate)
+    );
+
+    // Converte agendamentos existentes em blocos de tempo ocupados
+    const busyBlocks = proAppointments.map(ap => {
+      const timeStr = ap.scheduledTime?.split(' ')[1] || '00:00';
+      const [h, m] = timeStr.split(':').map(Number);
+      const start = h * 60 + m;
+      const srv = services.find(s => s.name === ap.service);
+      return { start, end: start + (srv?.duration || 30) };
+    });
+
+    // Varre o dia em intervalos de 10 minutos
+    for (let minutes = START_HOUR * 60; minutes <= (END_HOUR * 60) - totalDuration; minutes += INTERVAL) {
+      const slotStart = minutes;
+      const slotEnd = minutes + totalDuration;
+
+      // Verifica se este bloco de tempo (Duração Total) conflita com algum agendamento existente
+      const isOverlap = busyBlocks.some(busy => 
+        (slotStart >= busy.start && slotStart < busy.end) || 
+        (slotEnd > busy.start && slotEnd <= busy.end) ||
+        (slotStart <= busy.start && slotEnd >= busy.end)
+      );
+
+      // Não permite horários passados se for hoje
+      const isToday = scheduledDate === new Date().toISOString().split('T')[0];
+      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+      if (isToday && slotStart < nowMinutes + 15) continue; // 15min de margem
+
+      if (!isOverlap) {
+        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const m = (minutes % 60).toString().padStart(2, '0');
+        slots.push(`${h}:${m}`);
+      }
+    }
+
+    return slots;
+  }, [type, professionalId, scheduledDate, currentQueue, totalDuration, services]);
 
   const calculateWait = (proId: string) => {
     const proServing = currentQueue.find(i => i.status === 'serving' && i.professionalId === proId);
@@ -89,9 +144,6 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     } else {
       baseWait = calculateWait(professionalId);
     }
-
-    // Soma a duração do serviço principal + acompanhantes para a previsão de término, 
-    // mas a previsão de INÍCIO é baseada no que já está na fila.
     return baseWait;
   }, [currentQueue, type, services, professionalId, professionals]);
 
@@ -103,10 +155,13 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
   const handleAction = () => {
     if (!name.trim()) return alert("Por favor, informe seu nome.");
+    if (type === 'appointment') {
+      if (professionalId === 'any') return alert("Para agendar um horário, escolha um profissional específico.");
+      if (!selectedTime) return alert("Por favor, selecione um horário disponível.");
+    }
+    
     const invalidCompanion = companions.find(c => !c.name.trim());
     if (invalidCompanion) return alert("Por favor, informe o nome de todos os acompanhantes.");
-    
-    if (type === 'appointment' && (!scheduledDate || !scheduledTime)) return alert("Escolha data e hora do agendamento.");
     
     const payload: any = {
       mainPerson: { name: name.toUpperCase().trim(), service: serviceName },
@@ -116,7 +171,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     };
 
     if (type === 'appointment') {
-      payload.scheduledTime = `${scheduledDate} ${scheduledTime}`;
+      payload.scheduledTime = `${scheduledDate} ${selectedTime}`;
     }
 
     onSubmit(payload);
@@ -143,41 +198,30 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
           )}
 
           <div className="space-y-4">
-            {/* Pessoa Principal */}
             <div className="bg-slate-950/40 p-6 rounded-[32px] border border-white/5 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                  <User size={14} className="text-teal-400" />
-                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Responsável / Pai</span>
+                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Responsável</span>
               </div>
               <div className="space-y-4">
                 <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="SEU NOME" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500 transition-all" />
-                <select value={serviceName} onChange={e => setServiceName(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
+                <select value={serviceName} onChange={e => { setServiceName(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
                   {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
                 </select>
               </div>
             </div>
 
-            {/* Acompanhantes */}
             {companions.length > 0 && (
               <div className="space-y-3">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Acompanhantes (Filhos/Amigos)</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Acompanhantes</p>
                 {companions.map((comp, idx) => (
                   <div key={comp.id} className="bg-indigo-600/5 border border-indigo-500/10 p-5 rounded-[32px] space-y-3 animate-in slide-in-from-right-4">
                     <div className="flex justify-between items-center">
                        <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{idx + 1}º Acompanhante</span>
                        <button onClick={() => removeCompanion(comp.id)} className="text-red-500/50 hover:text-red-500"><Trash2 size={14}/></button>
                     </div>
-                    <input 
-                      value={comp.name} 
-                      onChange={e => updateCompanion(comp.id, 'name', e.target.value.toUpperCase())} 
-                      placeholder="NOME DO ACOMPANHANTE" 
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none focus:border-indigo-500" 
-                    />
-                    <select 
-                      value={comp.service} 
-                      onChange={e => updateCompanion(comp.id, 'service', e.target.value)} 
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none appearance-none"
-                    >
+                    <input value={comp.name} onChange={e => updateCompanion(comp.id, 'name', e.target.value.toUpperCase())} placeholder="NOME" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none" />
+                    <select value={comp.service} onChange={e => { updateCompanion(comp.id, 'service', e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-bold text-white uppercase outline-none">
                       {services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}
                     </select>
                   </div>
@@ -185,10 +229,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
               </div>
             )}
 
-            <button 
-              onClick={addCompanion}
-              className="w-full py-4 border-2 border-dashed border-slate-800 rounded-[24px] text-slate-600 hover:text-teal-400 hover:border-teal-500/30 transition-all flex items-center justify-center gap-2"
-            >
+            <button onClick={addCompanion} className="w-full py-4 border-2 border-dashed border-slate-800 rounded-[24px] text-slate-600 hover:text-teal-400 hover:border-teal-500/30 transition-all flex items-center justify-center gap-2">
               <Plus size={16} />
               <span className="text-[9px] font-black uppercase tracking-widest">Adicionar Acompanhante</span>
             </button>
@@ -196,16 +237,46 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             <div className="pt-4 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Com quem?</label>
-                <select value={professionalId} onChange={e => setProfessionalId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">
-                  <option value="any">Primeiro Disponível</option>
+                <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none">
+                  <option value="any">{type === 'appointment' ? 'Selecione um Profissional' : 'Primeiro Disponível'}</option>
                   {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
 
               {type === 'appointment' && (
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                  <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Escolha o Dia</label>
+                    <input type="date" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                  </div>
+
+                  {professionalId !== 'any' ? (
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horários Disponíveis (Sessão de {totalDuration} min)</label>
+                      {availableSlots.length > 0 ? (
+                        <div className="grid grid-cols-4 gap-2">
+                          {availableSlots.map(slot => (
+                            <button 
+                              key={slot} 
+                              onClick={() => setSelectedTime(slot)} 
+                              className={`py-3 rounded-xl text-[10px] font-black transition-all ${selectedTime === slot ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-indigo-500'}`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500">
+                           <AlertCircle size={16} />
+                           <p className="text-[9px] font-black uppercase">Não há horários para {totalDuration} min neste dia.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl text-center">
+                       <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Escolha um profissional para ver horários</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
