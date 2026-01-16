@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2
 } from 'lucide-react';
@@ -40,6 +40,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
+  // Estados para edição do perfil (evita saves em tempo real enquanto digita)
+  const [tempName, setTempName] = useState(establishment.name);
+  const [tempHours, setTempHours] = useState(establishment.openingHours || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   const [isAddingService, setIsAddingService] = useState(false);
   const [newSName, setNewSName] = useState('');
   const [newSPrice, setNewSPrice] = useState('');
@@ -52,9 +57,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [manualName, setManualName] = useState('');
   const [manualService, setManualService] = useState(services[0]?.name || '');
 
+  // Sincroniza se o estabelecimento mudar externamente
+  useEffect(() => {
+    setTempName(establishment.name);
+    setTempHours(establishment.openingHours || '');
+  }, [establishment.name, establishment.openingHours]);
+
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
   const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    await onUpdateEstablishment({ name: tempName, openingHours: tempHours });
+    setTimeout(() => setIsSavingProfile(false), 1000);
+  };
 
   const handleAddService = () => {
     if (!newSName || !newSPrice) return;
@@ -103,7 +120,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 0. PERFIL DO NEGÓCIO (NOVO) */}
+      {/* 0. PERFIL DO NEGÓCIO */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Building2 size={14} className="text-teal-400" /> Perfil do Negócio
@@ -114,8 +131,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="relative">
               <Store className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
               <input 
-                value={establishment.name} 
-                onChange={(e) => onUpdateEstablishment({ name: e.target.value.toUpperCase() })} 
+                value={tempName} 
+                onChange={(e) => setTempName(e.target.value.toUpperCase())} 
                 placeholder="NOME DA LOJA" 
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all uppercase"
               />
@@ -126,13 +143,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="relative">
               <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
               <input 
-                value={establishment.openingHours || ''} 
-                onChange={(e) => onUpdateEstablishment({ openingHours: e.target.value })} 
+                value={tempHours} 
+                onChange={(e) => setTempHours(e.target.value)} 
                 placeholder="EX: SEG A SEX, 08H ÀS 20H" 
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all"
               />
             </div>
           </div>
+          
+          <button 
+            onClick={handleSaveProfile}
+            disabled={isSavingProfile}
+            className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isSavingProfile ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+          >
+            {isSavingProfile ? <CheckCircle2 size={18} /> : <Save size={18} />}
+            {isSavingProfile ? 'Alterações Salvas!' : 'Salvar Perfil'}
+          </button>
         </div>
       </section>
 

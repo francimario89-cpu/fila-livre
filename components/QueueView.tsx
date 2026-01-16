@@ -18,6 +18,7 @@ interface QueueViewProps {
   onCallNext?: (id?: string) => void;
   onFinish?: (item: QueueItem) => void;
   onNoShow?: (id: string) => void;
+  onCallNextWithItem?: (item: QueueItem) => void;
   onOpenJoinModal?: () => void;
   onLeaveQueue?: (id: string) => void;
 }
@@ -67,8 +68,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
             <div>
-              <h4 className="text-xs font-black uppercase tracking-widest">{estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}</h4>
-              <p className="text-[8px] font-bold uppercase opacity-60">{estStatus === 'open' ? 'Atendimento em tempo real' : 'Pausa para almoço'}</p>
+              <h4 className="text-xs font-black uppercase tracking-widest">
+                {estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}
+              </h4>
+              <div className="flex items-center gap-1.5 mt-0.5 opacity-70">
+                <Clock size={10} />
+                <p className="text-[8px] font-bold uppercase">
+                  {openingHours || 'Horário não informado'}
+                </p>
+              </div>
             </div>
           </div>
           <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
