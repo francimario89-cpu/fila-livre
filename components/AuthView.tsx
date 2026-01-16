@@ -4,7 +4,7 @@ import { LOGO_SVG } from '../constants';
 import { auth, db, sendPasswordResetEmail } from '../services/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2, Scissors } from 'lucide-react';
+import { Mail, User, Building2, ChevronLeft, Lock, Eye, EyeOff, KeyRound, Loader2, AlertCircle, CheckCircle2, Scissors, ArrowRight, UserPlus } from 'lucide-react';
 
 interface AuthViewProps {
   onLogin: (email: string, role: 'admin' | 'staff' | 'client') => void;
@@ -213,14 +213,38 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             <button type="button" onClick={() => setScreen('forgot_password')} className="text-[9px] font-black text-slate-600 uppercase tracking-widest hover:text-slate-300 py-1">Esqueceu a senha?</button>
 
             <button disabled={isLoading} type="submit" className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
-              role === 'admin' ? 'bg-indigo-600 text-white' : role === 'staff' ? 'bg-amber-500 text-slate-950' : 'bg-teal-500 text-slate-950'
-            }`}>
-              {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "CONFIRMAR CADASTRO" : "ENTRAR")}
+              role === 'admin' ? 'bg-indigo-600 text-white shadow-indigo-600/20' : role === 'staff' ? 'bg-amber-500 text-slate-950 shadow-amber-500/20' : 'bg-teal-500 text-slate-950 shadow-teal-500/20'
+            } shadow-xl`}>
+              {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "CONFIRMAR CADASTRO" : "ENTRAR AGORA")}
             </button>
 
-            <button type="button" onClick={() => { setIsRegistering(!isRegistering); setError(''); }} className="w-full text-center text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 py-2">
-              {isRegistering ? 'Já tem conta? Login' : 'Novo por aqui? Criar Conta'}
-            </button>
+            {/* DESTAQUE PARA "NOVO POR AQUI" */}
+            <div className="pt-8 mt-4 border-t border-slate-800/50">
+              <button 
+                type="button" 
+                onClick={() => { setIsRegistering(!isRegistering); setError(''); }} 
+                className={`w-full py-5 rounded-[24px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-2 group shadow-2xl ${
+                  isRegistering 
+                  ? 'border-slate-800 bg-slate-900/40 text-slate-400 hover:text-white' 
+                  : role === 'admin' 
+                    ? 'border-indigo-500/30 bg-indigo-500/5 text-indigo-400 hover:bg-indigo-600 hover:text-white' 
+                    : role === 'staff'
+                      ? 'border-amber-500/30 bg-amber-500/5 text-amber-500 hover:bg-amber-500 hover:text-slate-950'
+                      : 'border-teal-500/30 bg-teal-500/5 text-teal-400 hover:bg-teal-500 hover:text-slate-950'
+                }`}
+              >
+                {!isRegistering && (
+                  <UserPlus size={20} className="mb-1 animate-pulse" />
+                )}
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                  {isRegistering ? 'Já tenho uma conta • Fazer Login' : 'Ainda não tem conta? Criar Agora'}
+                  {!isRegistering && <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />}
+                </span>
+                {!isRegistering && (
+                  <p className="text-[7px] font-bold uppercase opacity-60 tracking-widest">Cadastro rápido e gratuito</p>
+                )}
+              </button>
+            </div>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-6">
