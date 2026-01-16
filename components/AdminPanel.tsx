@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -90,7 +90,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 1. MÓDULO DE CHAMADA (GESTÃO DE ATENDIMENTOS ATIVOS) */}
+      {/* 1. MÓDULO DE GESTÃO DE ATENDIMENTOS ATIVOS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <BellRing size={14} className="text-teal-400" /> Atendimentos em Curso
@@ -98,37 +98,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         
         <div className="space-y-3">
           {servingList.length > 0 ? servingList.map(serving => (
-            <div key={serving.id} className="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-xl flex items-center justify-between gap-4">
+            <div key={serving.id} className="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-right-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center">
                   <UserCircle size={28} />
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-white uppercase leading-none">{serving.name}</h4>
                   <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">
-                    {serving.service} • <span className="text-indigo-400">{professionals.find(p => p.id === serving.professionalId)?.name || 'Barbeiro'}</span>
+                    {serving.service} • <span className="text-teal-400 font-black">{professionals.find(p => p.id === serving.professionalId)?.name || 'Barbeiro'}</span>
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => onNoShow(serving.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                <button 
+                  title="Faltou / No-show"
+                  onClick={(e) => { e.stopPropagation(); onNoShow(serving.id); }} 
+                  className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                >
                   <UserX size={16} />
                 </button>
-                <button onClick={() => onFinish(serving)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                  Concluir
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onFinish(serving); }} 
+                  className="bg-teal-500 text-slate-950 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-teal-500/10 active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <CheckCircle size={14} /> Finalizar
                 </button>
               </div>
             </div>
           )) : (
             <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-[32px] p-8 text-center">
-              <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Nenhum atendimento ativo</p>
+              <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Nenhum atendimento no momento</p>
             </div>
           )}
 
-          {/* Botão Chamar Próximo (Sempre disponível se houver fila) */}
+          {/* Botão Chamar Próximo */}
           {nextInLine && (
-            <button onClick={onCallNext} className="w-full bg-teal-500 text-slate-950 py-5 rounded-[32px] font-black text-[11px] uppercase tracking-widest shadow-xl shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-3">
-              <Zap size={20} /> Chamar Próximo ({nextInLine.name})
+            <button onClick={onCallNext} className="w-full bg-indigo-600 text-white py-5 rounded-[32px] font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4">
+              <Zap size={20} /> Chamar {nextInLine.name}
             </button>
           )}
         </div>
@@ -244,7 +251,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* 5. GESTÃO DE PROFISSIONAIS (UNIFICAÇÃO DE ACESSO) */}
+      {/* 5. GESTÃO DE PROFISSIONAIS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
