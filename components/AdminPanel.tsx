@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -103,6 +103,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
+      {/* 0. PERFIL DO NEGÓCIO (NOVO) */}
+      <section className="space-y-4">
+        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <Building2 size={14} className="text-teal-400" /> Perfil do Negócio
+        </h3>
+        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
+            <div className="relative">
+              <Store className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
+              <input 
+                value={establishment.name} 
+                onChange={(e) => onUpdateEstablishment({ name: e.target.value.toUpperCase() })} 
+                placeholder="NOME DA LOJA" 
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all uppercase"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horário de Funcionamento</label>
+            <div className="relative">
+              <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
+              <input 
+                value={establishment.openingHours || ''} 
+                onChange={(e) => onUpdateEstablishment({ openingHours: e.target.value })} 
+                placeholder="EX: SEG A SEX, 08H ÀS 20H" 
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 1. MÓDULO DE GESTÃO DE ATENDIMENTOS ATIVOS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -164,7 +197,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <CheckCircle2 size={18}/>
             <span className="text-[8px] font-black uppercase">Aberto</span>
           </button>
-          <button onClick={() => onUpdateStatus('lunch')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'lunch' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
+          <button onClick={() => onUpdateStatus('lunch')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'lunch' ? 'border-amber-500 bg-emerald-500/10 text-amber-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
             <Coffee size={18}/>
             <span className="text-[8px] font-black uppercase">Pausa</span>
           </button>
