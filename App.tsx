@@ -119,7 +119,7 @@ const App: React.FC = () => {
 
   const handleRemoveFromQueue = async (id: string, clientEmail?: string) => {
     if (!currentEst) return;
-    if (userRole === 'staff') return alert("Operação não permitida.");
+    if (userRole === 'staff') return alert("Operação não permitida. Apenas o gestor pode remover clientes manualmente.");
     
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
@@ -136,19 +136,37 @@ const App: React.FC = () => {
     const item = queue.find(i => i.id === id);
     if (!item) return;
 
+    // Verificar se o staff tem permissão para este item
+    if (userRole === 'staff') {
+      const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+      if (item.professionalId !== 'any' && item.professionalId !== myPro?.id) {
+        return alert("Você só pode dar falta em clientes da sua cadeira ou da fila geral.");
+      }
+    }
+
     const currentMissed = item.missedCount || 0;
     
     if (currentMissed + 1 >= 2) {
-      if (confirm(`${item.name} faltou pela 2ª vez. Remover da fila automaticamente?`)) {
-        await handleRemoveFromQueue(id, item.userEmail);
-        alert("Cliente removido por excesso de faltas.");
+      if (confirm(`${item.name} faltou pela 2ª vez. Remover da fila agora?`)) {
+        // Exclusão direta permitida para STAFF via lógica de falta
+        try {
+          await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
+          if (item.userEmail) {
+            const q = query(collection(db, "users"), where("email", "==", item.userEmail));
+            const snap = await getDocs(q);
+            if (!snap.empty) await setDoc(doc(db, "users", snap.docs[0].id), { activeBooking: null }, { merge: true });
+          }
+          alert("Cliente removido por excesso de faltas.");
+        } catch (e: any) {
+          alert(`Erro ao remover: ${e.message}`);
+        }
       }
       return;
     }
 
-    if (confirm(`${item.name} faltou. Mover para o final da fila?`)) {
+    if (confirm(`${item.name} faltou. Ele será movido para o final da fila.`)) {
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", id), {
-        timestamp: Date.now() + 1000,
+        timestamp: Date.now() + 500, // Garante que vá para o final
         status: 'waiting',
         missedCount: currentMissed + 1
       });
@@ -171,7 +189,7 @@ const App: React.FC = () => {
 
       if (userRole === 'staff' && myProId) {
         if (item.professionalId !== 'any' && item.professionalId !== myProId) {
-          return alert("Este cliente é de outro profissional.");
+          return alert("Este cliente escolheu outro profissional.");
         }
       }
 
@@ -196,7 +214,7 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       });
     } else {
-      alert("Ninguém aguardando na sua fila.");
+      alert("Não há clientes aguardando.");
     }
   };
 
