@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, TrendingUp, Calendar, DollarSign, Wallet, CreditCard, ChevronRight, BarChart, History, Calculator, ArrowUpRight, QrCode } from 'lucide-react';
+import { X, TrendingUp, Calendar, DollarSign, Wallet, CreditCard, ChevronRight, BarChart, History, Calculator, ArrowUpRight, QrCode, Filter } from 'lucide-react';
 import { RevenueRecord } from '../types';
 
 interface FinancialDetailModalProps {
@@ -12,6 +12,7 @@ type Period = 'semana' | 'mes' | 'ano';
 
 export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ revenue, onClose }) => {
   const [period, setPeriod] = useState<Period>('semana');
+  const [selectedSubIndex, setSelectedSubIndex] = useState<number | null>(null);
 
   const DAYS_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
   const MONTHS_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -39,10 +40,10 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     const currentYear = now.getFullYear();
 
     const weekRanges = [
-      { label: 'Semana 1 (Dias 1-7)', start: 1, end: 7 },
-      { label: 'Semana 2 (Dias 8-14)', start: 8, end: 14 },
-      { label: 'Semana 3 (Dias 15-21)', start: 15, end: 21 },
-      { label: 'Semana 4 (Dias 22-31)', start: 22, end: 31 }
+      { label: 'Semana 1', sub: 'Dias 1 a 7', start: 1, end: 7 },
+      { label: 'Semana 2', sub: 'Dias 8 a 14', start: 8, end: 14 },
+      { label: 'Semana 3', sub: 'Dias 15 a 21', start: 15, end: 21 },
+      { label: 'Semana 4', sub: 'Dias 22 a 31', start: 22, end: 31 }
     ];
 
     return weekRanges.map(range => {
@@ -53,7 +54,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                d.getDate() >= range.start && 
                d.getDate() <= range.end;
       }).reduce((acc, curr) => acc + curr.amount, 0);
-      return { label: range.label, value: total };
+      return { label: range.label, subLabel: range.sub, value: total };
     });
   }, [revenue]);
 
@@ -75,8 +76,24 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     return annualData;
   }, [period, weeklyData, monthlyByWeeksData, annualData]);
 
-  const totalPeriodValue = useMemo(() => activeData.reduce((acc, curr) => acc + curr.value, 0), [activeData]);
+  const displayValue = useMemo(() => {
+    if (selectedSubIndex !== null && activeData[selectedSubIndex]) {
+      return activeData[selectedSubIndex].value;
+    }
+    return activeData.reduce((acc, curr) => acc + curr.value, 0);
+  }, [selectedSubIndex, activeData]);
+
   const maxVal = useMemo(() => Math.max(...activeData.map(d => d.value), 1), [activeData]);
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p);
+    setSelectedSubIndex(null);
+  };
+
+  const handleSubSelect = (index: number) => {
+    if (selectedSubIndex === index) setSelectedSubIndex(null);
+    else setSelectedSubIndex(index);
+  };
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -89,7 +106,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3 font-orbitron">
                 <Calculator className="text-emerald-500" size={28} /> Inteligência Financeira
               </h2>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Gestão de Performance e Resultados</p>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Clique nos períodos para ver detalhes</p>
             </div>
             <button onClick={onClose} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
           </div>
@@ -102,7 +119,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
             ].map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPeriod(p.id as Period)}
+                onClick={() => handlePeriodChange(p.id as Period)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
                   period === p.id ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'
                 }`}
@@ -119,48 +136,79 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           <section className="bg-slate-950 border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-5 rotate-12 transition-transform group-hover:scale-110"><TrendingUp size={160} /></div>
             <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em] mb-3">
-              {period === 'semana' ? 'Total desta Semana' : period === 'mes' ? 'Total do Mês Atual' : 'Total do Ano Atual'}
+              {selectedSubIndex !== null 
+                ? `Total: ${activeData[selectedSubIndex].label}`
+                : period === 'semana' ? 'Total desta Semana' : period === 'mes' ? 'Total do Mês Atual' : 'Total do Ano Atual'}
             </p>
             <div className="flex items-baseline gap-2">
                <span className="text-xl font-bold text-slate-600">R$</span>
-               <h3 className="text-5xl font-black text-white font-orbitron">{totalPeriodValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+               <h3 className="text-5xl font-black text-white font-orbitron transition-all duration-300">{displayValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
-            <div className="mt-4 px-4 py-1.5 bg-emerald-500/10 rounded-full flex items-center gap-2 border border-emerald-500/20">
-               <ArrowUpRight size={14} className="text-emerald-500" />
-               <span className="text-[9px] font-black text-emerald-400 uppercase">Dados Atualizados</span>
-            </div>
+            {selectedSubIndex !== null && (
+              <button 
+                onClick={() => setSelectedSubIndex(null)}
+                className="mt-4 px-4 py-1.5 bg-indigo-600 text-white rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+              >
+                <Filter size={10} /> Limpar Filtro
+              </button>
+            )}
+            {selectedSubIndex === null && (
+              <div className="mt-4 px-4 py-1.5 bg-emerald-500/10 rounded-full flex items-center gap-2 border border-emerald-500/20">
+                <ArrowUpRight size={14} className="text-emerald-500" />
+                <span className="text-[9px] font-black text-emerald-400 uppercase">Visualização Geral</span>
+              </div>
+            )}
           </section>
 
-          {/* LISTAGEM COM GRÁFICOS HORIZONTAIS */}
+          {/* LISTAGEM COM GRÁFICOS HORIZONTAIS INTERATIVOS */}
           <section className="space-y-4">
              <div className="flex justify-between items-center px-4">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Detalhamento dos Valores</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Toque em um item para isolar o valor</p>
                 <div className="w-10 h-0.5 bg-slate-800 rounded-full" />
              </div>
 
              <div className="space-y-3">
                 {activeData.map((d, i) => {
                   const barWidth = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
+                  const isSelected = selectedSubIndex === i;
                   return (
-                    <div key={i} className="bg-slate-950 border border-white/5 p-5 rounded-[28px] space-y-3 hover:border-emerald-500/30 transition-all group">
-                      <div className="flex items-center justify-between">
+                    <button 
+                      key={i} 
+                      onClick={() => handleSubSelect(i)}
+                      className={`w-full text-left bg-slate-950 border p-5 rounded-[28px] space-y-3 transition-all group relative overflow-hidden ${
+                        isSelected 
+                          ? 'border-emerald-500 bg-emerald-500/5 shadow-lg shadow-emerald-500/5' 
+                          : 'border-white/5 hover:border-emerald-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between relative z-10">
                         <div>
-                          <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5">{period === 'semana' ? 'Dia da Semana' : period === 'mes' ? 'Período do Mês' : 'Mês do Ano'}</p>
+                          <p className={`text-[8px] font-black uppercase mb-0.5 ${isSelected ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            {(d as any).subLabel || (period === 'semana' ? 'Dia da Semana' : 'Período')}
+                          </p>
                           <h4 className="text-xs font-black text-white uppercase">{d.label}</h4>
                         </div>
                         <div className="text-right">
-                           <p className="text-sm font-black text-white font-mono">R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                           <p className={`text-sm font-black font-mono ${isSelected ? 'text-emerald-400' : 'text-white'}`}>
+                             R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                           </p>
                         </div>
                       </div>
                       
                       {/* Barra Horizontal */}
-                      <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
+                      <div className="h-2 bg-slate-900 rounded-full overflow-hidden relative z-10">
                         <div 
-                          className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
+                          className={`h-full bg-gradient-to-r transition-all duration-1000 ease-out ${
+                            isSelected ? 'from-emerald-400 to-teal-200' : 'from-emerald-600 to-teal-400 opacity-60'
+                          }`}
                           style={{ width: `${Math.max(barWidth, 1)}%` }}
                         />
                       </div>
-                    </div>
+
+                      {isSelected && (
+                        <div className="absolute right-0 top-0 h-full w-1 bg-emerald-500" />
+                      )}
+                    </button>
                   );
                 })}
              </div>
