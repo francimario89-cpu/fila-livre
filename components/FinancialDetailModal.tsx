@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo } from 'react';
-// Added QrCode to imports to fix "Cannot find name 'QrCode'" error.
 import { X, TrendingUp, Calendar, DollarSign, Wallet, CreditCard, ChevronRight, BarChart, History, Calculator, ArrowUpRight, QrCode } from 'lucide-react';
 import { RevenueRecord } from '../types';
 
@@ -14,14 +13,14 @@ type Period = 'semana' | 'mes' | 'ano';
 export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ revenue, onClose }) => {
   const [period, setPeriod] = useState<Period>('semana');
 
-  const DAYS_NAMES = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-  const MONTHS_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  const DAYS_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  const MONTHS_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   // Dados da Semana Atual (Dia a Dia)
   const weeklyData = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Início no Domingo
+    startOfWeek.setDate(now.getDate() - now.getDay()); 
     startOfWeek.setHours(0, 0, 0, 0);
 
     return DAYS_NAMES.map((label, index) => {
@@ -40,10 +39,10 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     const currentYear = now.getFullYear();
 
     const weekRanges = [
-      { label: 'SEM 1 (1-7)', start: 1, end: 7 },
-      { label: 'SEM 2 (8-14)', start: 8, end: 14 },
-      { label: 'SEM 3 (15-21)', start: 15, end: 21 },
-      { label: 'SEM 4 (22-31)', start: 22, end: 31 }
+      { label: 'Semana 1 (Dias 1-7)', start: 1, end: 7 },
+      { label: 'Semana 2 (Dias 8-14)', start: 8, end: 14 },
+      { label: 'Semana 3 (Dias 15-21)', start: 15, end: 21 },
+      { label: 'Semana 4 (Dias 22-31)', start: 22, end: 31 }
     ];
 
     return weekRanges.map(range => {
@@ -90,7 +89,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3 font-orbitron">
                 <Calculator className="text-emerald-500" size={28} /> Inteligência Financeira
               </h2>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Desempenho e Faturamento Estratégico</p>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Gestão de Performance e Resultados</p>
             </div>
             <button onClick={onClose} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
           </div>
@@ -119,68 +118,51 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           {/* Card do Resumo do Período */}
           <section className="bg-slate-950 border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-5 rotate-12 transition-transform group-hover:scale-110"><TrendingUp size={160} /></div>
-            <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em] mb-3">Faturamento Bruto Total</p>
+            <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em] mb-3">
+              {period === 'semana' ? 'Total desta Semana' : period === 'mes' ? 'Total do Mês Atual' : 'Total do Ano Atual'}
+            </p>
             <div className="flex items-baseline gap-2">
                <span className="text-xl font-bold text-slate-600">R$</span>
                <h3 className="text-5xl font-black text-white font-orbitron">{totalPeriodValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="mt-4 px-4 py-1.5 bg-emerald-500/10 rounded-full flex items-center gap-2 border border-emerald-500/20">
                <ArrowUpRight size={14} className="text-emerald-500" />
-               <span className="text-[9px] font-black text-emerald-400 uppercase">Performance em Tempo Real</span>
+               <span className="text-[9px] font-black text-emerald-400 uppercase">Dados Atualizados</span>
             </div>
           </section>
 
-          {/* GRÁFICO VERTICAL DINÂMICO */}
+          {/* LISTAGEM COM GRÁFICOS HORIZONTAIS */}
           <section className="space-y-4">
-             <div className="flex justify-between items-center px-2">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Análise de Comparação</h3>
-                <span className="text-[8px] font-bold text-slate-600 uppercase">Frequência Financeira</span>
-             </div>
-             
-             <div className="bg-slate-950/50 border border-white/5 rounded-[40px] p-8">
-                <div className="flex items-end justify-between gap-2 h-48">
-                  {activeData.map((d, i) => {
-                    const heightPercent = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center group gap-3">
-                         {/* Valor Flutuante (Hover) */}
-                         <div className={`opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-white text-slate-950 text-[8px] font-black py-1 px-2 rounded-lg shadow-xl pointer-events-none`}>
-                           R${d.value.toFixed(0)}
-                         </div>
-                         {/* Barra Vertical */}
-                         <div className="w-full max-w-[30px] relative">
-                            <div 
-                              className="w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t-xl transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
-                              style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                            />
-                         </div>
-                         <span className="text-[7px] font-black text-slate-500 uppercase rotate-[-45deg] mt-1 group-hover:text-emerald-400 transition-colors">{d.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-             </div>
-          </section>
-
-          {/* LISTA DETALHADA COM VALORES REAIS */}
-          <section className="space-y-3">
              <div className="flex justify-between items-center px-4">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Extrato do Período</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Detalhamento dos Valores</p>
                 <div className="w-10 h-0.5 bg-slate-800 rounded-full" />
              </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeData.map((d, i) => (
-                  <div key={i} className="bg-slate-950 border border-white/5 p-5 rounded-[28px] flex items-center justify-between hover:border-emerald-500/30 transition-all">
-                    <div>
-                      <p className="text-[8px] font-black text-slate-500 uppercase mb-1">{period === 'semana' ? 'DIA' : period === 'mes' ? 'SEMANA' : 'MÊS'}</p>
-                      <h4 className="text-xs font-black text-white uppercase">{d.label}</h4>
+
+             <div className="space-y-3">
+                {activeData.map((d, i) => {
+                  const barWidth = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
+                  return (
+                    <div key={i} className="bg-slate-950 border border-white/5 p-5 rounded-[28px] space-y-3 hover:border-emerald-500/30 transition-all group">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[8px] font-black text-slate-500 uppercase mb-0.5">{period === 'semana' ? 'Dia da Semana' : period === 'mes' ? 'Período do Mês' : 'Mês do Ano'}</p>
+                          <h4 className="text-xs font-black text-white uppercase">{d.label}</h4>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-sm font-black text-white font-mono">R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Barra Horizontal */}
+                      <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
+                          style={{ width: `${Math.max(barWidth, 1)}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-right">
-                       <p className="text-[8px] font-black text-emerald-500/50 uppercase mb-1">Arrecadado</p>
-                       <p className="text-sm font-black text-white font-mono">R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
              </div>
           </section>
 
