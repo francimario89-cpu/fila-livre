@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog, Sparkles, Megaphone, Wifi, Users } from 'lucide-react';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog, Sparkles, Megaphone, Wifi, Users, MapPin } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -10,6 +10,7 @@ interface QueueViewProps {
   userRole?: 'admin' | 'staff' | 'client';
   myProId?: string;
   currentUserEmail?: string;
+  establishmentName: string;
   estStatus: EstStatus;
   openingHours?: string;
   pixKey?: string;
@@ -27,7 +28,7 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
 }) => {
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
   const [copied, setCopied] = useState(false);
@@ -57,7 +58,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
     });
   }, [queue, filterPro]);
 
-  // Lista de quem está sendo atendido (suporte a múltiplas cadeiras)
   const servingList = useMemo(() => {
     return filteredQueue.filter(item => item.status === 'serving');
   }, [filteredQueue]);
@@ -70,19 +70,27 @@ export const QueueView: React.FC<QueueViewProps> = ({
     return null;
   }, [dailySchedules]);
 
-  const handleCopyPix = () => {
-    if (!pixKey) return;
-    navigator.clipboard.writeText(pixKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const isTodayClosed = todaySchedule && !todaySchedule.isOpen;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS DO ESTABELECIMENTO - DISCRETO */}
+      {/* NOME DO ESTABELECIMENTO NO TOPO DA FILA */}
+      <header className="text-center py-4 space-y-2">
+         <div className="flex items-center justify-center gap-2 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">Unidade Selecionada</span>
+         </div>
+         <h1 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter leading-none neon-text">
+            {establishmentName}
+         </h1>
+         <div className="flex items-center justify-center gap-1.5 text-slate-500">
+            <MapPin size={10} />
+            <span className="text-[9px] font-bold uppercase tracking-widest">Painel de Atendimentos</span>
+         </div>
+      </header>
+      
+      {/* STATUS DO ESTABELECIMENTO */}
       <section className={`rounded-[32px] p-4 border-2 shadow-lg transition-all duration-700 ${
         isTodayClosed ? 'bg-slate-900 border-red-500/30' :
         estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/5' : 
@@ -122,7 +130,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       </section>
 
-      {/* BANNER DE VAGA DISPONÍVEL (AMARELO ALERTA) */}
+      {/* BANNER DE VAGA DISPONÍVEL */}
       {availableProsList.length > 0 && estStatus === 'open' && !isTodayClosed && (
         <div className="bg-yellow-400 p-6 rounded-[32px] shadow-2xl shadow-yellow-500/20 flex items-center gap-4 animate-in slide-in-from-top-4 border-2 border-slate-950">
            <div className="w-12 h-12 bg-slate-950 text-yellow-400 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
@@ -167,7 +175,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
-      {/* SEÇÃO EM ATENDIMENTO (AGORA EM LISTA PARA MÚLTIPLAS CADEIRAS) */}
+      {/* SEÇÃO EM ATENDIMENTO */}
       {servingList.length > 0 && (
         <section className="space-y-4">
           <div className="flex justify-between items-center px-3">
@@ -205,6 +213,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </section>
       )}
 
+      {/* PRÓXIMOS NA LISTA */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-3">
            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Próximos na Lista</h2>

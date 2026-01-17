@@ -11,6 +11,7 @@ interface LayoutProps {
   notificationsCount?: number;
   userRole: 'admin' | 'client' | 'staff';
   establishmentCode: string;
+  establishmentName?: string;
   loyaltyEnabled: boolean;
   onBackToDashboard: () => void;
   onClearNotifications?: () => void;
@@ -18,7 +19,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, loyaltyEnabled, onBackToDashboard, onClearNotifications, userActiveQueues = []
+  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, establishmentName, loyaltyEnabled, onBackToDashboard, onClearNotifications, userActiveQueues = []
 }) => {
   const [isStatusExpanded, setIsStatusExpanded] = useState(false);
   const filteredNav = NAVIGATION_ITEMS.filter(item => {
@@ -37,14 +38,16 @@ export const Layout: React.FC<LayoutProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xs font-black font-orbitron tracking-tighter neon-text leading-none uppercase">FILA LIVRE</h1>
+              <h1 className="text-[10px] font-black font-orbitron tracking-tighter neon-text leading-none uppercase max-w-[150px] truncate">
+                {establishmentName || 'FILA LIVRE'}
+              </h1>
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-900 border border-white/5">
                 <Wifi size={8} className="text-emerald-500" />
-                <span className="text-[6px] font-black uppercase tracking-tighter text-slate-500">Global</span>
+                <span className="text-[6px] font-black uppercase tracking-tighter text-slate-500">Online</span>
               </div>
             </div>
-            <p className="text-[8px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
-              Multi-Setores
+            <p className="text-[7px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
+              ID: {establishmentCode}
             </p>
           </div>
         </div>
@@ -64,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({
         {children}
       </main>
 
-      {/* INDICADOR FLUTUANTE DE STATUS (SEM CLIQUE PARA ABA REMOVIDA) */}
+      {/* INDICADOR FLUTUANTE DE STATUS */}
       {mainActiveQueue && userRole === 'client' && (
         <div className="fixed bottom-24 right-4 z-[60] flex flex-col items-end gap-3 pointer-events-none">
           <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md text-white p-4 rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-3 border border-teal-500/30">

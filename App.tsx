@@ -201,12 +201,10 @@ const App: React.FC = () => {
   const handleUpdateServices = async (newServiceArray: Service[]) => {
     if (!currentEst) return;
     try {
-      // Deletar o que não está mais no array
       const toDelete = services.filter(s => !newServiceArray.find(ns => ns.id === s.id));
       for (const s of toDelete) {
         await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id));
       }
-      // Atualizar ou Inserir o que está no array
       for (const s of newServiceArray) {
         await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s);
       }
@@ -219,12 +217,10 @@ const App: React.FC = () => {
   const handleUpdatePros = async (newProArray: Professional[]) => {
     if (!currentEst) return;
     try {
-      // Deletar removidos
       const toDelete = professionals.filter(p => !newProArray.find(np => np.id === p.id));
       for (const p of toDelete) {
         await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id));
       }
-      // Salvar/Atualizar existentes
       for (const p of newProArray) {
         await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
       }
@@ -245,30 +241,20 @@ const App: React.FC = () => {
         alert("Este código de acesso já pertence a outra empresa.");
         return false;
       }
-
-      // Migrar documento principal
       const oldDocRef = doc(db, "establishments", currentEst.id);
       const oldDocSnap = await getDoc(oldDocRef);
       if (oldDocSnap.exists()) {
         await setDoc(newDocRef, { ...oldDocSnap.data(), id: cleanId });
       }
-
-      // Migrar Serviços
       const srvSnap = await getDocs(collection(db, "establishments", currentEst.id, "services"));
       for (const d of srvSnap.docs) {
         await setDoc(doc(db, "establishments", cleanId, "services", d.id), d.data());
       }
-
-      // Migrar Profissionais
       const proSnap = await getDocs(collection(db, "establishments", currentEst.id, "professionals"));
       for (const d of proSnap.docs) {
         await setDoc(doc(db, "establishments", cleanId, "professionals", d.id), d.data());
       }
-
-      // Deletar antigo
       await deleteDoc(oldDocRef);
-      
-      // Atualizar estado local para forçar redirecionamento
       setCurrentEst({ ...currentEst, id: cleanId });
       alert("Código de acesso alterado com sucesso!");
       return true;
@@ -298,22 +284,16 @@ const App: React.FC = () => {
 
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst) return;
-    
-    // Identificar qual profissional está tentando chamar (se for staff)
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     const myProId = myPro?.id;
 
     if (specificId) {
-      // Chamada de um item específico (Botão Zap individual)
       const item = queue.find(i => i.id === specificId);
       if (!item) return;
-      
       const targetProId = item.professionalId !== 'any' ? item.professionalId : (myProId || professionals[0]?.id || 'any');
-      
       if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
         await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
       }
-      
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { 
         status: 'serving', 
         professionalId: targetProId, 
@@ -321,9 +301,6 @@ const App: React.FC = () => {
       });
       return;
     }
-
-    // Chamada Geral (Botão principal no rodapé)
-    // Se for staff, tenta chamar o próximo atribuído a ele ou 'any'. Se for admin, o próximo global.
     let nextItem = null;
     if (userRole === 'staff' && myProId) {
        nextItem = queue.find(i => i.status === 'waiting' && (i.professionalId === myProId || i.professionalId === 'any'));
@@ -333,11 +310,9 @@ const App: React.FC = () => {
 
     if (nextItem) {
       const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id || 'any');
-      
       if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
         await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
       }
-      
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { 
         status: 'serving', 
         professionalId: targetProId, 
@@ -380,13 +355,14 @@ const App: React.FC = () => {
       setActiveTab={setActiveTab} 
       userRole={userRole === 'staff' ? 'client' : userRole} 
       establishmentCode={currentEst.id} 
+      establishmentName={currentEst.name}
       onBackToDashboard={() => setCurrentEst(null)} 
       loyaltyEnabled={currentEst.loyaltyEnabled}
       userActiveQueues={globalUserQueues}
     >
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
+          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} establishmentName={currentEst.name} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
           onNoShow={handleNoShow}
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
