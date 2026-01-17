@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed, Zap } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -165,7 +165,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Função para o colaborador mudar o próprio status no perfil
   const handleUpdateSelfStatus = async (newStatus: ProfStatus) => {
     if (!currentEst) return;
     const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -287,17 +286,28 @@ const App: React.FC = () => {
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     const myProId = myPro?.id;
     
-    // Automação: Se chamar alguém, o status fica ocupado (busy) para que ele saia do banner amarelo
-    if (myPro && currentEst.autoStatusEnabled) {
-       await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'busy' });
-    }
-
     if (specificId) {
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: myProId || professionals[0]?.id, timestamp: Date.now() });
+      const item = queue.find(i => i.id === specificId);
+      const targetProId = item?.professionalId !== 'any' ? item?.professionalId : (myProId || professionals[0]?.id);
+      
+      if (targetProId && currentEst.autoStatusEnabled) {
+         await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
+      }
+
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
       return;
     }
+
     const nextItem = queue.find(i => i.status === 'waiting');
-    if (nextItem) await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { status: 'serving', professionalId: myProId || professionals[0]?.id, timestamp: Date.now() });
+    if (nextItem) {
+      const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id);
+      
+      if (targetProId && currentEst.autoStatusEnabled) {
+         await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
+      }
+
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
+    }
   };
 
   const handleUpdateProfessional = async (itemId: string, proId: string) => {
@@ -381,7 +391,6 @@ const App: React.FC = () => {
            <div className="space-y-4">
               {profileMessage.text && <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl text-center text-[10px] font-black uppercase animate-in slide-in-from-top-2">{profileMessage.text}</div>}
               
-              {/* NOVO: CONTROLE DE STATUS PARA COLABORADORES */}
               {userRole === 'staff' && myProRecord && (
                 <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-4 shadow-xl">
                   <div className="flex items-center gap-3 mb-2">
@@ -428,7 +437,6 @@ const App: React.FC = () => {
             await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
             if (currentEst.loyaltyEnabled && selectedQueueItem.userEmail) await setDoc(doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail), { count: increment(1) }, { merge: true });
             
-            // Automação: Volta a ficar livre ao finalizar se modo auto estiver on
             const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
             if (myPro && currentEst.autoStatusEnabled) {
                await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'available' });

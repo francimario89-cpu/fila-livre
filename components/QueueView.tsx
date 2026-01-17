@@ -33,13 +33,17 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
 
-  // Lógica aprimorada para listar nomes de múltiplos profissionais livres
+  // Lógica inteligente: Só lista no banner se status for 'available' E não estiver com ninguém no 'serving'
   const availableProsNames = useMemo(() => {
+    const servingProIds = queue
+      .filter(item => item.status === 'serving')
+      .map(item => item.professionalId);
+
     return professionals
-      .filter(p => p.status === 'available')
+      .filter(p => p.status === 'available' && !servingProIds.includes(p.id))
       .map(p => p.name)
       .join(', ');
-  }, [professionals]);
+  }, [professionals, queue]);
 
   const filteredQueue = useMemo(() => {
     let list = [...queue];
@@ -74,19 +78,19 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - AGORA ATUALIZA EM TEMPO REAL */}
+      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - AGORA 100% DINÂMICO COM ATENDIMENTOS */}
       {availableProsNames.length > 0 && estStatus === 'open' && (
-        <div className="bg-amber-400 border-2 border-amber-300 p-4 rounded-[24px] shadow-lg shadow-amber-500/10 flex items-center gap-4 animate-bounce-subtle">
-           <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-amber-400 shrink-0">
-              <Megaphone size={20} />
+        <div className="bg-amber-400 border-2 border-amber-300 p-6 rounded-[40px] shadow-lg shadow-amber-500/10 flex items-center gap-5 animate-bounce-subtle">
+           <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shrink-0">
+              <Megaphone size={24} />
            </div>
            <div className="flex-1">
-              <p className="text-[10px] font-black text-slate-950 uppercase tracking-tighter leading-none">Vaga Aberta!</p>
-              <p className="text-xs font-black text-slate-900 uppercase tracking-widest leading-tight">
-                {availableProsNames} {professionals.filter(p => p.status === 'available').length > 1 ? 'estão disponíveis' : 'está disponível'} agora!
+              <p className="text-[11px] font-black text-slate-950 uppercase tracking-tighter leading-none">Vaga Aberta!</p>
+              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-tight mt-1">
+                {availableProsNames} {availableProsNames.includes(',') ? 'estão disponíveis' : 'está disponível'} agora!
               </p>
            </div>
-           <Sparkles size={18} className="text-slate-900 opacity-30 shrink-0" />
+           <Sparkles size={22} className="text-slate-900 opacity-30 shrink-0" />
         </div>
       )}
 
