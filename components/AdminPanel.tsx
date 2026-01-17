@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, AlertTriangle
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, AlertTriangle, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -103,14 +103,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    const workingDays = (Object.entries(dailySchedules) as [string, DaySchedule][])
-      .filter(([_, sched]) => sched.isOpen)
-      .map(([id]) => parseInt(id));
-
     await onUpdateEstablishment({ 
       name: tempName, 
-      openingHours: tempHours, 
-      workingDays, 
       dailySchedules 
     });
     setTimeout(() => {
@@ -119,21 +113,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }, 800);
   };
 
-  const handleUpdateServiceField = (id: string, field: keyof Service, value: string) => {
-    const updated = services.map(s => s.id === id ? { ...s, [field]: field === 'duration' ? Number(value) : value } : s);
-    onUpdateServices(updated);
-  };
-
-  const handleUpdateProEmail = (id: string, email: string) => {
-    const updated = professionals.map(p => p.id === id ? { ...p, email: email.toLowerCase() } : p);
-    onUpdatePros(updated);
-  };
-
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
   const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
 
-  const isStoreOpen = estStatus === 'open';
+  const isAutoMode = establishment.autoStatusEnabled || false;
 
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
@@ -144,20 +128,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <Building2 size={14} className="text-teal-400" /> Perfil do Negócio
         </h3>
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
-            <div className="relative">
-              <Store className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
-              <input 
-                value={tempName} 
-                onChange={(e) => setTempName(e.target.value.toUpperCase())} 
-                placeholder="NOME DA LOJA" 
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-teal-500 transition-all uppercase"
-              />
-            </div>
+          
+          {/* BOTÃO MESTRE AUTOMÁTICO */}
+          <div className="space-y-3">
+             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block text-center">Automação de Fila</label>
+             <button 
+                onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
+                className={`w-full py-6 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-2 shadow-2xl ${
+                  isAutoMode 
+                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' 
+                    : 'bg-red-500/10 border-red-500/50 text-red-500'
+                }`}
+             >
+                <div className="flex items-center gap-3">
+                   {isAutoMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                   <span className="text-xs font-black uppercase tracking-[0.2em]">
+                      Modo Automático: {isAutoMode ? 'LIGADO' : 'DESLIGADO'}
+                   </span>
+                </div>
+                <p className="text-[8px] font-bold uppercase opacity-60 px-8 text-center leading-relaxed">
+                   {isAutoMode 
+                     ? 'O sistema abrirá e fechará a fila sozinho seguindo sua agenda.' 
+                     : 'Você precisa abrir e fechar a fila manualmente.'}
+                </p>
+             </button>
           </div>
 
-          <div className="space-y-4 pt-2 border-t border-white/5">
+          <div className="space-y-4 pt-4 border-t border-white/5">
             <div className="flex flex-col gap-6">
                <div className="flex items-center justify-between">
                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -171,50 +168,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </button>
                </div>
 
-               {/* BOTÃO MESTRE UNIFICADO */}
-               <div className="space-y-3">
-                  <button 
-                    onClick={() => onUpdateStatus(isStoreOpen ? 'closed' : 'open')}
-                    className={`w-full group relative overflow-hidden py-8 rounded-[32px] transition-all duration-500 shadow-2xl border-2 ${
-                      isStoreOpen 
-                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-emerald-500/10' 
-                        : 'bg-slate-900 border-slate-700 text-slate-500'
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-5 relative z-10">
-                       <div className={`p-4 rounded-2xl transition-all ${isStoreOpen ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40' : 'bg-slate-800 text-slate-600'}`}>
-                          {isStoreOpen ? <Power size={24} /> : <Moon size={24} />}
-                       </div>
-                       <div className="text-left">
-                          <h4 className={`text-xl font-black uppercase tracking-tighter leading-none ${isStoreOpen ? 'text-white' : 'text-slate-600'}`}>
-                             {isStoreOpen ? 'Estabelecimento Aberto' : 'Estabelecimento Fechado'}
-                          </h4>
-                          <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-1.5 opacity-60">
-                             {isStoreOpen ? 'Clique para encerrar/pausar' : 'Clique para abrir agora'}
-                          </p>
-                       </div>
+               {/* CONTROLES MANUAIS (SÓ APARECEM SE O AUTO ESTIVER DESLIGADO) */}
+               {!isAutoMode && (
+                  <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
+                    <button 
+                      onClick={() => onUpdateStatus(estStatus === 'open' ? 'closed' : 'open')}
+                      className={`flex items-center justify-center gap-3 py-5 rounded-2xl text-[10px] font-black uppercase transition-all shadow-xl ${
+                        estStatus === 'open' 
+                          ? 'bg-emerald-500 text-slate-950' 
+                          : 'bg-slate-800 text-emerald-400'
+                      }`}
+                    >
+                      <Power size={14} />
+                      {estStatus === 'open' ? 'Estabelecimento Aberto' : 'Abrir Agora'}
+                    </button>
+                    <button 
+                      onClick={() => onUpdateStatus(estStatus === 'lunch' ? 'open' : 'lunch')}
+                      className={`flex items-center justify-center gap-3 py-5 rounded-2xl text-[10px] font-black uppercase transition-all shadow-xl ${
+                        estStatus === 'lunch' 
+                          ? 'bg-amber-500 text-slate-950' 
+                          : 'bg-slate-800 text-amber-500'
+                      }`}
+                    >
+                      <Coffee size={14} />
+                      {estStatus === 'lunch' ? 'Em Almoço' : 'Pausa Almoço'}
+                    </button>
+                  </div>
+               )}
+
+               {isAutoMode && (
+                 <div className="bg-slate-950/50 p-6 rounded-[32px] border border-emerald-500/20 flex items-center gap-5">
+                    <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
+                       <CheckCircle2 size={24} />
                     </div>
-                    {isStoreOpen && <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />}
-                  </button>
-
-                  <div className="flex items-center justify-center gap-2 px-6">
-                     <Clock size={12} className="text-slate-700" />
-                     <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest text-center italic">
-                        * {isStoreOpen ? 'Fechamento Automático Ativo' : 'Reabertura Automática Programada'}
-                     </p>
-                  </div>
-               </div>
+                    <div>
+                       <p className="text-[10px] text-white font-black uppercase tracking-widest">Status Atual: <span className={estStatus === 'open' ? 'text-emerald-400' : estStatus === 'lunch' ? 'text-amber-500' : 'text-red-500'}>{estStatus === 'open' ? 'ABERTO' : estStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}</span></p>
+                       <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Sincronizado com sua agenda diária.</p>
+                    </div>
+                 </div>
+               )}
             </div>
-
-            {!isScheduleExpanded && (
-              <div className="flex flex-wrap gap-1.5 pt-2">
-                {DAYS_OF_WEEK.map(day => (
-                  <div key={day.id} className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase ${dailySchedules[day.id]?.isOpen ? 'bg-teal-500/10 border-teal-500/30 text-teal-400' : 'bg-slate-950 border-slate-800 text-slate-700'}`}>
-                    {day.label.substring(0, 3)}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {isScheduleExpanded && (
               <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
@@ -247,11 +240,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <div className="flex items-center gap-4">
                             <div className="flex-1 space-y-1">
                                <p className="text-[7px] font-black text-slate-600 uppercase ml-1">Abertura</p>
-                               <input type="time" value={sched.start} onChange={(e) => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none focus:border-teal-500" />
+                               <input type="time" value={sched.start} onChange={(e) => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none" />
                             </div>
                             <div className="flex-1 space-y-1">
                                <p className="text-[7px] font-black text-slate-600 uppercase ml-1">Fechamento</p>
-                               <input type="time" value={sched.end} onChange={(e) => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none focus:border-teal-500" />
+                               <input type="time" value={sched.end} onChange={(e) => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none" />
                             </div>
                           </div>
 
@@ -282,7 +275,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isSavingProfile ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
           >
             {isSavingProfile ? <CheckCircle2 size={18} /> : (isScheduleExpanded ? <><Minimize2 size={18} /> Concluir Agenda</> : <Save size={18} />)}
-            {!isSavingProfile && !isScheduleExpanded && 'Salvar Alterações'}
+            {!isSavingProfile && !isScheduleExpanded && 'Salvar Alterações de Agenda'}
           </button>
         </div>
       </section>
@@ -295,7 +288,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         
         <div className="space-y-3">
           {servingList.length > 0 ? servingList.map(serving => (
-            <div key={serving.id} className="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-right-4">
+            <div key={serving.id} className="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center">
                   <UserCircle size={28} />
@@ -308,12 +301,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
               <div className="flex gap-2">
-                <button title="Faltou" onClick={(e) => { e.stopPropagation(); onNoShow(serving.id); }} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                  <UserX size={16} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); onFinish(serving); }} className="bg-teal-500 text-slate-950 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-teal-500/10 active:scale-95 transition-all flex items-center gap-2">
-                  <CheckCircle size={14} /> Finalizar
-                </button>
+                <button onClick={() => onNoShow(serving.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl"><UserX size={16} /></button>
+                <button onClick={() => onFinish(serving)} className="bg-teal-500 text-slate-950 px-6 py-3 rounded-xl text-[9px] font-black uppercase">Finalizar</button>
               </div>
             </div>
           )) : (
@@ -321,9 +310,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Nenhum atendimento no momento</p>
             </div>
           )}
-
           {nextInLine && (
-            <button onClick={onCallNext} className="w-full bg-indigo-600 text-white py-5 rounded-[32px] font-black text-[11px] uppercase tracking-widest shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4">
+            <button onClick={onCallNext} className="w-full bg-indigo-600 text-white py-5 rounded-[32px] font-black text-[11px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 mt-4">
               <Zap size={20} /> Chamar {nextInLine.name}
             </button>
           )}
@@ -336,11 +324,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <Store size={14} className="text-indigo-400" /> Painel de Controle
         </h3>
         <div className="grid grid-cols-2 gap-4">
-          <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl hover:border-teal-500/30 transition-all active:scale-95">
+          <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl">
             <Monitor size={22} className="text-teal-400" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Painel TV</span>
           </button>
-          <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
+          <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl">
             <UserPlus size={22} className="text-white" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Manual</span>
           </button>
@@ -358,206 +346,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Faturamento Acumulado</p>
                 <h4 className="text-3xl font-black text-white mt-1 font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
               </div>
-              <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all">
-                <FileText size={24} />
-              </button>
+              <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400"><FileText size={24} /></button>
            </div>
-           
-           <div className="space-y-3">
-             <div className="flex items-center gap-2 ml-1">
-                <QrCode size={12} className="text-emerald-500" />
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Chave PIX do Negócio</label>
-             </div>
-             <input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Informe sua chave para receber pagamentos" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all placeholder:text-slate-800" />
-           </div>
-        </div>
-      </section>
-
-      {/* 4. GESTÃO DE SERVIÇOS */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Scissors size={14} className="text-indigo-400" /> Catálogo de Serviços
-          </h3>
-          <button 
-            onClick={() => setIsServicesExpanded(!isServicesExpanded)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
-          >
-            {isServicesExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Catalogo</>}
-          </button>
-        </div>
-
-        {!isServicesExpanded && services.length > 0 && (
-           <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex flex-wrap gap-2">
-              <div className="w-full mb-2"><span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{services.length} Serviços Cadastrados</span></div>
-              {services.map(s => (
-                <span key={s.id} className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-[8px] font-black text-slate-400 uppercase">{s.name}</span>
-              ))}
-           </div>
-        )}
-
-        {isServicesExpanded && (
-          <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-top-2 duration-300">
-            {services.map(s => (
-              <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 group shadow-xl transition-all hover:border-indigo-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center"><Scissors size={20} /></div>
-                      <h4 className="text-sm font-black text-white uppercase tracking-tight">{s.name}</h4>
-                  </div>
-                  <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="p-2 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="space-y-1.5">
-                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Preço Sugerido</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-500">R$</span>
-                        <input type="text" value={s.price} onChange={(e) => handleUpdateServiceField(s.id, 'price', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-3 text-[10px] font-black text-white outline-none focus:border-emerald-500 transition-all" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Duração</label>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={12} />
-                        <input type="number" value={s.duration} onChange={(e) => handleUpdateServiceField(s.id, 'duration', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-12 text-[10px] font-black text-white outline-none focus:border-indigo-500 transition-all" />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-600 uppercase">Min</span>
-                      </div>
-                    </div>
-                </div>
-              </div>
-            ))}
-            {isAddingService ? (
-              <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
-                <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                <div className="grid grid-cols-2 gap-4">
-                  <input placeholder="PREÇO" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                  <input placeholder="MINUTOS" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                </div>
-                <div className="flex gap-2">
-                   <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
-                   <button 
-                    onClick={() => {
-                      if(!newSName || !newSPrice) return;
-                      onUpdateServices([...services, { id: `srv-${Date.now()}`, name: newSName, price: newSPrice, duration: Number(newSDuration) || 30, establishmentId: establishment.id }]);
-                      setNewSName(''); setNewSPrice(''); setIsAddingService(false);
-                    }} 
-                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20"
-                   >
-                     Cadastrar Serviço
-                   </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setIsAddingService(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
-                <Plus size={24} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Novo Serviço</span>
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* 5. GESTÃO DE PROFISSIONAIS */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
-          </h3>
-          <button 
-            onClick={() => setIsStaffExpanded(!isStaffExpanded)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
-          >
-            {isStaffExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Equipe</>}
-          </button>
-        </div>
-
-        {!isStaffExpanded ? (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between animate-in fade-in duration-300">
-             <div className="flex -space-x-3 overflow-hidden">
-                {professionals.length > 0 ? professionals.map(p => (
-                  <div key={p.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-950 bg-slate-800 flex items-center justify-center text-teal-400">
-                    <UserCircle size={20} />
-                  </div>
-                )) : (
-                  <div className="h-10 w-10 rounded-full ring-2 ring-slate-950 bg-slate-800 flex items-center justify-center text-slate-600">
-                    <Users2 size={20} />
-                  </div>
-                )}
-             </div>
-             <div className="text-right">
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">{professionals.length} Membros na Equipe</span>
-                <span className="text-[10px] font-black text-teal-400 uppercase">{professionals.filter(p => p.status === 'available').length} Disponíveis</span>
-             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-top-2 duration-300">
-            {professionals.map(p => (
-              <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 shadow-xl group hover:border-indigo-500/20 transition-all">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : p.status === 'busy' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-red-500/10 text-red-500'}`}><UserCircle size={24} /></div>
-                    <div><h4 className="text-xs font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : p.status === 'busy' ? 'Atendendo' : 'Pausa'}</p></div>
-                  </div>
-                  <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
-                </div>
-                <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
-                   <LinkIcon size={12} className="text-indigo-400" />
-                   <input placeholder="Vincular E-mail" value={p.email || ''} onChange={(e) => handleUpdateProEmail(p.id, e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none" />
-                </div>
-              </div>
-            ))}
-            {isAddingPro ? (
-              <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
-                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                <input placeholder="E-MAIL" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                <div className="flex gap-2">
-                  <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
-                  <button 
-                    onClick={() => {
-                      if(!newProName) return;
-                      onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]);
-                      setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
-                    }}
-                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20"
-                  >
-                    Cadastrar Barbeiro
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
-                <Plus size={24} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Novo Barbeiro</span>
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* 6. CONFIGURAÇÕES DE REGRA */}
-      <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Settings size={14} className="text-indigo-400" /> Configurações de Regra</h3>
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
-          <div className="p-8 border-b border-slate-800 space-y-5">
-            <div className="flex items-center gap-3"><div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><ListOrdered size={18} /></div><span className="text-[10px] font-black text-white uppercase tracking-widest">Modelo de Atendimento</span></div>
-            <div className="grid grid-cols-3 gap-2">
-              {[{ id: 'queue', label: 'Só Fila' }, { id: 'appointment', label: 'Só Agenda' }, { id: 'both', label: 'Híbrido' }].map(m => (
-                <button key={m.id} onClick={() => onSetBookingModel(m.id as BookingModel)} className={`py-3 rounded-xl text-[7px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{m.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="p-8 flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Settings size={18} /></div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Fidelidade VIP</span>
-                  <span className="text-[7px] font-bold text-slate-500 uppercase mt-1.5">{loyaltyEnabled ? 'Ativo' : 'Desativado'}</span>
-                </div>
-             </div>
-             <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-16 h-9 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}>
-                <div className={`absolute top-1 w-7 h-7 bg-white rounded-full shadow-lg transition-all ${loyaltyEnabled ? 'left-8' : 'left-1'}`} />
-             </button>
-          </div>
+           <input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Chave PIX do Negócio" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none" />
         </div>
       </section>
 
@@ -567,38 +358,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="relative w-full max-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] space-y-6 shadow-2xl">
             <h3 className="text-xl font-black text-white uppercase tracking-tighter">Entrada de Balcão</h3>
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome do Cliente</label>
-                <input placeholder="NOME DO CLIENTE" value={manualName} onChange={e => setManualName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all" />
-              </div>
-              
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Serviço</label>
-                <select value={manualService} onChange={e => setManualService(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Profissional Responsável</label>
-                <select value={manualProId} onChange={e => setManualProId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all">
-                  <option value="any">Primeiro Disponível</option>
-                  {professionals.filter(p => p.status !== 'absent').map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
+              <input placeholder="NOME DO CLIENTE" value={manualName} onChange={e => setManualName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none" />
+              <select value={manualService} onChange={e => setManualService(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none">{services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select>
             </div>
-            <button 
-              onClick={() => { 
-                if(!manualName) return alert("Informe o nome do cliente."); 
-                onManualJoin({ name: manualName, service: manualService, professionalId: manualProId, type: 'walk-in' }); 
-                setManualName(''); 
-                setManualProId('any');
-                setIsAddingManual(false); 
-              }} 
-              className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={16} /> Inserir Agora
-            </button>
+            <button onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: manualProId, type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center justify-center gap-2"><CheckCircle size={16} /> Inserir Agora</button>
           </div>
         </div>
       )}

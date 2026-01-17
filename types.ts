@@ -20,7 +20,7 @@ export interface Establishment {
   name: string;
   ownerEmail: string;
   status: EstStatus;
-  statusUpdatedAt?: number; // Timestamp da última alteração de status
+  statusUpdatedAt?: number; 
   bookingModel: BookingModel;
   pixKey?: string;
   openingHours?: string;
@@ -28,7 +28,8 @@ export interface Establishment {
   dailySchedules?: Record<number, DaySchedule>;
   plan: PlanType;
   trialStartedAt: number; 
-  loyaltyEnabled: boolean; 
+  loyaltyEnabled: boolean;
+  autoStatusEnabled?: boolean; // Novo campo para o modo automático
 }
 
 export interface Professional {
@@ -36,7 +37,7 @@ export interface Professional {
   name: string;
   status: ProfStatus;
   establishmentId: string;
-  email?: string; // Vinculado para login de colaborador
+  email?: string; 
 }
 
 export interface Service {
@@ -68,7 +69,7 @@ export interface QueueItem {
   type: 'walk-in' | 'appointment';
   scheduledTime?: string; 
   userEmail?: string;
-  missedCount?: number; // Contador de faltas
+  missedCount?: number; 
 }
 
 export interface UserProfile {
