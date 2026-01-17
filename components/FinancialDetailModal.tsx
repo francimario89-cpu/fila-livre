@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { X, TrendingUp, Calendar, DollarSign, Wallet, CreditCard, ChevronRight, BarChart, History, Calculator, ArrowUpRight, QrCode, Filter } from 'lucide-react';
+import { X, TrendingUp, Calendar, DollarSign, Wallet, CreditCard, ChevronRight, BarChart, History, Calculator, ArrowUpRight, QrCode, Filter, ChevronLeft } from 'lucide-react';
 import { RevenueRecord } from '../types';
 
 interface FinancialDetailModalProps {
@@ -47,14 +47,31 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     ];
 
     return weekRanges.map(range => {
-      const total = revenue.filter(rec => {
+      const recordsInWeek = revenue.filter(rec => {
         const d = new Date(rec.date);
         return d.getMonth() === currentMonth && 
                d.getFullYear() === currentYear && 
                d.getDate() >= range.start && 
                d.getDate() <= range.end;
-      }).reduce((acc, curr) => acc + curr.amount, 0);
-      return { label: range.label, subLabel: range.sub, value: total };
+      });
+
+      const total = recordsInWeek.reduce((acc, curr) => acc + curr.amount, 0);
+
+      // Gerar faturamento DIA A DIA dentro desta semana específica
+      const dailyBreakdown = Array.from({ length: range.end - range.start + 1 }, (_, i) => {
+        const dayNum = range.start + i;
+        const dayTotal = recordsInWeek
+          .filter(r => new Date(r.date).getDate() === dayNum)
+          .reduce((acc, curr) => acc + curr.amount, 0);
+        
+        return { 
+          label: `Dia ${dayNum}`, 
+          value: dayTotal,
+          dateLabel: `Faturamento do dia ${dayNum}`
+        };
+      });
+
+      return { label: range.label, subLabel: range.sub, value: total, dailyBreakdown };
     });
   }, [revenue]);
 
@@ -76,14 +93,22 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     return annualData;
   }, [period, weeklyData, monthlyByWeeksData, annualData]);
 
+  // Dados que serão renderizados na lista (Se houver drill-down, mostra os dias da semana)
+  const listItems = useMemo(() => {
+    if (period === 'mes' && selectedSubIndex !== null) {
+      return (activeData[selectedSubIndex] as any).dailyBreakdown;
+    }
+    return activeData;
+  }, [period, selectedSubIndex, activeData]);
+
   const displayValue = useMemo(() => {
-    if (selectedSubIndex !== null && activeData[selectedSubIndex]) {
-      return activeData[selectedSubIndex].value;
+    if (period === 'mes' && selectedSubIndex !== null) {
+      return (activeData[selectedSubIndex] as any).value;
     }
     return activeData.reduce((acc, curr) => acc + curr.value, 0);
-  }, [selectedSubIndex, activeData]);
+  }, [selectedSubIndex, activeData, period]);
 
-  const maxVal = useMemo(() => Math.max(...activeData.map(d => d.value), 1), [activeData]);
+  const maxValInList = useMemo(() => Math.max(...listItems.map((d: any) => d.value), 1), [listItems]);
 
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
@@ -91,6 +116,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
   };
 
   const handleSubSelect = (index: number) => {
+    if (period !== 'mes') return; // Drill-down apenas no mês
     if (selectedSubIndex === index) setSelectedSubIndex(null);
     else setSelectedSubIndex(index);
   };
@@ -106,7 +132,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3 font-orbitron">
                 <Calculator className="text-emerald-500" size={28} /> Inteligência Financeira
               </h2>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Clique nos períodos para ver detalhes</p>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Toque nos itens para detalhar</p>
             </div>
             <button onClick={onClose} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
           </div>
@@ -136,55 +162,55 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           <section className="bg-slate-950 border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-5 rotate-12 transition-transform group-hover:scale-110"><TrendingUp size={160} /></div>
             <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em] mb-3">
-              {selectedSubIndex !== null 
-                ? `Total: ${activeData[selectedSubIndex].label}`
-                : period === 'semana' ? 'Total desta Semana' : period === 'mes' ? 'Total do Mês Atual' : 'Total do Ano Atual'}
+              {selectedSubIndex !== null && period === 'mes'
+                ? `Total Detalhado: ${activeData[selectedSubIndex].label}`
+                : period === 'semana' ? 'Faturamento da Semana' : period === 'mes' ? 'Faturamento do Mês' : 'Faturamento do Ano'}
             </p>
             <div className="flex items-baseline gap-2">
                <span className="text-xl font-bold text-slate-600">R$</span>
-               <h3 className="text-5xl font-black text-white font-orbitron transition-all duration-300">{displayValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+               <h3 className="text-5xl font-black text-white font-orbitron transition-all duration-300">
+                 {displayValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+               </h3>
             </div>
             {selectedSubIndex !== null && (
               <button 
                 onClick={() => setSelectedSubIndex(null)}
-                className="mt-4 px-4 py-1.5 bg-indigo-600 text-white rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl flex items-center gap-2 text-[8px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
               >
-                <Filter size={10} /> Limpar Filtro
+                <ChevronLeft size={10} /> Voltar para Visão Mensal
               </button>
-            )}
-            {selectedSubIndex === null && (
-              <div className="mt-4 px-4 py-1.5 bg-emerald-500/10 rounded-full flex items-center gap-2 border border-emerald-500/20">
-                <ArrowUpRight size={14} className="text-emerald-500" />
-                <span className="text-[9px] font-black text-emerald-400 uppercase">Visualização Geral</span>
-              </div>
             )}
           </section>
 
           {/* LISTAGEM COM GRÁFICOS HORIZONTAIS INTERATIVOS */}
           <section className="space-y-4">
              <div className="flex justify-between items-center px-4">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Toque em um item para isolar o valor</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                  {selectedSubIndex !== null ? `Detalhes por Dia da ${activeData[selectedSubIndex].label}` : 'Extrato por Período'}
+                </p>
                 <div className="w-10 h-0.5 bg-slate-800 rounded-full" />
              </div>
 
              <div className="space-y-3">
-                {activeData.map((d, i) => {
-                  const barWidth = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
-                  const isSelected = selectedSubIndex === i;
+                {listItems.map((d: any, i: number) => {
+                  const barWidth = maxValInList > 0 ? (d.value / maxValInList) * 100 : 0;
+                  const isSelected = selectedSubIndex === i && period === 'mes';
+                  
                   return (
                     <button 
                       key={i} 
                       onClick={() => handleSubSelect(i)}
+                      disabled={selectedSubIndex !== null} // Trava clique se já estiver em drill-down (para evitar confusão)
                       className={`w-full text-left bg-slate-950 border p-5 rounded-[28px] space-y-3 transition-all group relative overflow-hidden ${
                         isSelected 
-                          ? 'border-emerald-500 bg-emerald-500/5 shadow-lg shadow-emerald-500/5' 
+                          ? 'border-emerald-500 bg-emerald-500/5 shadow-lg shadow-emerald-500/5 scale-[1.02]' 
                           : 'border-white/5 hover:border-emerald-500/30'
                       }`}
                     >
                       <div className="flex items-center justify-between relative z-10">
                         <div>
                           <p className={`text-[8px] font-black uppercase mb-0.5 ${isSelected ? 'text-emerald-400' : 'text-slate-500'}`}>
-                            {(d as any).subLabel || (period === 'semana' ? 'Dia da Semana' : 'Período')}
+                            {d.subLabel || d.dateLabel || 'Registrado'}
                           </p>
                           <h4 className="text-xs font-black text-white uppercase">{d.label}</h4>
                         </div>
@@ -205,8 +231,11 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                         />
                       </div>
 
-                      {isSelected && (
-                        <div className="absolute right-0 top-0 h-full w-1 bg-emerald-500" />
+                      {/* Indicador de Clique (Apenas na visão principal do mês) */}
+                      {period === 'mes' && selectedSubIndex === null && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ChevronRight size={16} className="text-teal-400" />
+                        </div>
                       )}
                     </button>
                   );
