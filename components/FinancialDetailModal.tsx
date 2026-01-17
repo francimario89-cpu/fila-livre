@@ -75,15 +75,35 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     });
   }, [revenue]);
 
-  // Dados do Ano (Mês a Mês)
+  // Dados do Ano (Mês a Mês) com suporte a Drill-down diário
   const annualData = useMemo(() => {
     const currentYear = new Date().getFullYear();
+    
     return MONTHS_NAMES.map((label, index) => {
-      const monthTotal = revenue.filter(rec => {
+      const recordsInMonth = revenue.filter(rec => {
         const d = new Date(rec.date);
         return d.getMonth() === index && d.getFullYear() === currentYear;
-      }).reduce((acc, curr) => acc + curr.amount, 0);
-      return { label, value: monthTotal };
+      });
+
+      const monthTotal = recordsInMonth.reduce((acc, curr) => acc + curr.amount, 0);
+
+      // Quantidade de dias no mês selecionado
+      const daysInMonth = new Date(currentYear, index + 1, 0).getDate();
+
+      const dailyBreakdown = Array.from({ length: daysInMonth }, (_, i) => {
+        const dayNum = i + 1;
+        const dayTotal = recordsInMonth
+          .filter(r => new Date(r.date).getDate() === dayNum)
+          .reduce((acc, curr) => acc + curr.amount, 0);
+
+        return {
+          label: `Dia ${dayNum}`,
+          value: dayTotal,
+          dateLabel: `Faturamento do dia ${dayNum}`
+        };
+      });
+
+      return { label, value: monthTotal, dailyBreakdown };
     });
   }, [revenue]);
 
@@ -93,16 +113,16 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
     return annualData;
   }, [period, weeklyData, monthlyByWeeksData, annualData]);
 
-  // Dados que serão renderizados na lista (Se houver drill-down, mostra os dias da semana)
+  // Dados que serão renderizados na lista (Se houver drill-down em MES ou ANO)
   const listItems = useMemo(() => {
-    if (period === 'mes' && selectedSubIndex !== null) {
+    if ((period === 'mes' || period === 'ano') && selectedSubIndex !== null) {
       return (activeData[selectedSubIndex] as any).dailyBreakdown;
     }
     return activeData;
   }, [period, selectedSubIndex, activeData]);
 
   const displayValue = useMemo(() => {
-    if (period === 'mes' && selectedSubIndex !== null) {
+    if ((period === 'mes' || period === 'ano') && selectedSubIndex !== null) {
       return (activeData[selectedSubIndex] as any).value;
     }
     return activeData.reduce((acc, curr) => acc + curr.value, 0);
@@ -116,7 +136,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
   };
 
   const handleSubSelect = (index: number) => {
-    if (period !== 'mes') return; // Drill-down apenas no mês
+    if (period === 'semana') return; // Não detalha dia (já é o dia)
     if (selectedSubIndex === index) setSelectedSubIndex(null);
     else setSelectedSubIndex(index);
   };
@@ -132,7 +152,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
               <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3 font-orbitron">
                 <Calculator className="text-emerald-500" size={28} /> Inteligência Financeira
               </h2>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Toque nos itens para detalhar</p>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Toque nos itens para detalhar por dia</p>
             </div>
             <button onClick={onClose} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
           </div>
@@ -162,7 +182,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           <section className="bg-slate-950 border border-white/5 p-8 rounded-[40px] flex flex-col items-center justify-center relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-5 rotate-12 transition-transform group-hover:scale-110"><TrendingUp size={160} /></div>
             <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.3em] mb-3">
-              {selectedSubIndex !== null && period === 'mes'
+              {selectedSubIndex !== null 
                 ? `Total Detalhado: ${activeData[selectedSubIndex].label}`
                 : period === 'semana' ? 'Faturamento da Semana' : period === 'mes' ? 'Faturamento do Mês' : 'Faturamento do Ano'}
             </p>
@@ -177,7 +197,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                 onClick={() => setSelectedSubIndex(null)}
                 className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl flex items-center gap-2 text-[8px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
               >
-                <ChevronLeft size={10} /> Voltar para Visão Mensal
+                <ChevronLeft size={10} /> Voltar para Visão Geral
               </button>
             )}
           </section>
@@ -186,7 +206,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
           <section className="space-y-4">
              <div className="flex justify-between items-center px-4">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  {selectedSubIndex !== null ? `Detalhes por Dia da ${activeData[selectedSubIndex].label}` : 'Extrato por Período'}
+                  {selectedSubIndex !== null ? `Detalhamento Diário de ${activeData[selectedSubIndex].label}` : 'Selecione um item para ver por dia'}
                 </p>
                 <div className="w-10 h-0.5 bg-slate-800 rounded-full" />
              </div>
@@ -194,13 +214,13 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
              <div className="space-y-3">
                 {listItems.map((d: any, i: number) => {
                   const barWidth = maxValInList > 0 ? (d.value / maxValInList) * 100 : 0;
-                  const isSelected = selectedSubIndex === i && period === 'mes';
+                  const isSelected = selectedSubIndex === i && period !== 'semana';
                   
                   return (
                     <button 
                       key={i} 
                       onClick={() => handleSubSelect(i)}
-                      disabled={selectedSubIndex !== null} // Trava clique se já estiver em drill-down (para evitar confusão)
+                      disabled={selectedSubIndex !== null} 
                       className={`w-full text-left bg-slate-950 border p-5 rounded-[28px] space-y-3 transition-all group relative overflow-hidden ${
                         isSelected 
                           ? 'border-emerald-500 bg-emerald-500/5 shadow-lg shadow-emerald-500/5 scale-[1.02]' 
@@ -210,7 +230,7 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                       <div className="flex items-center justify-between relative z-10">
                         <div>
                           <p className={`text-[8px] font-black uppercase mb-0.5 ${isSelected ? 'text-emerald-400' : 'text-slate-500'}`}>
-                            {d.subLabel || d.dateLabel || 'Registrado'}
+                            {d.subLabel || d.dateLabel || (period === 'ano' ? 'Mês do Ano' : 'Registrado')}
                           </p>
                           <h4 className="text-xs font-black text-white uppercase">{d.label}</h4>
                         </div>
@@ -231,8 +251,8 @@ export const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({ reve
                         />
                       </div>
 
-                      {/* Indicador de Clique (Apenas na visão principal do mês) */}
-                      {period === 'mes' && selectedSubIndex === null && (
+                      {/* Indicador de Clique (Apenas nas visões que permitem detalhar) */}
+                      {period !== 'semana' && selectedSubIndex === null && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <ChevronRight size={16} className="text-teal-400" />
                         </div>
