@@ -51,6 +51,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAddingManual, setIsAddingManual] = useState(false);
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
+  const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   
   const [tempName, setTempName] = useState(establishment.name);
   const [tempHours, setTempHours] = useState(establishment.openingHours || '');
@@ -342,7 +343,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* 4. GESTÃO DE SERVIÇOS - COM MAXIMIZAR/MINIMIZAR */}
+      {/* 4. GESTÃO DE SERVIÇOS */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -426,52 +427,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 5. GESTÃO DE PROFISSIONAIS */}
+      {/* 5. GESTÃO DE PROFISSIONAIS - COM MAXIMIZAR/MINIMIZAR SE > 2 */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
-        </h3>
-        <div className="grid grid-cols-1 gap-3">
-          {professionals.map(p => (
-            <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : p.status === 'busy' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-red-500/10 text-red-500'}`}><UserCircle size={24} /></div>
-                  <div><h4 className="text-xs font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : p.status === 'busy' ? 'Atendendo' : 'Pausa'}</p></div>
-                </div>
-                <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
-              </div>
-              <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
-                 <LinkIcon size={12} className="text-indigo-400" />
-                 <input placeholder="Vincular E-mail" value={p.email || ''} onChange={(e) => handleUpdateProEmail(p.id, e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none" />
-              </div>
-            </div>
-          ))}
-          {isAddingPro ? (
-            <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
-              <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-              <input placeholder="E-MAIL" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-              <div className="flex gap-2">
-                <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
-                <button 
-                  onClick={() => {
-                    if(!newProName) return;
-                    onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]);
-                    setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
-                  }}
-                  className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
-                >
-                  Cadastrar Barbeiro
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
-              <Plus size={24} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Novo Barbeiro</span>
+        <div className="flex justify-between items-center px-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
+          </h3>
+          {professionals.length > 2 && (
+            <button 
+              onClick={() => setIsStaffExpanded(!isStaffExpanded)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
+            >
+              {isStaffExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Equipe</>}
             </button>
           )}
         </div>
+
+        {/* Visão Minimizada (Mostra sempre se len <= 2 ou se isStaffExpanded for false) */}
+        {(!isStaffExpanded && professionals.length > 2) ? (
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between">
+             <div className="flex -space-x-3 overflow-hidden">
+                {professionals.map(p => (
+                  <div key={p.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-950 bg-slate-800 flex items-center justify-center text-teal-400">
+                    <UserCircle size={20} />
+                  </div>
+                ))}
+             </div>
+             <div className="text-right">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">{professionals.length} Membros na Equipe</span>
+                <span className="text-[10px] font-black text-teal-400 uppercase">{professionals.filter(p => p.status === 'available').length} Disponíveis</span>
+             </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-top-2 duration-300">
+            {professionals.map(p => (
+              <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 shadow-xl group hover:border-indigo-500/20 transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${p.status === 'available' ? 'bg-emerald-500/10 text-emerald-500' : p.status === 'busy' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-red-500/10 text-red-500'}`}><UserCircle size={24} /></div>
+                    <div><h4 className="text-xs font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-600 font-bold uppercase">{p.status === 'available' ? 'Ativo' : p.status === 'busy' ? 'Atendendo' : 'Pausa'}</p></div>
+                  </div>
+                  <button onClick={() => onUpdatePros(professionals.filter(x => x.id !== p.id))} className="p-2 text-slate-800 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                </div>
+                <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
+                   <LinkIcon size={12} className="text-indigo-400" />
+                   <input placeholder="Vincular E-mail" value={p.email || ''} onChange={(e) => handleUpdateProEmail(p.id, e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-[9px] text-white focus:border-indigo-500 outline-none" />
+                </div>
+              </div>
+            ))}
+            {isAddingPro ? (
+              <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
+                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                <input placeholder="E-MAIL" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                <div className="flex gap-2">
+                  <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
+                  <button 
+                    onClick={() => {
+                      if(!newProName) return;
+                      onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]);
+                      setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
+                    }}
+                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
+                  >
+                    Cadastrar Barbeiro
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
+                <Plus size={24} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Novo Barbeiro</span>
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 6. CONFIGURAÇÕES DE REGRA */}
