@@ -92,16 +92,14 @@ const App: React.FC = () => {
           }
         } catch (e) { setUserRole('client'); }
       } else {
-        setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client'); setUserRole('client'); setUserProfile(null);
+        setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client'); setUserProfile(null);
       }
     });
   }, []);
 
-  // Monitor de Alertas e Disponibilidade de Profissionais
   useEffect(() => {
     if (!currentEst || !isLoggedIn) return;
 
-    // 1. Monitorar novos clientes (para Admin/Staff)
     if (userRole === 'admin' || userRole === 'staff') {
       if (queue.length > prevQueueLength.current && prevQueueLength.current !== 0) {
         playBeep('entry');
@@ -110,29 +108,23 @@ const App: React.FC = () => {
     }
     prevQueueLength.current = queue.length;
 
-    // 2. Monitorar Profissionais ficando disponíveis (para Clientes)
     if (userRole === 'client') {
       professionals.forEach(pro => {
         const prevStatus = prevProStatuses.current[pro.id];
         if (pro.status === 'available' && prevStatus && prevStatus !== 'available') {
           setAvailabilityAlert(`Cadeira do(a) ${pro.name} disponível!`);
           playBeep('available');
-          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-          
-          // Auto-limpa o alerta após 8 segundos
           setTimeout(() => setAvailabilityAlert(null), 8000);
         }
         prevProStatuses.current[pro.id] = pro.status;
       });
 
-      // 3. Monitorar sua vez na fila
       const waitingList = queue.filter(i => i.status === 'waiting');
       const myItem = waitingList.find(i => i.userEmail === userEmail);
       const firstWaiting = waitingList[0];
       if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
         if (!notifiedNearCalling.current) {
           playBeep('alert');
-          if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
           notifiedNearCalling.current = true;
         }
       } else {
@@ -150,7 +142,7 @@ const App: React.FC = () => {
         setProfileMessage({ text: 'Senha alterada com sucesso!', type: 'success' });
         setNewPassword('');
       }
-    } catch (e) { alert("Sessão expirada. Saia e entre de novo."); } finally {
+    } catch (e) { alert("Sessão expirada."); } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
     }
@@ -158,7 +150,7 @@ const App: React.FC = () => {
 
   const handleLinkPhone = async () => {
     const digits = linkPhone.replace(/\D/g, '');
-    if (digits.length < 10) return alert("Informe o DDD (Ex: 11999998888).");
+    if (digits.length < 10) return alert("Informe o DDD.");
     setIsUpdatingProfile(true);
     try {
       if (auth.currentUser) {
@@ -170,29 +162,6 @@ const App: React.FC = () => {
     } catch (e) { alert("Erro ao vincular celular."); } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
-    }
-  };
-
-  const handleUpdateAccessCode = async (newCode: string): Promise<boolean> => {
-    if (!currentEst) return false;
-    try {
-      const docRef = doc(db, "establishments", newCode);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists() && docSnap.data().ownerEmail !== userEmail) {
-        alert("Este código já está sendo utilizado por outro gestor!");
-        return false;
-      }
-      const oldId = currentEst.id;
-      const data = { ...currentEst, id: newCode };
-      await setDoc(docRef, data);
-      await deleteDoc(doc(db, "establishments", oldId));
-      setCurrentEst(data as Establishment);
-      alert("Código de acesso atualizado com sucesso!");
-      return true;
-    } catch (e: any) {
-      alert(`Erro ao atualizar código: ${e.message}`);
-      return false;
     }
   };
 
@@ -260,6 +229,49 @@ const App: React.FC = () => {
 
   const handleFinish = (item: QueueItem) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); };
 
+  const handleNoShow = async (id: string) => {
+    if (!currentEst) return;
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+
+    const newMissedCount = (item.missedCount || 0) + 1;
+    const itemRef = doc(db, "establishments", currentEst.id, "queue", id);
+
+    if (newMissedCount >= 3) {
+      if(confirm("Cliente faltou 3 vezes. Será removido automaticamente. Confirmar?")) {
+        await deleteDoc(itemRef);
+        if (item.userEmail) {
+          const q = query(collection(db, "users"), where("email", "==", item.userEmail));
+          const userSnap = await getDocs(q);
+          if (!userSnap.empty) await updateDoc(doc(db, "users", userSnap.docs[0].id), { activeBooking: null });
+        }
+      }
+      return;
+    }
+
+    // Lógica de reordenação por faltas
+    let newTimestamp = item.timestamp;
+    const waitingList = queue.filter(i => i.status === 'waiting' && i.id !== id);
+
+    if (newMissedCount === 1) {
+      // Move para 2º lugar
+      if (waitingList.length > 0) {
+        newTimestamp = waitingList[0].timestamp + 1;
+      }
+      alert("1ª Falta: Movido para o 2º lugar da fila.");
+    } else if (newMissedCount === 2) {
+      // Move para o final
+      newTimestamp = Date.now();
+      alert("2ª Falta: Movido para o final da fila.");
+    }
+
+    await updateDoc(itemRef, { 
+      missedCount: newMissedCount, 
+      timestamp: newTimestamp,
+      status: 'waiting' // Garante que volta para espera se estava sendo atendido
+    });
+  };
+
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst) return;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -279,6 +291,56 @@ const App: React.FC = () => {
     } catch (e: any) { alert("Erro ao trocar de profissional."); }
   };
 
+  // Fix: Implemented handleUpdateAccessCode to migrate establishment data to a new ID/Access Code
+  const handleUpdateAccessCode = async (newCode: string): Promise<boolean> => {
+    if (!currentEst) return false;
+    const cleanCode = newCode.trim().toUpperCase();
+    if (cleanCode === currentEst.id) return true;
+
+    try {
+      const newDocRef = doc(db, "establishments", cleanCode);
+      const newDocSnap = await getDoc(newDocRef);
+      
+      if (newDocSnap.exists()) {
+        alert("Este código de acesso já está em uso.");
+        return false;
+      }
+
+      if (!confirm(`Tem certeza que deseja mudar o código para ${cleanCode}? Isso moverá todos os seus dados para o novo endereço.`)) {
+        return false;
+      }
+
+      const batch = writeBatch(db);
+      
+      // Copia dados principais do estabelecimento
+      const oldDocRef = doc(db, "establishments", currentEst.id);
+      batch.set(newDocRef, { ...currentEst, id: cleanCode });
+
+      // Migração de todas as subcoleções relevantes
+      const subCollections = ['services', 'professionals', 'queue', 'revenue', 'loyalty'];
+      for (const sub of subCollections) {
+        const subSnap = await getDocs(collection(db, "establishments", currentEst.id, sub));
+        subSnap.docs.forEach(subDoc => {
+          const newSubDocRef = doc(db, "establishments", cleanCode, sub, subDoc.id);
+          batch.set(newSubDocRef, subDoc.data());
+          batch.delete(doc(db, "establishments", currentEst.id, sub, subDoc.id));
+        });
+      }
+
+      batch.delete(oldDocRef);
+      await batch.commit();
+
+      // Atualiza o estado local para refletir a mudança
+      setCurrentEst({ ...currentEst, id: cleanCode });
+      alert("Código de acesso atualizado com sucesso!");
+      return true;
+    } catch (e: any) {
+      console.error("Error updating access code:", e);
+      alert("Erro ao atualizar o código de acesso: " + e.message);
+      return false;
+    }
+  };
+
   const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase())?.id;
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
@@ -288,36 +350,14 @@ const App: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
-      
-      {/* ALERTA DE DISPONIBILIDADE FLUTUANTE */}
-      {availabilityAlert && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[200] animate-in slide-in-from-top duration-500">
-           <div className="bg-teal-500 text-slate-950 p-4 rounded-2xl shadow-2xl flex items-center justify-between border-2 border-teal-400">
-              <div className="flex items-center gap-3">
-                 <div className="bg-white/20 p-2 rounded-xl animate-pulse"><Sparkles size={18} /></div>
-                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-tighter">Cadeira Disponível</p>
-                    <p className="text-xs font-black uppercase tracking-widest">{availabilityAlert}</p>
-                 </div>
-              </div>
-              <button onClick={() => setAvailabilityAlert(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={18} /></button>
-           </div>
-           <div className="mt-2 text-center">
-              <p className="text-[8px] font-black text-teal-400 uppercase tracking-widest bg-slate-950/80 inline-block px-3 py-1 rounded-full border border-teal-500/20">Você pode migrar seu lugar na fila abaixo</p>
-           </div>
-        </div>
-      )}
-
       {activeTab === 'fila' && (
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
-          onCallNext={handleCallNext} onFinish={handleFinish} onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={async (id) => { 
             if(confirm("Remover da fila?")) {
               await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
-              if (userRole === 'client' && auth.currentUser) {
-                 await updateDoc(doc(db, "users", auth.currentUser.uid), { activeBooking: null });
-              }
+              if (userRole === 'client' && auth.currentUser) await updateDoc(doc(db, "users", auth.currentUser.uid), { activeBooking: null });
             }
           }}
           onUpdateProfessional={handleUpdateProfessional}
@@ -328,7 +368,7 @@ const App: React.FC = () => {
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-          onCallNext={() => handleCallNext()} onFinish={handleFinish} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
+          onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
           onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
@@ -345,10 +385,6 @@ const App: React.FC = () => {
                     <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha de Acesso</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-indigo-500" /></div>
                     <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Trocar Senha</button>
                  </div>
-                 <div className="pt-6 border-t border-white/5 space-y-4">
-                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vincular Celular</label><input type="text" value={linkPhone} onChange={e => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "DDD + CELULAR"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-teal-500" /></div>
-                    <button onClick={handleLinkPhone} disabled={isUpdatingProfile} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Salvar Celular</button>
-                 </div>
               </section>
               <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-xl">Sair da Conta</button>
            </div>
@@ -361,9 +397,7 @@ const App: React.FC = () => {
           onConfirm={async (method, amount) => {
             if (!currentEst) return;
             await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
-            if (currentEst.loyaltyEnabled && selectedQueueItem.userEmail) {
-              await setDoc(doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail), { count: increment(1) }, { merge: true });
-            }
+            if (currentEst.loyaltyEnabled && selectedQueueItem.userEmail) await setDoc(doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail), { count: increment(1) }, { merge: true });
             await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
             setIsCompletionModalOpen(false);
           }} 
