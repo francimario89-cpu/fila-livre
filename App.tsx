@@ -291,6 +291,13 @@ const App: React.FC = () => {
     if (nextItem) await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { status: 'serving', professionalId: myProId || professionals[0]?.id, timestamp: Date.now() });
   };
 
+  const handleUpdateProfessional = async (itemId: string, proId: string) => {
+    if (!currentEst) return;
+    try {
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId });
+    } catch (e: any) { alert("Erro ao trocar de profissional."); }
+  };
+
   const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase())?.id;
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
@@ -304,7 +311,15 @@ const App: React.FC = () => {
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={handleFinish} onOpenJoinModal={() => setIsJoinModalOpen(true)}
-          onLeaveQueue={async (id) => { if(confirm("Remover da fila?")) await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id)); }}
+          onLeaveQueue={async (id) => { 
+            if(confirm("Remover da fila?")) {
+              await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
+              if (userRole === 'client' && auth.currentUser) {
+                 await updateDoc(doc(db, "users", auth.currentUser.uid), { activeBooking: null });
+              }
+            }
+          }}
+          onUpdateProfessional={handleUpdateProfessional}
         />
       )}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle } from 'lucide-react';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -23,13 +23,15 @@ interface QueueViewProps {
   onCallNextWithItem?: (item: QueueItem) => void;
   onOpenJoinModal?: () => void;
   onLeaveQueue?: (id: string) => void;
+  onUpdateProfessional?: (itemId: string, proId: string) => void;
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
 }) => {
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
   const [copied, setCopied] = useState(false);
+  const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
 
   const filteredQueue = useMemo(() => {
     let list = [...queue];
@@ -46,7 +48,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const currentTurn = filteredQueue.find(item => item.status === 'serving');
   const waitingList = filteredQueue.filter(item => item.status === 'waiting');
 
-  // Lógica para mostrar o horário de hoje baseado na agenda dinâmica
   const todaySchedule = useMemo(() => {
     const today = new Date().getDay();
     if (dailySchedules && dailySchedules[today]) {
@@ -83,7 +84,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Status da Loja Inteligente */}
         <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${
           isTodayClosed ? 'bg-red-500/10 border-red-500/20 text-red-500' :
           estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
@@ -123,7 +123,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
           </div>
         </div>
 
-        {/* Card de Pagamento PIX Rápido */}
         {pixKey && (
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group hover:border-teal-500/30 transition-all">
             <div className="flex items-center gap-3">
@@ -141,7 +140,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         )}
       </div>
 
-      {/* Atendimento Atual */}
       {currentTurn && (
         <section className="bg-indigo-600 rounded-[40px] p-8 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
           <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Scissors size={120} /></div>
@@ -171,39 +169,79 @@ export const QueueView: React.FC<QueueViewProps> = ({
         <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-3">Próximos da Lista</h2>
         <div className="space-y-3">
           {waitingList.map((item, index) => {
-            const isMe = item.userEmail === currentUserEmail;
+            const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
             const isMyTurn = (isStaff || isAdmin) && (item.professionalId === 'any' || item.professionalId === myProId);
             const canAction = isAdmin || isMyTurn;
             const isAppointment = item.type === 'appointment';
             const showScheduledInfo = isAppointment && (isAdmin || isStaff || isMe);
 
             return (
-              <div key={item.id} className={`bg-slate-900 border ${isMe ? 'border-teal-500/50 bg-teal-500/5 shadow-teal-500/5' : 'border-slate-800'} rounded-[32px] p-6 flex items-center justify-between shadow-lg relative overflow-hidden group transition-all hover:border-slate-700`}>
+              <div key={item.id} className={`bg-slate-900 border ${isMe ? 'border-teal-500/50 bg-teal-500/5 shadow-teal-500/5' : 'border-slate-800'} rounded-[32px] p-6 flex flex-col gap-4 shadow-lg relative overflow-hidden group transition-all hover:border-slate-700`}>
                 {isAppointment && <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity"><Calendar size={40} /></div>}
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${isAppointment ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : index === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>{isAppointment ? <Clock size={18} /> : index + 1}</div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-black text-white text-lg uppercase leading-none">{item.name}</h4>
-                      {isAppointment && <span className="text-[8px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-black tracking-widest">AGENDADO</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <p className="text-[9px] text-slate-500 font-bold uppercase">{item.service} • {item.professionalId === 'any' ? 'Barbeiro Livre' : professionals.find(p => p.id === item.professionalId)?.name}</p>
-                      {showScheduledInfo && <span className="text-[9px] font-black text-indigo-400 uppercase flex items-center gap-1"><span className="w-1 h-1 bg-slate-700 rounded-full" /> {formatTime(item.scheduledTime)}</span>}
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${isAppointment ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : index === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>{isAppointment ? <Clock size={18} /> : index + 1}</div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-white text-lg uppercase leading-none">{item.name}</h4>
+                        {isAppointment && <span className="text-[8px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-black tracking-widest">AGENDADO</span>}
+                        {isMe && <span className="text-[8px] bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full font-black tracking-widest">EU</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase">{item.service} • {item.professionalId === 'any' ? 'Barbeiro Livre' : professionals.find(p => p.id === item.professionalId)?.name}</p>
+                        {showScheduledInfo && <span className="text-[9px] font-black text-indigo-400 uppercase flex items-center gap-1"><span className="w-1 h-1 bg-slate-700 rounded-full" /> {formatTime(item.scheduledTime)}</span>}
+                      </div>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-2 relative z-10">
+                    {canAction && (
+                       <div className="flex gap-2">
+                          <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><UserX size={16} /></button>
+                          <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button>
+                       </div>
+                    )}
+                    {(isAdmin || (isMe && !isAdmin)) && (
+                      <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 relative z-10">
-                  {canAction || isMe ? (
-                    <div className="flex gap-2">
-                       {isAdmin && (<button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>)}
-                       {canAction && (
-                         <><button onClick={() => onNoShow?.(item.id)} className="p-3 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><UserX size={16} /></button><button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button></>
-                       )}
-                       {isMe && !isAdmin && <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-all">Sair</button>}
+
+                {isMe && !isAppointment && (
+                  <div className="pt-2 border-t border-white/5 space-y-3 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Opções do Cliente</p>
+                      <button 
+                        onClick={() => setIsChangingPro(isChangingPro === item.id ? null : item.id)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${isChangingPro === item.id ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}
+                      >
+                        <UserCog size={12} />
+                        {isChangingPro === item.id ? 'Cancelar Troca' : 'Mudar Barbeiro'}
+                      </button>
                     </div>
-                  ) : null}
-                </div>
+
+                    {isChangingPro === item.id && (
+                      <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-2">
+                        <button 
+                          onClick={() => { onUpdateProfessional?.(item.id, 'any'); setIsChangingPro(null); }}
+                          className={`py-2 rounded-xl text-[8px] font-black uppercase border transition-all ${item.professionalId === 'any' ? 'bg-teal-500 border-teal-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                        >
+                          Primeiro Livre
+                        </button>
+                        {professionals.filter(p => p.status !== 'absent').map(p => (
+                          <button 
+                            key={p.id}
+                            onClick={() => { onUpdateProfessional?.(item.id, p.id); setIsChangingPro(null); }}
+                            className={`py-2 rounded-xl text-[8px] font-black uppercase border transition-all ${item.professionalId === p.id ? 'bg-teal-500 border-teal-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
