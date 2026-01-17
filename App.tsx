@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -15,19 +15,27 @@ import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus } from './types';
 
-const playBeep = (type: 'entry' | 'alert') => {
+const playBeep = (type: 'entry' | 'alert' | 'available') => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
+    
     if (type === 'entry') {
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.1);
+    } else if (type === 'available') {
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.3);
     } else {
       oscillator.type = 'triangle';
       oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
@@ -55,8 +63,10 @@ const App: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
+  const [availabilityAlert, setAvailabilityAlert] = useState<string | null>(null);
 
   const prevQueueLength = useRef(0);
+  const prevProStatuses = useRef<Record<string, ProfStatus>>({});
   const notifiedNearCalling = useRef(false);
 
   const [newPassword, setNewPassword] = useState('');
@@ -82,22 +92,41 @@ const App: React.FC = () => {
           }
         } catch (e) { setUserRole('client'); }
       } else {
-        setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client'); setUserProfile(null);
+        setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client'); setUserRole('client'); setUserProfile(null);
       }
     });
   }, []);
 
-  // Monitor de Alertas
+  // Monitor de Alertas e Disponibilidade de Profissionais
   useEffect(() => {
-    if (!queue.length || !isLoggedIn) return;
-    const waitingList = queue.filter(i => i.status === 'waiting');
+    if (!currentEst || !isLoggedIn) return;
+
+    // 1. Monitorar novos clientes (para Admin/Staff)
     if (userRole === 'admin' || userRole === 'staff') {
       if (queue.length > prevQueueLength.current && prevQueueLength.current !== 0) {
         playBeep('entry');
         if (navigator.vibrate) navigator.vibrate(200);
       }
     }
-    if (userRole === 'client' && userEmail) {
+    prevQueueLength.current = queue.length;
+
+    // 2. Monitorar Profissionais ficando disponíveis (para Clientes)
+    if (userRole === 'client') {
+      professionals.forEach(pro => {
+        const prevStatus = prevProStatuses.current[pro.id];
+        if (pro.status === 'available' && prevStatus && prevStatus !== 'available') {
+          setAvailabilityAlert(`Cadeira do(a) ${pro.name} disponível!`);
+          playBeep('available');
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+          
+          // Auto-limpa o alerta após 8 segundos
+          setTimeout(() => setAvailabilityAlert(null), 8000);
+        }
+        prevProStatuses.current[pro.id] = pro.status;
+      });
+
+      // 3. Monitorar sua vez na fila
+      const waitingList = queue.filter(i => i.status === 'waiting');
       const myItem = waitingList.find(i => i.userEmail === userEmail);
       const firstWaiting = waitingList[0];
       if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
@@ -110,8 +139,7 @@ const App: React.FC = () => {
         notifiedNearCalling.current = false;
       }
     }
-    prevQueueLength.current = queue.length;
-  }, [queue, userRole, userEmail, isLoggedIn]);
+  }, [queue, professionals, userRole, userEmail, isLoggedIn, currentEst]);
 
   const handleUpdatePassword = async () => {
     if (newPassword.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
@@ -145,43 +173,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- LÓGICA DE AUTOMAÇÃO DE STATUS ---
-  const timeToMinutes = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-  };
-
-  const syncAutoStatus = async (est: Establishment) => {
-    if (!est.autoStatusEnabled || !est.dailySchedules) return;
-
-    const now = new Date();
-    const dayId = now.getDay();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-    const schedule = est.dailySchedules[dayId];
-
-    let targetStatus: EstStatus = 'closed';
-
-    if (schedule && schedule.isOpen) {
-      const startMins = timeToMinutes(schedule.start);
-      const endMins = timeToMinutes(schedule.end);
-
-      if (currentMins >= startMins && currentMins < endMins) {
-        targetStatus = 'open';
-        if (schedule.hasLunch && schedule.lunchStart && schedule.lunchEnd) {
-          const lStart = timeToMinutes(schedule.lunchStart);
-          const lEnd = timeToMinutes(schedule.lunchEnd);
-          if (currentMins >= lStart && currentMins < lEnd) {
-            targetStatus = 'lunch';
-          }
-        }
-      }
-    }
-
-    if (est.status !== targetStatus) {
-      await updateDoc(doc(db, "establishments", est.id), { status: targetStatus, statusUpdatedAt: Date.now() });
-    }
-  };
-
   const handleUpdateAccessCode = async (newCode: string): Promise<boolean> => {
     if (!currentEst) return false;
     try {
@@ -192,18 +183,10 @@ const App: React.FC = () => {
         alert("Este código já está sendo utilizado por outro gestor!");
         return false;
       }
-
-      // Migração Básica do Documento
       const oldId = currentEst.id;
       const data = { ...currentEst, id: newCode };
-      
-      // Salva no novo local
       await setDoc(docRef, data);
-      
-      // Deleta o antigo
       await deleteDoc(doc(db, "establishments", oldId));
-      
-      // Atualiza estado local
       setCurrentEst(data as Establishment);
       alert("Código de acesso atualizado com sucesso!");
       return true;
@@ -220,11 +203,9 @@ const App: React.FC = () => {
         const data = { id: docSnap.id, ...docSnap.data() } as Establishment;
         setCurrentEst(data);
         if (userEmail && data.ownerEmail && userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) setUserRole('admin');
-        syncAutoStatus(data);
       }
     });
-    const interval = setInterval(() => { if (currentEst) syncAutoStatus(currentEst); }, 30000);
-    return () => { unsubEst(); clearInterval(interval); };
+    return () => unsubEst();
   }, [currentEst?.id, isLoggedIn, userEmail]);
 
   useEffect(() => {
@@ -307,6 +288,26 @@ const App: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
+      
+      {/* ALERTA DE DISPONIBILIDADE FLUTUANTE */}
+      {availabilityAlert && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[200] animate-in slide-in-from-top duration-500">
+           <div className="bg-teal-500 text-slate-950 p-4 rounded-2xl shadow-2xl flex items-center justify-between border-2 border-teal-400">
+              <div className="flex items-center gap-3">
+                 <div className="bg-white/20 p-2 rounded-xl animate-pulse"><Sparkles size={18} /></div>
+                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-tighter">Cadeira Disponível</p>
+                    <p className="text-xs font-black uppercase tracking-widest">{availabilityAlert}</p>
+                 </div>
+              </div>
+              <button onClick={() => setAvailabilityAlert(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={18} /></button>
+           </div>
+           <div className="mt-2 text-center">
+              <p className="text-[8px] font-black text-teal-400 uppercase tracking-widest bg-slate-950/80 inline-block px-3 py-1 rounded-full border border-teal-500/20">Você pode migrar seu lugar na fila abaixo</p>
+           </div>
+        </div>
+      )}
+
       {activeTab === 'fila' && (
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
