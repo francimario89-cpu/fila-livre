@@ -107,16 +107,23 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Listener para buscar TODAS as filas que o usuário está participando globalmente
+  // Listener global para buscar todas as filas do usuário
   useEffect(() => {
     if (!userEmail || userRole !== 'client') return;
     
-    // Usando collectionGroup para buscar em todas as subcoleções 'queue'
-    const q = query(collectionGroup(db, "queue"), where("userEmail", "==", userEmail), where("status", "!=", "completed"));
+    // Mudado para 'in' para evitar problemas de índice composto com '!='
+    const q = query(
+      collectionGroup(db, "queue"), 
+      where("userEmail", "==", userEmail), 
+      where("status", "in", ["waiting", "serving"])
+    );
     
     const unsub = onSnapshot(q, (snap) => {
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem));
-      setGlobalUserQueues(items);
+      // Filtro adicional manual caso o Firestore demore a processar o 'in'
+      setGlobalUserQueues(items.filter(i => i.status !== 'completed'));
+    }, (err) => {
+      console.error("Erro na busca global de filas:", err);
     });
 
     return () => unsub();
@@ -164,23 +171,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLinkPhone = async () => {
-    const digits = linkPhone.replace(/\D/g, '');
-    if (digits.length < 10) return alert("Informe o DDD.");
-    setIsUpdatingProfile(true);
-    try {
-      if (auth.currentUser) {
-        await updateDoc(doc(db, "users", auth.currentUser.uid), { phone: digits });
-        setUserProfile({ ...userProfile, phone: digits });
-        setProfileMessage({ text: 'Celular vinculado com sucesso!', type: 'success' });
-        setLinkPhone('');
-      }
-    } catch (e) { alert("Erro ao vincular celular."); } finally {
-      setIsUpdatingProfile(false);
-      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
-    }
-  };
-
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
@@ -223,7 +213,7 @@ const App: React.FC = () => {
         const payload: any = {
           name: person.name, professionalId: data.professionalId, service: person.service, type: data.type,
           userEmail: userRole === 'client' ? userEmail : null, establishmentId: currentEst.id,
-          establishmentName: currentEst.name, // Gravando nome para aba global
+          establishmentName: currentEst.name, 
           status: 'waiting', timestamp: baseTime + (i * 10), missedCount: 0
         };
         if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
@@ -270,7 +260,7 @@ const App: React.FC = () => {
     <Layout 
       activeTab={activeTab} 
       setActiveTab={setActiveTab} 
-      userRole={userRole === 'staff' ? 'client' : userRole} // Staff usa UI de cliente se não admin
+      userRole={userRole === 'staff' ? 'client' : userRole} 
       establishmentCode={currentEst.id} 
       onBackToDashboard={() => setCurrentEst(null)} 
       loyaltyEnabled={currentEst.loyaltyEnabled}
@@ -280,13 +270,13 @@ const App: React.FC = () => {
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
-          onNoShow={(id) => { /* lógica no-show */ }}
+          onNoShow={(id) => { }}
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={(id) => handleLeaveQueue(currentEst.id, id)}
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
         />
       )}
-      {activeTab === 'minhas-filas' && <MyQueuesView userQueues={globalUserQueues} onLeaveQueue={handleLeaveQueue} onSelectEstablishment={(id) => { /* logic to switch to that est */ }} />}
+      {activeTab === 'minhas-filas' && <MyQueuesView userQueues={globalUserQueues} onLeaveQueue={handleLeaveQueue} onSelectEstablishment={(id) => { }} />}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 

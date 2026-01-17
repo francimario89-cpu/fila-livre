@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { LOGO_SVG } from '../constants';
-import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database, Trash2 } from 'lucide-react';
-import { Establishment } from '../types';
+import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database, Trash2, Wifi, Coffee, DoorClosed } from 'lucide-react';
+import { Establishment, EstStatus } from '../types';
 import { db } from '../services/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 
 interface BusinessSelectProps {
   userEmail: string;
@@ -15,6 +15,7 @@ interface BusinessSelectProps {
 
 export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userRole, onSelect, onLogout }) => {
   const [connections, setConnections] = useState<Establishment[]>([]);
+  const [liveStatuses, setLiveStatuses] = useState<Record<string, EstStatus>>({});
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -25,6 +26,24 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   useEffect(() => {
     loadConnections();
   }, [userEmail, userRole]);
+
+  // Listener para atualizar status das lojas recentes em tempo real
+  useEffect(() => {
+    if (connections.length === 0) return;
+
+    const unsubs = connections.map(est => {
+      return onSnapshot(doc(db, "establishments", est.id), (snap) => {
+        if (snap.exists()) {
+          setLiveStatuses(prev => ({
+            ...prev,
+            [est.id]: snap.data().status as EstStatus
+          }));
+        }
+      });
+    });
+
+    return () => unsubs.forEach(unsub => unsub());
+  }, [connections]);
 
   const loadConnections = async () => {
     setLoading(true);
@@ -47,7 +66,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   };
 
   const handleRemoveConnection = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Evita entrar na loja ao clicar na lixeira
+    e.stopPropagation();
     if (confirm("Deseja remover esta loja do seu histórico?")) {
       const updated = connections.filter(c => c.id !== id);
       setConnections(updated);
@@ -101,6 +120,28 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     }
   };
 
+  const renderStatusBadge = (id: string) => {
+    const status = liveStatuses[id] || 'open';
+    if (status === 'open') return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
+         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+         <span className="text-[7px] font-black uppercase tracking-widest">Aberto</span>
+      </div>
+    );
+    if (status === 'lunch') return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full">
+         <Coffee size={8} />
+         <span className="text-[7px] font-black uppercase tracking-widest">Almoço</span>
+      </div>
+    );
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full">
+         <DoorClosed size={8} />
+         <span className="text-[7px] font-black uppercase tracking-widest">Fechado</span>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#050810] p-6 flex flex-col max-w-xl mx-auto w-full">
       <header className="flex justify-between items-center mb-12">
@@ -118,35 +159,6 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
       </div>
 
       <div className="space-y-4 flex-1">
-        {error && (error.code === 'unavailable' || error.code === 'permission-denied') && (
-          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-[32px] space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center gap-4 text-amber-500">
-              <Database size={24} />
-              <h4 className="text-xs font-black uppercase tracking-widest">Banco de Dados não Iniciado</h4>
-            </div>
-            <p className="text-[10px] text-white/70 font-bold uppercase leading-relaxed">
-              O Google Cloud informou que seu banco de dados ainda não foi criado ou está com as regras bloqueadas.
-            </p>
-            <div className="space-y-2">
-              <p className="text-[8px] text-slate-500 font-black uppercase">Como resolver agora:</p>
-              <ul className="text-[9px] text-white font-medium space-y-1 ml-4 list-disc">
-                <li>Acesse o Console do Firebase</li>
-                <li>Clique em "Cloud Firestore" no menu lateral</li>
-                <li>Clique no botão azul "Criar banco de dados"</li>
-                <li>Escolha "Modo de Teste" e finalize</li>
-              </ul>
-            </div>
-            <a 
-              href="https://console.firebase.google.com/project/fila-livre-5d28d/firestore" 
-              target="_blank" 
-              className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-slate-950 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-amber-500/20"
-            >
-              Abrir Console do Firebase <ExternalLink size={14} />
-            </a>
-            <button onClick={() => window.location.reload()} className="w-full text-[9px] text-amber-500 font-black uppercase py-2">Já criei, tentar novamente</button>
-          </div>
-        )}
-
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="animate-spin text-teal-500" size={32} />
@@ -156,7 +168,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
           <>
             {connections.length > 0 && (
               <div className="space-y-3">
-                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Recentes</p>
+                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Histórico Recente</p>
                 {connections.map(est => (
                   <div key={est.id} className="relative group">
                     <button 
@@ -164,7 +176,10 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                       className="w-full bg-slate-900/40 border border-slate-800 p-7 rounded-[40px] flex items-center justify-between group-hover:border-teal-500/50 transition-all shadow-xl"
                     >
                       <div className="text-left">
-                        <span className="text-white font-black uppercase font-orbitron block">{est.name}</span>
+                        <div className="flex items-center gap-3">
+                           <span className="text-white font-black uppercase font-orbitron block">{est.name}</span>
+                           {renderStatusBadge(est.id)}
+                        </div>
                         <span className="text-[8px] text-slate-500 font-bold uppercase mt-1">ID: {est.id}</span>
                       </div>
                       <ArrowRight size={20} className="text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />

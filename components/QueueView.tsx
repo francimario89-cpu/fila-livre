@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-// Added 'Users' to the import list from 'lucide-react'
 import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog, Sparkles, Megaphone, Wifi, Users } from 'lucide-react';
 
 interface QueueViewProps {
@@ -79,7 +78,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS DO ESTABELECIMENTO - PRIORIDADE ZERO (PRIMEIRA COISA VISÍVEL) */}
+      {/* STATUS DO ESTABELECIMENTO - PRIORIDADE ZERO */}
       <section className={`rounded-[40px] p-6 border-2 shadow-2xl transition-all duration-700 ${
         isTodayClosed ? 'bg-slate-900 border-red-500/30' :
         estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/10' : 
@@ -126,19 +125,19 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       </section>
 
-      {/* BANNER DE VAGA DISPONÍVEL (QUANDO HOUVER PROFISSIONAL LIVRE) */}
+      {/* BANNER DE VAGA DISPONÍVEL (AMARELO CHAMATIVO) */}
       {availableProsList.length > 0 && estStatus === 'open' && !isTodayClosed && (
-        <div className="bg-slate-900 border border-amber-500/20 p-5 rounded-[32px] shadow-lg flex items-center gap-4 animate-in slide-in-from-top-4">
-           <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center shrink-0">
-              <Megaphone size={20} />
+        <div className="bg-amber-400 p-6 rounded-[32px] shadow-2xl shadow-amber-500/20 flex items-center gap-4 animate-in slide-in-from-top-4 border-b-4 border-amber-600">
+           <div className="w-12 h-12 bg-slate-950 text-amber-400 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+              <Megaphone size={24} className="animate-bounce" />
            </div>
            <div className="flex-1">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Atendimento Imediato</p>
-              <p className="text-[11px] font-black text-white uppercase tracking-tight">
-                {availableProsNames} {availableProsList.length > 1 ? 'estão prontos' : 'está pronto'} para te atender!
+              <p className="text-[10px] font-black text-slate-950 uppercase tracking-[0.2em]">Cadeira Livre Agora!</p>
+              <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">
+                {availableProsNames} {availableProsList.length > 1 ? 'estão esperando' : 'está esperando'} por você!
               </p>
            </div>
-           <button onClick={onOpenJoinModal} className="px-4 py-2 bg-amber-500 text-slate-950 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-amber-500/10 active:scale-95 transition-all">Entrar</button>
+           <button onClick={onOpenJoinModal} className="px-6 py-3 bg-slate-950 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl active:scale-95 transition-all border border-white/10">ENTRAR</button>
         </div>
       )}
 
