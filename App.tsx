@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -165,6 +165,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateSelfStatus = async (newStatus: ProfStatus) => {
+    if (!currentEst) return;
+    const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+    if (myProRecord) {
+      try {
+        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myProRecord.id), { status: newStatus });
+        setProfileMessage({ text: 'Seu status foi atualizado!', type: 'success' });
+        setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+      } catch (e) {
+        alert("Erro ao atualizar status.");
+      }
+    }
+  };
+
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
@@ -249,18 +263,13 @@ const App: React.FC = () => {
       return;
     }
 
-    // Lógica de reordenação por faltas
     let newTimestamp = item.timestamp;
     const waitingList = queue.filter(i => i.status === 'waiting' && i.id !== id);
 
     if (newMissedCount === 1) {
-      // Move para 2º lugar
-      if (waitingList.length > 0) {
-        newTimestamp = waitingList[0].timestamp + 1;
-      }
+      if (waitingList.length > 0) newTimestamp = waitingList[0].timestamp + 1;
       alert("1ª Falta: Movido para o 2º lugar da fila.");
     } else if (newMissedCount === 2) {
-      // Move para o final
       newTimestamp = Date.now();
       alert("2ª Falta: Movido para o final da fila.");
     }
@@ -268,7 +277,7 @@ const App: React.FC = () => {
     await updateDoc(itemRef, { 
       missedCount: newMissedCount, 
       timestamp: newTimestamp,
-      status: 'waiting' // Garante que volta para espera se estava sendo atendido
+      status: 'waiting'
     });
   };
 
@@ -276,6 +285,12 @@ const App: React.FC = () => {
     if (!currentEst) return;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     const myProId = myPro?.id;
+    
+    // Se um atendente chama alguém, ele automaticamente fica 'busy' se o modo auto estiver on
+    if (myPro && currentEst.autoStatusEnabled) {
+       await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'busy' });
+    }
+
     if (specificId) {
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: myProId || professionals[0]?.id, timestamp: Date.now() });
       return;
@@ -291,7 +306,6 @@ const App: React.FC = () => {
     } catch (e: any) { alert("Erro ao trocar de profissional."); }
   };
 
-  // Fix: Implemented handleUpdateAccessCode to migrate establishment data to a new ID/Access Code
   const handleUpdateAccessCode = async (newCode: string): Promise<boolean> => {
     if (!currentEst) return false;
     const cleanCode = newCode.trim().toUpperCase();
@@ -300,48 +314,32 @@ const App: React.FC = () => {
     try {
       const newDocRef = doc(db, "establishments", cleanCode);
       const newDocSnap = await getDoc(newDocRef);
-      
       if (newDocSnap.exists()) {
         alert("Este código de acesso já está em uso.");
         return false;
       }
-
-      if (!confirm(`Tem certeza que deseja mudar o código para ${cleanCode}? Isso moverá todos os seus dados para o novo endereço.`)) {
-        return false;
-      }
-
+      if (!confirm(`Confirmar mudança de código para ${cleanCode}?`)) return false;
       const batch = writeBatch(db);
-      
-      // Copia dados principais do estabelecimento
       const oldDocRef = doc(db, "establishments", currentEst.id);
       batch.set(newDocRef, { ...currentEst, id: cleanCode });
-
-      // Migração de todas as subcoleções relevantes
       const subCollections = ['services', 'professionals', 'queue', 'revenue', 'loyalty'];
       for (const sub of subCollections) {
         const subSnap = await getDocs(collection(db, "establishments", currentEst.id, sub));
         subSnap.docs.forEach(subDoc => {
-          const newSubDocRef = doc(db, "establishments", cleanCode, sub, subDoc.id);
-          batch.set(newSubDocRef, subDoc.data());
+          batch.set(doc(db, "establishments", cleanCode, sub, subDoc.id), subDoc.data());
           batch.delete(doc(db, "establishments", currentEst.id, sub, subDoc.id));
         });
       }
-
       batch.delete(oldDocRef);
       await batch.commit();
-
-      // Atualiza o estado local para refletir a mudança
       setCurrentEst({ ...currentEst, id: cleanCode });
-      alert("Código de acesso atualizado com sucesso!");
+      alert("Código atualizado!");
       return true;
-    } catch (e: any) {
-      console.error("Error updating access code:", e);
-      alert("Erro ao atualizar o código de acesso: " + e.message);
-      return false;
-    }
+    } catch (e: any) { alert("Erro: " + e.message); return false; }
   };
 
-  const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase())?.id;
+  const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+  const myProId = myProRecord?.id;
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
@@ -378,12 +376,42 @@ const App: React.FC = () => {
              <div className="w-20 h-20 bg-slate-900 rounded-[32px] flex items-center justify-center mx-auto border border-white/5 shadow-2xl"><User className="text-teal-400" size={32} /></div>
              <div><h2 className="text-2xl font-black text-white font-orbitron uppercase tracking-tighter">MEU PERFIL</h2></div>
            </div>
+           
            <div className="space-y-4">
+              {profileMessage.text && <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl text-center text-[10px] font-black uppercase animate-in slide-in-from-top-2">{profileMessage.text}</div>}
+              
+              {/* CONTROLE DE STATUS PARA COLABORADORES */}
+              {userRole === 'staff' && myProRecord && (
+                <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-4 shadow-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Power size={18} className="text-amber-500" />
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status de Atendimento</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => handleUpdateSelfStatus('available')} className={`flex flex-col items-center gap-2 py-4 rounded-2xl border transition-all ${myProRecord.status === 'available' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                      <CheckCircle size={18} />
+                      <span className="text-[8px] font-black uppercase">Livre</span>
+                    </button>
+                    <button onClick={() => handleUpdateSelfStatus('lunch')} className={`flex flex-col items-center gap-2 py-4 rounded-2xl border transition-all ${myProRecord.status === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                      <Coffee size={18} />
+                      <span className="text-[8px] font-black uppercase">Pausa</span>
+                    </button>
+                    <button onClick={() => handleUpdateSelfStatus('absent')} className={`flex flex-col items-center gap-2 py-4 rounded-2xl border transition-all ${myProRecord.status === 'absent' ? 'bg-red-500 border-red-400 text-slate-950 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                      <DoorClosed size={18} />
+                      <span className="text-[8px] font-black uppercase">Fora</span>
+                    </button>
+                  </div>
+                </section>
+              )}
+
               <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6">
-                 {profileMessage.text && <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl text-center text-[10px] font-black uppercase">{profileMessage.text}</div>}
                  <div className="space-y-4">
                     <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha de Acesso</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-indigo-500" /></div>
                     <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Trocar Senha</button>
+                 </div>
+                 <div className="pt-6 border-t border-white/5 space-y-4">
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Celular</label><input type="text" value={linkPhone} onChange={e => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "DDD + CELULAR"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-teal-500" /></div>
+                    <button onClick={handleLinkPhone} disabled={isUpdatingProfile} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Salvar Celular</button>
                  </div>
               </section>
               <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-xl">Sair da Conta</button>
@@ -398,6 +426,13 @@ const App: React.FC = () => {
             if (!currentEst) return;
             await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
             if (currentEst.loyaltyEnabled && selectedQueueItem.userEmail) await setDoc(doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail), { count: increment(1) }, { merge: true });
+            
+            // Se o modo auto está on, o profissional volta a ficar 'available' após finalizar
+            const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
+            if (myPro && currentEst.autoStatusEnabled) {
+               await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'available' });
+            }
+
             await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
             setIsCompletionModalOpen(false);
           }} 

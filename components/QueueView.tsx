@@ -73,7 +73,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES */}
+      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - ATUALIZA DINAMICAMENTE */}
       {availableProsNames.length > 0 && estStatus === 'open' && (
         <div className="bg-amber-400 border-2 border-amber-300 p-4 rounded-[24px] shadow-lg shadow-amber-500/10 flex items-center gap-4 animate-bounce-subtle">
            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-amber-400 shrink-0">
@@ -89,7 +89,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       )}
 
-      {/* Filtros de Profissionais */}
+      {/* Filtros de Atendentes */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
          <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-500 border border-slate-800'}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => {
@@ -206,7 +206,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* ORDEM DAS AÇÕES: LIXEIRA -> FALTA (VERMELHO) -> RAIO */}
                     {(isAdmin || (isMe && !isAdmin)) && (
                       <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                     )}
