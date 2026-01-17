@@ -14,7 +14,7 @@ interface LayoutProps {
   loyaltyEnabled: boolean;
   onBackToDashboard: () => void;
   onClearNotifications?: () => void;
-  userActiveQueues?: QueueItem[]; // Para o botão flutuante
+  userActiveQueues?: QueueItem[];
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
@@ -26,7 +26,6 @@ export const Layout: React.FC<LayoutProps> = ({
     return item.roles.includes(userRole as any);
   });
 
-  // Pega a fila mais próxima (pelo timestamp)
   const mainActiveQueue = userActiveQueues.sort((a,b) => a.timestamp - b.timestamp)[0];
 
   return (
@@ -65,21 +64,18 @@ export const Layout: React.FC<LayoutProps> = ({
         {children}
       </main>
 
-      {/* BOTÃO MINIMIZADO (FLOATING STATUS) */}
-      {mainActiveQueue && (
+      {/* INDICADOR FLUTUANTE DE STATUS (SEM CLIQUE PARA ABA REMOVIDA) */}
+      {mainActiveQueue && userRole === 'client' && (
         <div className="fixed bottom-24 right-4 z-[60] flex flex-col items-end gap-3 pointer-events-none">
-          <button 
-            onClick={() => setActiveTab('minhas-filas')}
-            className="pointer-events-auto bg-teal-500 text-slate-950 p-4 rounded-3xl shadow-[0_10px_30px_rgba(45,212,191,0.3)] flex items-center gap-3 active:scale-95 transition-all border-2 border-slate-950/20"
-          >
+          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md text-white p-4 rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-3 border border-teal-500/30">
             <div className="flex flex-col items-end">
-              <span className="text-[7px] font-black uppercase tracking-widest opacity-70">Minha Fila</span>
-              <span className="text-xs font-black uppercase tracking-tight">{mainActiveQueue.establishmentName || 'Atendimento'}</span>
+              <span className="text-[7px] font-black uppercase tracking-widest text-teal-400">Status da sua Fila</span>
+              <span className="text-xs font-black uppercase tracking-tight">{mainActiveQueue.establishmentName || 'Loja Atual'}</span>
             </div>
-            <div className="w-10 h-10 bg-slate-950 text-teal-400 rounded-2xl flex items-center justify-center font-black shadow-inner">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black shadow-inner ${mainActiveQueue.status === 'serving' ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>
                {mainActiveQueue.status === 'serving' ? <Zap size={18} className="animate-pulse" /> : <ListOrdered size={18} />}
             </div>
-          </button>
+          </div>
         </div>
       )}
 

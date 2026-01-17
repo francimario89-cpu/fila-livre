@@ -57,7 +57,11 @@ export const QueueView: React.FC<QueueViewProps> = ({
     });
   }, [queue, filterPro]);
 
-  const currentTurn = filteredQueue.find(item => item.status === 'serving');
+  // Lista de quem está sendo atendido (suporte a múltiplas cadeiras)
+  const servingList = useMemo(() => {
+    return filteredQueue.filter(item => item.status === 'serving');
+  }, [filteredQueue]);
+
   const waitingList = filteredQueue.filter(item => item.status === 'waiting');
 
   const todaySchedule = useMemo(() => {
@@ -163,24 +167,40 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
-      {currentTurn && (
-        <section className="bg-indigo-600 rounded-[40px] p-8 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
-          <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Zap size={120} /></div>
-          <div className="relative z-10 space-y-5">
-            <span className="bg-white/20 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Atendimento Atual</span>
-            <h3 className="text-4xl font-black text-white uppercase tracking-tighter">{currentTurn.name}</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-indigo-100 uppercase">{currentTurn.service}</span>
-              <span className="w-1 h-1 bg-white/30 rounded-full"/>
-              <span className="text-xs font-black text-white uppercase">{professionals.find(p => p.id === currentTurn.professionalId)?.name}</span>
-            </div>
-            
-            {(isAdmin || (isStaff && currentTurn.professionalId === myProId)) && (
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all"><UserX size={20} /></button>
-                <button onClick={() => onFinish?.(currentTurn)} className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2"><CheckCircle2 size={18} /> Finalizar Serviço</button>
+      {/* SEÇÃO EM ATENDIMENTO (AGORA EM LISTA PARA MÚLTIPLAS CADEIRAS) */}
+      {servingList.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex justify-between items-center px-3">
+             <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Em Atendimento</h2>
+             <div className="h-[1px] flex-1 bg-indigo-500/20 ml-4" />
+          </div>
+          <div className="space-y-3">
+            {servingList.map(item => (
+              <div key={item.id} className="bg-indigo-600 rounded-[32px] p-6 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
+                <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12"><Zap size={80} /></div>
+                <div className="relative z-10 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{item.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold text-indigo-100 uppercase">{item.service}</span>
+                        <span className="w-1 h-1 bg-white/30 rounded-full"/>
+                        <span className="text-[10px] font-black text-white uppercase">
+                          {professionals.find(p => p.id === item.professionalId)?.name || 'Livre'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {(isAdmin || (isStaff && item.professionalId === myProId)) && (
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-red-500 text-white rounded-xl shadow-lg active:scale-95 transition-all"><UserX size={18} /></button>
+                      <button onClick={() => onFinish?.(item)} className="flex-1 bg-white text-indigo-600 font-black py-3 rounded-xl uppercase text-[9px] tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95"><CheckCircle2 size={16} /> Finalizar Atendimento</button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </section>
       )}
@@ -227,7 +247,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
               </div>
             );
           })}
-          {waitingList.length === 0 && !currentTurn && (
+          {waitingList.length === 0 && servingList.length === 0 && (
              <div className="py-12 text-center space-y-4">
                 <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto text-slate-800">
                    <Users size={32} />
