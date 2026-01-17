@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Service, Professional, BookingModel, QueueItem, DaySchedule } from '../types';
-import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2, Coffee } from 'lucide-react';
+import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2, Coffee, Scissors } from 'lucide-react';
 
 interface Companion {
   id: string;
@@ -218,10 +218,17 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
               </div>
             ))}
 
-            <button onClick={addCompanion} className="w-full py-4 border-2 border-dashed border-slate-800 rounded-[24px] text-slate-600 hover:text-teal-400 hover:border-teal-500/30 transition-all flex items-center justify-center gap-2"><Plus size={16} /><span className="text-[9px] font-black uppercase tracking-widest">Adicionar Acompanhante</span></button>
+            <button onClick={addCompanion} className="w-full py-4 border-2 border-dashed border-slate-800 rounded-[24px] text-slate-600 hover:text-teal-400 hover:border-teal-500/50 transition-all flex items-center justify-center gap-2"><Plus size={16} /><span className="text-[9px] font-black uppercase tracking-widest">Adicionar Acompanhante</span></button>
 
             <div className="pt-4 space-y-4">
-              <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Com quem?</label><select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none"><option value="any">{type === 'appointment' ? 'Selecione um Profissional' : 'Primeiro Disponível'}</option>{professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-1 ml-1">
+                  <Scissors size={12} className="text-teal-400" />
+                  <label className="text-[9px] font-black text-teal-400 uppercase tracking-widest">Selecione o Profissional</label>
+                </div>
+                <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500 transition-all"><option value="any">{type === 'appointment' ? 'Selecione um Profissional' : 'Primeiro Disponível'}</option>{professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+              </div>
+              
               {type === 'appointment' && (
                 <div className="space-y-6 animate-in fade-in">
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Escolha o Dia</label><input type="date" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" /></div>
