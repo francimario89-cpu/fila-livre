@@ -161,6 +161,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const isMyTurn = (isStaff || isAdmin) && (item.professionalId === 'any' || item.professionalId === myProId);
             const canAction = isAdmin || isMyTurn;
             const isAppointment = item.type === 'appointment';
+            
+            // Lógica de visibilidade do horário: Só gestor ou o próprio cliente vê o horário agendado
+            const showScheduledInfo = isAppointment && (isAdmin || isStaff || isMe);
 
             return (
               <div key={item.id} className={`bg-slate-900 border ${isMe ? 'border-teal-500/50 bg-teal-500/5 shadow-teal-500/5' : 'border-slate-800'} rounded-[32px] p-6 flex items-center justify-between shadow-lg relative overflow-hidden group transition-all hover:border-slate-700`}>
@@ -181,7 +184,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <p className="text-[9px] text-slate-500 font-bold uppercase">{item.service} • {item.professionalId === 'any' ? 'Barbeiro Livre' : professionals.find(p => p.id === item.professionalId)?.name}</p>
-                      {isAppointment && (
+                      
+                      {showScheduledInfo && (
                         <span className="text-[9px] font-black text-indigo-400 uppercase flex items-center gap-1">
                           <span className="w-1 h-1 bg-slate-700 rounded-full" /> {formatTime(item.scheduledTime)}
                         </span>

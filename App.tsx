@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
@@ -14,6 +14,37 @@ import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus } from './types';
+
+// Audio Context Helper para notificações sem arquivos externos
+const playBeep = (type: 'entry' | 'alert') => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === 'entry') {
+      // Bipe curto e agudo
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } else {
+      // Alerta de proximidade (mais intenso)
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    }
+  } catch (e) {
+    console.warn("Audio Context not allowed by browser yet.");
+  }
+};
 
 const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
@@ -33,6 +64,10 @@ const App: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
+
+  // Refs para controle de notificações e evitar loops
+  const prevQueueLength = useRef(0);
+  const notifiedNearCalling = useRef(false);
 
   // Estados para Perfil
   const [newPassword, setNewPassword] = useState('');
@@ -63,6 +98,40 @@ const App: React.FC = () => {
       }
     });
   }, []);
+
+  // Monitor de Alertas de Fila (Som e Vibração)
+  useEffect(() => {
+    if (!queue.length || !isLoggedIn) return;
+
+    const waitingList = queue.filter(i => i.status === 'waiting');
+
+    // 1. Lógica para o ADMIN: Notificar nova entrada
+    if (userRole === 'admin' || userRole === 'staff') {
+      if (queue.length > prevQueueLength.current && prevQueueLength.current !== 0) {
+        playBeep('entry');
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+    }
+
+    // 2. Lógica para o CLIENTE: Alerta de proximidade (se for o 1º da espera)
+    if (userRole === 'client' && userEmail) {
+      const myItem = waitingList.find(i => i.userEmail === userEmail);
+      const firstWaiting = waitingList[0];
+
+      if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
+        if (!notifiedNearCalling.current) {
+          playBeep('alert');
+          if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+          notifiedNearCalling.current = true;
+        }
+      } else {
+        // Reset do alerta se a posição mudar (ex: se ele sair da 1ª posição)
+        notifiedNearCalling.current = false;
+      }
+    }
+
+    prevQueueLength.current = queue.length;
+  }, [queue, userRole, userEmail, isLoggedIn]);
 
   const handleUpdatePassword = async () => {
     if (newPassword.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
