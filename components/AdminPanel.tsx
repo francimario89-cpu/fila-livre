@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, AlertTriangle
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -88,7 +88,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   }, [establishment]);
 
-  // Atualiza serviço manual quando a lista de serviços carregar
   useEffect(() => {
     if (services.length > 0 && !manualService) {
       setManualService(services[0].name);
@@ -134,6 +133,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
   const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
 
+  const isStoreOpen = estStatus === 'open';
+
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
@@ -157,7 +158,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="space-y-4 pt-2 border-t border-white/5">
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
                <div className="flex items-center justify-between">
                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                    <CalendarDays size={12} className="text-teal-400" /> Agenda de Trabalho
@@ -170,41 +171,43 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </button>
                </div>
 
-               {/* BOTÕES DE AÇÃO RÁPIDA NA AGENDA */}
-               <div className="grid grid-cols-2 gap-3">
+               {/* BOTÃO MESTRE UNIFICADO */}
+               <div className="space-y-3">
                   <button 
-                    onClick={() => onUpdateStatus(estStatus === 'lunch' ? 'open' : 'lunch')}
-                    className={`flex items-center justify-center gap-3 py-4 rounded-2xl text-[9px] font-black uppercase transition-all shadow-xl ${
-                      estStatus === 'lunch' 
-                        ? 'bg-amber-500 text-slate-950 shadow-amber-500/20' 
-                        : 'bg-slate-800 text-amber-500 border border-amber-500/20 hover:bg-slate-700'
+                    onClick={() => onUpdateStatus(isStoreOpen ? 'closed' : 'open')}
+                    className={`w-full group relative overflow-hidden py-8 rounded-[32px] transition-all duration-500 shadow-2xl border-2 ${
+                      isStoreOpen 
+                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-emerald-500/10' 
+                        : 'bg-slate-900 border-slate-700 text-slate-500'
                     }`}
                   >
-                    {estStatus === 'lunch' ? <Play size={14} fill="currentColor" /> : <Coffee size={14} />}
-                    {estStatus === 'lunch' ? 'Retomar Fila' : 'Pausa Almoço'}
+                    <div className="flex items-center justify-center gap-5 relative z-10">
+                       <div className={`p-4 rounded-2xl transition-all ${isStoreOpen ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40' : 'bg-slate-800 text-slate-600'}`}>
+                          {isStoreOpen ? <Power size={24} /> : <Moon size={24} />}
+                       </div>
+                       <div className="text-left">
+                          <h4 className={`text-xl font-black uppercase tracking-tighter leading-none ${isStoreOpen ? 'text-white' : 'text-slate-600'}`}>
+                             {isStoreOpen ? 'Estabelecimento Aberto' : 'Estabelecimento Fechado'}
+                          </h4>
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-1.5 opacity-60">
+                             {isStoreOpen ? 'Clique para encerrar/pausar' : 'Clique para abrir agora'}
+                          </p>
+                       </div>
+                    </div>
+                    {isStoreOpen && <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />}
                   </button>
 
-                  <button 
-                    onClick={() => onUpdateStatus(estStatus === 'closed' ? 'open' : 'closed')}
-                    className={`flex items-center justify-center gap-3 py-4 rounded-2xl text-[9px] font-black uppercase transition-all shadow-xl ${
-                      estStatus === 'closed' 
-                        ? 'bg-indigo-600 text-white shadow-indigo-600/20' 
-                        : 'bg-slate-800 text-indigo-400 border border-indigo-500/20 hover:bg-slate-700'
-                    }`}
-                  >
-                    {estStatus === 'closed' ? <Zap size={14} /> : <Moon size={14} />}
-                    {estStatus === 'closed' ? 'Reabrir Manual' : 'Encerrar Dia'}
-                  </button>
+                  <div className="flex items-center justify-center gap-2 px-6">
+                     <Clock size={12} className="text-slate-700" />
+                     <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest text-center italic">
+                        * {isStoreOpen ? 'Fechamento Automático Ativo' : 'Reabertura Automática Programada'}
+                     </p>
+                  </div>
                </div>
-               {estStatus !== 'open' && (
-                 <p className="text-[8px] text-slate-500 font-bold uppercase text-center tracking-widest italic animate-pulse">
-                   * {estStatus === 'lunch' ? 'Pausa para almoço ativa' : 'Expediente encerrado'} (Reabre automaticamente amanhã)
-                 </p>
-               )}
             </div>
 
             {!isScheduleExpanded && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-2">
                 {DAYS_OF_WEEK.map(day => (
                   <div key={day.id} className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase ${dailySchedules[day.id]?.isOpen ? 'bg-teal-500/10 border-teal-500/30 text-teal-400' : 'bg-slate-950 border-slate-800 text-slate-700'}`}>
                     {day.label.substring(0, 3)}
@@ -332,21 +335,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Store size={14} className="text-indigo-400" /> Painel de Controle
         </h3>
-        <div className="grid grid-cols-3 gap-2">
-          <button onClick={() => onUpdateStatus('open')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'open' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
-            <CheckCircle2 size={18}/>
-            <span className="text-[8px] font-black uppercase">Aberto</span>
-          </button>
-          <button onClick={() => onUpdateStatus('lunch')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'lunch' ? 'border-amber-500 bg-emerald-500/10 text-amber-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
-            <Coffee size={18}/>
-            <span className="text-[8px] font-black uppercase">Pausa</span>
-          </button>
-          <button onClick={() => onUpdateStatus('closed')} className={`flex flex-col items-center gap-2 py-4 rounded-3xl border-2 transition-all ${estStatus === 'closed' ? 'border-red-500 bg-red-500/10 text-red-400' : 'border-slate-800 bg-slate-900 text-slate-600'}`}>
-            <DoorClosed size={18}/>
-            <span className="text-[8px] font-black uppercase">Fechado</span>
-          </button>
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl hover:border-teal-500/30 transition-all active:scale-95">
             <Monitor size={22} className="text-teal-400" />
@@ -483,7 +471,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
 
-        {/* Visão Minimizada */}
         {!isStaffExpanded ? (
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between animate-in fade-in duration-300">
              <div className="flex -space-x-3 overflow-hidden">
