@@ -201,39 +201,81 @@ const App: React.FC = () => {
   const handleUpdateServices = async (newServiceArray: Service[]) => {
     if (!currentEst) return;
     try {
-      // Se aumentou, adiciona o novo. Se diminuiu, remove o que falta.
-      if (newServiceArray.length > services.length) {
-        const added = newServiceArray.find(ns => !services.find(s => s.id === ns.id));
-        if (added) await setDoc(doc(db, "establishments", currentEst.id, "services", added.id), added);
-      } else {
-        const removed = services.find(s => !newServiceArray.find(ns => ns.id === s.id));
-        if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "services", removed.id));
+      // Deletar o que não está mais no array
+      const toDelete = services.filter(s => !newServiceArray.find(ns => ns.id === s.id));
+      for (const s of toDelete) {
+        await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id));
+      }
+      // Atualizar ou Inserir o que está no array
+      for (const s of newServiceArray) {
+        await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s);
       }
     } catch (e) {
       console.error("Erro ao atualizar serviços:", e);
-      alert("Erro ao salvar serviço. Verifique sua conexão.");
+      alert("Erro ao salvar serviços.");
     }
   };
 
   const handleUpdatePros = async (newProArray: Professional[]) => {
     if (!currentEst) return;
     try {
-      if (newProArray.length > professionals.length) {
-        const added = newProArray.find(np => !professionals.find(p => p.id === np.id));
-        if (added) await setDoc(doc(db, "establishments", currentEst.id, "professionals", added.id), added);
-      } else if (newProArray.length < professionals.length) {
-        const removed = professionals.find(p => !newProArray.find(np => np.id === p.id));
-        if (removed) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", removed.id));
-      } else {
-        // Atualização de status
-        const changed = newProArray.find(np => {
-          const old = professionals.find(p => p.id === np.id);
-          return old && old.status !== np.status;
-        });
-        if (changed) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", changed.id), { status: changed.status });
+      // Deletar removidos
+      const toDelete = professionals.filter(p => !newProArray.find(np => np.id === p.id));
+      for (const p of toDelete) {
+        await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id));
+      }
+      // Salvar/Atualizar existentes
+      for (const p of newProArray) {
+        await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
       }
     } catch (e) {
       console.error("Erro ao atualizar profissionais:", e);
+    }
+  };
+
+  const handleUpdateAccessCode = async (newId: string): Promise<boolean> => {
+    if (!currentEst) return false;
+    const cleanId = newId.trim().toUpperCase().replace(/\s/g, '');
+    if (cleanId === currentEst.id) return true;
+
+    try {
+      const newDocRef = doc(db, "establishments", cleanId);
+      const newDocSnap = await getDoc(newDocRef);
+      if (newDocSnap.exists()) {
+        alert("Este código de acesso já pertence a outra empresa.");
+        return false;
+      }
+
+      // Migrar documento principal
+      const oldDocRef = doc(db, "establishments", currentEst.id);
+      const oldDocSnap = await getDoc(oldDocRef);
+      if (oldDocSnap.exists()) {
+        await setDoc(newDocRef, { ...oldDocSnap.data(), id: cleanId });
+      }
+
+      // Migrar Serviços
+      const srvSnap = await getDocs(collection(db, "establishments", currentEst.id, "services"));
+      for (const d of srvSnap.docs) {
+        await setDoc(doc(db, "establishments", cleanId, "services", d.id), d.data());
+      }
+
+      // Migrar Profissionais
+      const proSnap = await getDocs(collection(db, "establishments", currentEst.id, "professionals"));
+      for (const d of proSnap.docs) {
+        await setDoc(doc(db, "establishments", cleanId, "professionals", d.id), d.data());
+      }
+
+      // Deletar antigo
+      await deleteDoc(oldDocRef);
+      
+      // Atualizar estado local para forçar redirecionamento
+      setCurrentEst({ ...currentEst, id: cleanId });
+      alert("Código de acesso alterado com sucesso!");
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao migrar dados para o novo código.");
+      return false;
     }
   };
 
@@ -323,7 +365,7 @@ const App: React.FC = () => {
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
-          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={async (c) => true} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
+          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
           onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={handleNoShow} 
           onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdatePros} onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
         />
