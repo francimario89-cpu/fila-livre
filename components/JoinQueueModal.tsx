@@ -16,6 +16,7 @@ interface JoinQueueModalProps {
   currentQueue: QueueItem[];
   workingDays?: number[];
   dailySchedules?: Record<number, DaySchedule>;
+  initialName?: string;
   onClose: () => void;
   onSubmit: (data: { 
     mainPerson: { name: string; service: string };
@@ -27,15 +28,22 @@ interface JoinQueueModalProps {
 }
 
 export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({ 
-  services, professionals, bookingModel, currentQueue, workingDays = [1,2,3,4,5,6], dailySchedules, onClose, onSubmit 
+  services, professionals, bookingModel, currentQueue, workingDays = [1,2,3,4,5,6], dailySchedules, initialName = '', onClose, onSubmit 
 }) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [professionalId, setProfessionalId] = useState('any');
   const [type, setType] = useState<'walk-in' | 'appointment'>(bookingModel === 'appointment' ? 'appointment' : 'walk-in');
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState('');
+
+  // Sincroniza o nome inicial caso ele mude ou chegue após o carregamento
+  useEffect(() => {
+    if (initialName && !name) {
+      setName(initialName);
+    }
+  }, [initialName]);
 
   const INTERVAL = 15;   
 
