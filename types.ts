@@ -10,6 +10,9 @@ export interface DaySchedule {
   isOpen: boolean;
   start: string; // "08:00"
   end: string;   // "18:00"
+  hasLunch?: boolean;
+  lunchStart?: string; // "12:00"
+  lunchEnd?: string;   // "13:00"
 }
 
 export interface Establishment {
