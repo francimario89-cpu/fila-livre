@@ -14,6 +14,7 @@ export interface Establishment {
   bookingModel: BookingModel;
   pixKey?: string;
   openingHours?: string;
+  workingDays?: number[]; // [0,1,2,3,4,5,6] onde 0 é domingo
   plan: PlanType;
   trialStartedAt: number; 
   loyaltyEnabled: boolean; 

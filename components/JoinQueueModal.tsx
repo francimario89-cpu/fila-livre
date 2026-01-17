@@ -14,6 +14,7 @@ interface JoinQueueModalProps {
   professionals: Professional[];
   bookingModel: BookingModel;
   currentQueue: QueueItem[];
+  workingDays?: number[];
   onClose: () => void;
   onSubmit: (data: { 
     mainPerson: { name: string; service: string };
@@ -25,7 +26,7 @@ interface JoinQueueModalProps {
 }
 
 export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({ 
-  services, professionals, bookingModel, currentQueue, onClose, onSubmit 
+  services, professionals, bookingModel, currentQueue, workingDays = [1,2,3,4,5,6], onClose, onSubmit 
 }) => {
   const [name, setName] = useState('');
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
@@ -36,10 +37,10 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState('');
 
-  // Configurações de funcionamento (Poderiam vir do DB, mas vamos usar padrões)
-  const START_HOUR = 8; // 08:00
-  const END_HOUR = 20;   // 20:00
-  const INTERVAL = 10;   // Granularidade de 10 min para os slots
+  // Janela de funcionamento mais ampla por padrão para evitar erros de slot vazio
+  const START_HOUR = 7; 
+  const END_HOUR = 22;   
+  const INTERVAL = 15;   
 
   const addCompanion = () => {
     const newCompanion: Companion = {
@@ -58,20 +59,23 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     setCompanions(companions.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
-  // Cálculo de duração total do grupo
   const totalDuration = useMemo(() => {
     const mainSrv = services.find(s => s.name === serviceName);
-    let duration = mainSrv?.duration || 30;
+    let duration = Number(mainSrv?.duration) || 30;
     companions.forEach(c => {
       const srv = services.find(s => s.name === c.service);
-      duration += (srv?.duration || 30);
+      duration += Number(srv?.duration || 30);
     });
     return duration;
   }, [serviceName, companions, services]);
 
-  // Gerador de Slots Livres
+  const isWorkingDay = useMemo(() => {
+    const d = new Date(`${scheduledDate}T12:00:00`);
+    return workingDays.includes(d.getDay());
+  }, [scheduledDate, workingDays]);
+
   const availableSlots = useMemo(() => {
-    if (type !== 'appointment' || professionalId === 'any') return [];
+    if (type !== 'appointment' || professionalId === 'any' || !isWorkingDay) return [];
 
     const slots: string[] = [];
     const proAppointments = currentQueue.filter(item => 
@@ -80,31 +84,28 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
       item.scheduledTime?.startsWith(scheduledDate)
     );
 
-    // Converte agendamentos existentes em blocos de tempo ocupados
     const busyBlocks = proAppointments.map(ap => {
       const timeStr = ap.scheduledTime?.split(' ')[1] || '00:00';
       const [h, m] = timeStr.split(':').map(Number);
       const start = h * 60 + m;
       const srv = services.find(s => s.name === ap.service);
-      return { start, end: start + (srv?.duration || 30) };
+      return { start, end: start + (Number(srv?.duration) || 30) };
     });
 
-    // Varre o dia em intervalos de 10 minutos
+    const isToday = scheduledDate === new Date().toISOString().split('T')[0];
+    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
     for (let minutes = START_HOUR * 60; minutes <= (END_HOUR * 60) - totalDuration; minutes += INTERVAL) {
       const slotStart = minutes;
       const slotEnd = minutes + totalDuration;
 
-      // Verifica se este bloco de tempo (Duração Total) conflita com algum agendamento existente
       const isOverlap = busyBlocks.some(busy => 
         (slotStart >= busy.start && slotStart < busy.end) || 
         (slotEnd > busy.start && slotEnd <= busy.end) ||
         (slotStart <= busy.start && slotEnd >= busy.end)
       );
 
-      // Não permite horários passados se for hoje
-      const isToday = scheduledDate === new Date().toISOString().split('T')[0];
-      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-      if (isToday && slotStart < nowMinutes + 15) continue; // 15min de margem
+      if (isToday && slotStart < nowMinutes + 10) continue; 
 
       if (!isOverlap) {
         const h = Math.floor(minutes / 60).toString().padStart(2, '0');
@@ -114,7 +115,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     }
 
     return slots;
-  }, [type, professionalId, scheduledDate, currentQueue, totalDuration, services]);
+  }, [type, professionalId, scheduledDate, currentQueue, totalDuration, services, isWorkingDay]);
 
   const calculateWait = (proId: string) => {
     const proServing = currentQueue.find(i => i.status === 'serving' && i.professionalId === proId);
@@ -124,11 +125,11 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     if (proServing) {
       const srv = services.find(s => s.name === proServing.service);
       const elapsed = Math.floor((Date.now() - proServing.timestamp) / 60000);
-      totalMinutes += Math.max(5, (srv?.duration || 30) - elapsed);
+      totalMinutes += Math.max(5, (Number(srv?.duration) || 30) - elapsed);
     }
     proWaiting.forEach(item => {
       const srv = services.find(s => s.name === item.service);
-      totalMinutes += (srv?.duration || 30);
+      totalMinutes += (Number(srv?.duration) || 30);
     });
     return totalMinutes;
   };
@@ -156,12 +157,13 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const handleAction = () => {
     if (!name.trim()) return alert("Por favor, informe seu nome.");
     if (type === 'appointment') {
-      if (professionalId === 'any') return alert("Para agendar um horário, escolha um profissional específico.");
-      if (!selectedTime) return alert("Por favor, selecione um horário disponível.");
+      if (!isWorkingDay) return alert("Desculpe, não abrimos neste dia da semana.");
+      if (professionalId === 'any') return alert("Para agendar, escolha um profissional específico.");
+      if (!selectedTime) return alert("Selecione um horário disponível.");
     }
     
     const invalidCompanion = companions.find(c => !c.name.trim());
-    if (invalidCompanion) return alert("Por favor, informe o nome de todos os acompanhantes.");
+    if (invalidCompanion) return alert("Informe o nome de todos os acompanhantes.");
     
     const payload: any = {
       mainPerson: { name: name.toUpperCase().trim(), service: serviceName },
@@ -250,9 +252,16 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                     <input type="date" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
                   </div>
 
-                  {professionalId !== 'any' ? (
+                  {!isWorkingDay && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-3 text-amber-500">
+                      <AlertCircle size={16} />
+                      <p className="text-[9px] font-black uppercase">Não abrimos neste dia da semana.</p>
+                    </div>
+                  )}
+
+                  {isWorkingDay && professionalId !== 'any' ? (
                     <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horários Disponíveis (Sessão de {totalDuration} min)</label>
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horários Disponíveis ({totalDuration} min)</label>
                       {availableSlots.length > 0 ? (
                         <div className="grid grid-cols-4 gap-2">
                           {availableSlots.map(slot => (
@@ -268,11 +277,11 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                       ) : (
                         <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500">
                            <AlertCircle size={16} />
-                           <p className="text-[9px] font-black uppercase">Não há horários para {totalDuration} min neste dia.</p>
+                           <p className="text-[9px] font-black uppercase">Vagas esgotadas para este dia.</p>
                         </div>
                       )}
                     </div>
-                  ) : (
+                  ) : isWorkingDay && (
                     <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl text-center">
                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Escolha um profissional para ver horários</p>
                     </div>

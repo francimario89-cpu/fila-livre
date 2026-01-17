@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -33,6 +33,16 @@ interface AdminPanelProps {
   onToggleTVMode: () => void;
 }
 
+const DAYS_OF_WEEK = [
+  { id: 0, label: 'Dom' },
+  { id: 1, label: 'Seg' },
+  { id: 2, label: 'Ter' },
+  { id: 3, label: 'Qua' },
+  { id: 4, label: 'Qui' },
+  { id: 5, label: 'Sex' },
+  { id: 6, label: 'Sáb' }
+];
+
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   establishment, queue, services, professionals, estStatus, bookingModel, loyaltyEnabled, revenue, pixKey,
   onUpdateEstablishment, onDeleteEstablishment, onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
@@ -40,9 +50,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
-  // Estados para edição do perfil (evita saves em tempo real enquanto digita)
   const [tempName, setTempName] = useState(establishment.name);
   const [tempHours, setTempHours] = useState(establishment.openingHours || '');
+  const [workingDays, setWorkingDays] = useState<number[]>(establishment.workingDays || [1, 2, 3, 4, 5, 6]);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [isAddingService, setIsAddingService] = useState(false);
@@ -57,19 +67,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [manualName, setManualName] = useState('');
   const [manualService, setManualService] = useState(services[0]?.name || '');
 
-  // Sincroniza se o estabelecimento mudar externamente
   useEffect(() => {
     setTempName(establishment.name);
     setTempHours(establishment.openingHours || '');
-  }, [establishment.name, establishment.openingHours]);
+    setWorkingDays(establishment.workingDays || [1, 2, 3, 4, 5, 6]);
+  }, [establishment]);
 
-  const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
-  const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
-  const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
+  const toggleDay = (dayId: number) => {
+    setWorkingDays(prev => 
+      prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId].sort()
+    );
+  };
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    await onUpdateEstablishment({ name: tempName, openingHours: tempHours });
+    await onUpdateEstablishment({ name: tempName, openingHours: tempHours, workingDays });
     setTimeout(() => setIsSavingProfile(false), 1000);
   };
 
@@ -117,6 +129,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdatePros(updated);
   };
 
+  const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
+  const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
+  const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
+
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
@@ -139,7 +155,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horário de Funcionamento</label>
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horário de Funcionamento (Exibição)</label>
             <div className="relative">
               <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
               <input 
@@ -148,6 +164,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 placeholder="EX: SEG A SEX, 08H ÀS 20H" 
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all"
               />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+              <CalendarDays size={12} className="text-teal-400" /> Dias Disponíveis para Agendamento
+            </label>
+            <div className="grid grid-cols-7 gap-1">
+              {DAYS_OF_WEEK.map(day => (
+                <button
+                  key={day.id}
+                  onClick={() => toggleDay(day.id)}
+                  className={`py-3 rounded-xl text-[8px] font-black uppercase transition-all border ${
+                    workingDays.includes(day.id) 
+                      ? 'bg-teal-500 border-teal-400 text-slate-950' 
+                      : 'bg-slate-950 border-slate-800 text-slate-600'
+                  }`}
+                >
+                  {day.label}
+                </button>
+              ))}
             </div>
           </div>
           
