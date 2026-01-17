@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -20,6 +20,7 @@ interface AdminPanelProps {
   pixKey: string;
   onUpdateEstablishment: (data: Partial<Establishment>) => void;
   onDeleteEstablishment: () => void;
+  onUpdateAccessCode: (newCode: string) => Promise<boolean>;
   onSetPixKey: (key: string) => void;
   onUpdateStatus: (s: EstStatus) => void;
   onSetBookingModel: (model: BookingModel) => void;
@@ -45,7 +46,7 @@ const DAYS_OF_WEEK = [
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   establishment, queue, services, professionals, estStatus, bookingModel, loyaltyEnabled, revenue, pixKey,
-  onUpdateEstablishment, onDeleteEstablishment, onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
+  onUpdateEstablishment, onDeleteEstablishment, onUpdateAccessCode, onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
 }) => {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
@@ -58,6 +59,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
   
   const [tempName, setTempName] = useState(establishment.name);
+  const [tempId, setTempId] = useState(establishment.id);
+  const [isChangingId, setIsChangingId] = useState(false);
   const [tempReward, setTempReward] = useState(establishment.loyaltyReward || 'Corte Grátis');
   const [dailySchedules, setDailySchedules] = useState<Record<number, DaySchedule>>(
     establishment.dailySchedules || {
@@ -87,6 +90,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   useEffect(() => {
     setTempName(establishment.name);
+    setTempId(establishment.id);
     if (establishment.loyaltyReward) setTempReward(establishment.loyaltyReward);
     if (establishment.dailySchedules) setDailySchedules(establishment.dailySchedules);
   }, [establishment]);
@@ -106,6 +110,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }, 800);
   };
 
+  const handleChangeAccessCode = async () => {
+    if (!tempId.trim()) return alert("O código de acesso não pode ser vazio.");
+    if (tempId.trim().toUpperCase() === establishment.id) return alert("O código é o mesmo atual.");
+    
+    setIsChangingId(true);
+    const success = await onUpdateAccessCode(tempId.trim().toUpperCase());
+    setIsChangingId(false);
+  };
+
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const isAutoMode = establishment.autoStatusEnabled || false;
 
@@ -118,13 +131,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
            <Store size={14} className="text-teal-400" /> Identidade & Automação
         </h3>
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
-            <input 
-              value={tempName} 
-              onChange={(e) => setTempName(e.target.value.toUpperCase())} 
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
+              <input 
+                value={tempName} 
+                onChange={(e) => setTempName(e.target.value.toUpperCase())} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
+              />
+            </div>
+
+            {/* EDIÇÃO DE ID DE ACESSO */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-1">
+                <Fingerprint size={12} className="text-teal-500" />
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso (ID)</label>
+              </div>
+              <div className="flex gap-2">
+                <input 
+                  value={tempId} 
+                  onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} 
+                  placeholder="NOVO-ID"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-indigo-500 transition-all font-orbitron"
+                />
+                <button 
+                  onClick={handleChangeAccessCode}
+                  disabled={isChangingId || tempId.toUpperCase() === establishment.id}
+                  className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />}
+                  Trocar
+                </button>
+              </div>
+              <p className="text-[7px] text-slate-600 font-black uppercase italic ml-1">
+                * Atenção: Seus clientes atuais precisarão usar o novo código para conectar.
+              </p>
+            </div>
           </div>
 
           <button 
@@ -154,40 +196,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          {/* BOTÕES DE CONTROLE MANUAL - NOVO PEDIDO */}
+          {/* BOTÕES DE CONTROLE MANUAL COMPACTOS - NOVO DESIGN */}
           <div className="space-y-3">
-             <div className="flex items-center gap-2 mb-2 ml-1">
-                <Power size={12} className="text-teal-400" />
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Controle Manual de Status</label>
+             <div className="flex items-center gap-2 mb-1 ml-1">
+                <Power size={11} className="text-teal-400" />
+                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual</label>
              </div>
              <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => onUpdateStatus('open')} 
-                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
                 >
-                   <CheckCircle2 size={18} />
-                   <span className="text-[8px] font-black uppercase">Abrir</span>
+                   <CheckCircle2 size={14} />
+                   <span className="text-[7px] font-black uppercase">Abrir</span>
                 </button>
                 <button 
                   onClick={() => onUpdateStatus('lunch')} 
-                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
                 >
-                   <Coffee size={18} />
-                   <span className="text-[8px] font-black uppercase">Almoço</span>
+                   <Coffee size={14} />
+                   <span className="text-[7px] font-black uppercase">Almoço</span>
                 </button>
                 <button 
                   onClick={() => onUpdateStatus('closed')} 
-                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
                 >
-                   <DoorClosed size={18} />
-                   <span className="text-[8px] font-black uppercase">Fechar</span>
+                   <DoorClosed size={14} />
+                   <span className="text-[7px] font-black uppercase">Fechar</span>
                 </button>
              </div>
-             {isAutoMode && (
-               <p className="text-[7px] text-emerald-500/60 font-black uppercase tracking-widest text-center mt-2 italic">
-                 * O Modo Inteligente pode alterar o status automaticamente em instantes.
-               </p>
-             )}
           </div>
 
           <div className="h-px bg-white/5 w-full" />

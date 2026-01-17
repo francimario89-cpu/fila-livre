@@ -182,6 +182,37 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateAccessCode = async (newCode: string): Promise<boolean> => {
+    if (!currentEst) return false;
+    try {
+      const docRef = doc(db, "establishments", newCode);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists() && docSnap.data().ownerEmail !== userEmail) {
+        alert("Este código já está sendo utilizado por outro gestor!");
+        return false;
+      }
+
+      // Migração Básica do Documento
+      const oldId = currentEst.id;
+      const data = { ...currentEst, id: newCode };
+      
+      // Salva no novo local
+      await setDoc(docRef, data);
+      
+      // Deleta o antigo
+      await deleteDoc(doc(db, "establishments", oldId));
+      
+      // Atualiza estado local
+      setCurrentEst(data as Establishment);
+      alert("Código de acesso atualizado com sucesso!");
+      return true;
+    } catch (e: any) {
+      alert(`Erro ao atualizar código: ${e.message}`);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
@@ -278,7 +309,7 @@ const App: React.FC = () => {
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
-          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
+          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
           onCallNext={() => handleCallNext()} onFinish={handleFinish} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
           onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
         />
