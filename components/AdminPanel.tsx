@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar, LayoutList
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule, ProfStatus } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -49,11 +49,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateEstablishment, onDeleteEstablishment, onUpdateAccessCode, onSetPixKey, onUpdateStatus, onSetBookingModel, onSetLoyaltyEnabled, onCallNext, onFinish, onNoShow, onUpdateServices, onUpdatePros, onManualJoin, onToggleTVMode
 }) => {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
-  const [isAddingManual, setIsAddingManual] = useState(false);
-  
   const [isIdentityExpanded, setIsIdentityExpanded] = useState(false);
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
-  const [isServicesExpanded, setIsServicesExpanded] = useState(false);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(true); // Aberto por padrão para facilitar
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
@@ -109,7 +107,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleChangeAccessCode = async () => {
     if (!tempId.trim()) return alert("O código de acesso não pode ser vazio.");
     if (tempId.trim().toUpperCase() === establishment.id) return alert("O código é o mesmo atual.");
-    
     setIsChangingId(true);
     const success = await onUpdateAccessCode(tempId.trim().toUpperCase());
     setIsChangingId(false);
@@ -126,13 +123,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 0. CABEÇALHO & AUTOMAÇÃO & MODELO */}
+      {/* SEÇÃO DESTAQUE: MODO DE ATENDIMENTO (AGORA SEMPRE VISÍVEL NO TOPO) */}
+      <section className="bg-slate-900 border border-indigo-500/20 rounded-[40px] p-8 space-y-6 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center">
+             <LayoutList size={20} />
+          </div>
+          <div>
+             <h3 className="text-sm font-black text-white uppercase tracking-tighter">Modo de Funcionamento</h3>
+             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Defina como seus clientes entram na lista</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+           <button onClick={() => onSetBookingModel('queue')} className={`flex flex-col items-center gap-1 py-4 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'queue' ? 'bg-teal-500 text-slate-950 shadow-lg' : 'text-slate-600'}`}>
+              <ListOrdered size={16} className="mb-1" /> Fila
+           </button>
+           <button onClick={() => onSetBookingModel('appointment')} className={`flex flex-col items-center gap-1 py-4 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'appointment' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600'}`}>
+              <Calendar size={16} className="mb-1" /> Hora
+           </button>
+           <button onClick={() => onSetBookingModel('both')} className={`flex flex-col items-center gap-1 py-4 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'both' ? 'bg-slate-100 text-slate-950 shadow-lg' : 'text-slate-600'}`}>
+              <Zap size={16} className="mb-1" /> Ambos
+           </button>
+        </div>
+      </section>
+
+      {/* 0. IDENTIDADE DA UNIDADE */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <Store size={14} className="text-teal-400" /> Identidade & Agendamento
+             <Store size={14} className="text-teal-400" /> Identidade da Unidade
           </h3>
-          <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 hover:bg-slate-800 transition-all">
+          <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
               {isIdentityExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
           </button>
         </div>
@@ -141,123 +163,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
-                <input 
-                  value={tempName} 
-                  onChange={(e) => setTempName(e.target.value.toUpperCase())} 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
-                />
-              </div>
-
-              {/* MODELO DE AGENDAMENTO (RESTAURADO) */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <Calendar size={12} className="text-indigo-400" />
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Modelo de Funcionamento</label>
-                </div>
-                <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800">
-                   <button onClick={() => onSetBookingModel('queue')} className={`py-3 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'queue' ? 'bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/10' : 'text-slate-600'}`}>Fila</button>
-                   <button onClick={() => onSetBookingModel('appointment')} className={`py-3 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'appointment' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'text-slate-600'}`}>Hora</button>
-                   <button onClick={() => onSetBookingModel('both')} className={`py-3 rounded-xl text-[8px] font-black uppercase transition-all ${bookingModel === 'both' ? 'bg-slate-100 text-slate-950 shadow-lg' : 'text-slate-600'}`}>Ambos</button>
-                </div>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Loja</label>
+                <input value={tempName} onChange={(e) => setTempName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all" />
               </div>
 
               <div className="space-y-2 pt-2 border-t border-white/5">
                 <div className="flex items-center gap-2 mb-1">
                   <Fingerprint size={12} className="text-teal-500" />
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso (ID)</label>
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso</label>
                 </div>
                 <div className="flex gap-2">
-                  <input 
-                    value={tempId} 
-                    onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} 
-                    placeholder="NOVO-ID"
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-indigo-500 transition-all font-orbitron"
-                  />
-                  <button 
-                    onClick={handleChangeAccessCode}
-                    disabled={isChangingId || tempId.toUpperCase() === establishment.id}
-                    className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />}
-                    Trocar
+                  <input value={tempId} onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none font-orbitron" />
+                  <button onClick={handleChangeAccessCode} disabled={isChangingId || tempId.toUpperCase() === establishment.id} className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 flex items-center gap-2 transition-all">
+                    {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />} Trocar
                   </button>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
-              className={`w-full py-2.5 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-0 shadow-xl ${
-                isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                 {isAutoMode ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em]">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'DESLIGADO'}</span>
-              </div>
+            <button onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })} className={`w-full py-2.5 rounded-[32px] border-2 transition-all flex items-center justify-center gap-2 shadow-xl ${isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'}`}>
+               {isAutoMode ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+               <span className="text-[9px] font-black uppercase tracking-widest">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'OFF'}</span>
             </button>
           </div>
         )}
       </section>
 
-      {/* 1. AGENDA DE TRABALHO */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <CalendarDays size={14} className="text-teal-400" /> Agenda de Trabalho
-           </h3>
-           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 hover:bg-slate-800 transition-all">
-              {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
-           </button>
-        </div>
-
-        {isScheduleExpanded && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
-            <div className="space-y-3">
-               <div className="flex items-center gap-2 mb-1 ml-1">
-                  <Power size={11} className="text-teal-400" />
-                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual Loja</label>
-               </div>
-               <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle2 size={12} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
-                  <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={12} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
-                  <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={12} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
-               </div>
-            </div>
-
-            <div className="h-px bg-white/5 w-full" />
-
-            <div className="space-y-4">
-               {DAYS_OF_WEEK.map(day => {
-                  const sched = dailySchedules[day.id];
-                  return (
-                    <div key={day.id} className="bg-slate-950 p-5 rounded-[32px] border border-slate-800 space-y-4">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <button onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)} className={`w-10 h-6 rounded-full relative transition-all ${sched.isOpen ? 'bg-teal-500' : 'bg-slate-800'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${sched.isOpen ? 'left-5' : 'left-1'}`} /></button>
-                             <span className="text-[10px] font-black text-white uppercase">{day.label}</span>
-                          </div>
-                          {sched.isOpen && (<button onClick={() => updateDaySchedule(day.id, 'hasLunch', !sched.hasLunch)} className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border ${sched.hasLunch ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}><Coffee size={10} className="inline mr-1"/> Almoço</button>)}
-                       </div>
-                       {sched.isOpen && (
-                         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Abertura</p><input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
-                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Fechamento</p><input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
-                         </div>
-                       )}
-                    </div>
-                  );
-               })}
-               <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                  {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Alterações
-               </button>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 2. GESTÃO DE SERVIÇOS */}
+      {/* 2. GESTÃO DE SERVIÇOS (ABERTO POR PADRÃO) */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -276,7 +208,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center"><Scissors size={20}/></div>
                     <div><h4 className="text-sm font-black text-white uppercase">{s.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">R$ {s.price} • {s.duration} min</p></div>
                  </div>
-                 <button onClick={() => { if(confirm("Deseja excluir este serviço?")) onUpdateServices(services.filter(x => x.id !== s.id)) }} className="p-3 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+                 <button onClick={() => { if(confirm("Deseja realmente excluir este serviço?")) onUpdateServices(services.filter(x => x.id !== s.id)) }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
+                    <Trash2 size={20}/>
+                 </button>
               </div>
             ))}
             {isAddingService ? (
@@ -320,7 +254,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                        <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center"><UserCircle size={24}/></div>
                        <div><h4 className="text-sm font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">{p.email || 'Sem e-mail vinculado'}</p></div>
                     </div>
-                    <button onClick={() => { if(confirm("Deseja excluir este profissional?")) onUpdatePros(professionals.filter(x => x.id !== p.id)) }} className="p-3 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+                    <button onClick={() => { if(confirm("Deseja excluir este profissional?")) onUpdatePros(professionals.filter(x => x.id !== p.id)) }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
+                       <Trash2 size={20}/>
+                    </button>
                  </div>
                  
                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
@@ -348,41 +284,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 4. FIDELIDADE VIP */}
+      {/* 4. AGENDA DE TRABALHO */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <Gift size={14} className="text-amber-500" /> Fidelidade & Regras
+             <CalendarDays size={14} className="text-teal-400" /> Agenda de Trabalho
            </h3>
-           <button onClick={() => setIsLoyaltyExpanded(!isLoyaltyExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-400">
-              {isLoyaltyExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
+              {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
            </button>
         </div>
 
-        {isLoyaltyExpanded && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 shadow-2xl space-y-6 animate-in fade-in">
-             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center"><Settings size={20}/></div>
-                   <div><p className="text-[10px] text-white font-black uppercase tracking-widest">Cartão Fidelidade</p><p className="text-[8px] text-slate-500 font-bold uppercase">{loyaltyEnabled ? 'Ativo' : 'Desativado'}</p></div>
-                </div>
-                <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-14 h-8 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}><div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} /></button>
-             </div>
-             
-             {loyaltyEnabled && (
-               <div className="space-y-3 animate-in slide-in-from-top-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">O que o cliente ganha ao completar 10 selos?</label>
-                  <div className="relative">
-                     <input value={tempReward} onChange={(e) => setTempReward(e.target.value)} placeholder="Ex: Corte Grátis, Cerveja, 50% OFF" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white text-xs font-bold outline-none focus:border-amber-500 transition-all" />
-                     <button onClick={handleSaveProfile} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-amber-500 rounded-xl text-slate-950 hover:scale-105 active:scale-95 transition-all"><Save size={14} /></button>
-                  </div>
+        {isScheduleExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+            <div className="space-y-3">
+               <div className="flex items-center gap-2 mb-1 ml-1">
+                  <Power size={11} className="text-teal-400" />
+                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual Loja</label>
                </div>
-             )}
+               <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle2 size={12} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
+                  <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={12} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
+                  <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={12} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
+               </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-white/5">
+               {DAYS_OF_WEEK.map(day => {
+                  const sched = dailySchedules[day.id];
+                  return (
+                    <div key={day.id} className="bg-slate-950 p-5 rounded-[32px] border border-slate-800 space-y-4">
+                       <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <button onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)} className={`w-10 h-6 rounded-full relative transition-all ${sched.isOpen ? 'bg-teal-500' : 'bg-slate-800'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${sched.isOpen ? 'left-5' : 'left-1'}`} /></button>
+                             <span className="text-[10px] font-black text-white uppercase">{day.label}</span>
+                          </div>
+                          {sched.isOpen && (<button onClick={() => updateDaySchedule(day.id, 'hasLunch', !sched.hasLunch)} className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border ${sched.hasLunch ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}><Coffee size={10} className="inline mr-1"/> Almoço</button>)}
+                       </div>
+                       {sched.isOpen && (
+                         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Abertura</p><input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
+                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Fechamento</p><input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
+                         </div>
+                       )}
+                    </div>
+                  );
+               })}
+               <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                  {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Alterações
+               </button>
+            </div>
           </div>
         )}
       </section>
 
-      {/* 5. FINANCEIRO & PIX */}
+      {/* 5. FIDELIDADE & FINANCEIRO (MANTIDOS) */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -392,21 +348,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               {isFinancialExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
            </button>
         </div>
-
         {isFinancialExpanded && (
           <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
              <div className="flex items-center justify-between">
                 <div><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p><h4 className="text-3xl font-black text-white font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4></div>
                 <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all"><FileText size={24}/></button>
              </div>
-             <div className="pt-6 border-t border-white/5 space-y-3"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave PIX (Para pagamento do cliente)</label><input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Celular, E-mail ou CNPJ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all" /></div>
+             <div className="pt-6 border-t border-white/5 space-y-3"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave PIX</label><input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Celular, E-mail ou CNPJ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all" /></div>
           </div>
         )}
       </section>
 
       {/* 6. TV */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Store size={14} className="text-indigo-400" /> Painel & TV</h3>
         <div className="flex justify-center"><button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 py-3 px-8 rounded-[40px] flex items-center gap-2.5 shadow-xl hover:border-teal-500/30 transition-all active:scale-95"><Monitor size={18} className="text-teal-400" /><span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span></button></div>
       </section>
 
