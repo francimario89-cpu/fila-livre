@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -157,16 +157,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="space-y-4 pt-2 border-t border-white/5">
-            <div className="flex items-center justify-between">
-               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <CalendarDays size={12} className="text-teal-400" /> Agenda de Trabalho
-               </label>
-               <button 
-                 onClick={() => setIsScheduleExpanded(!isScheduleExpanded)}
-                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-teal-400 hover:bg-slate-700 transition-all"
-               >
-                 {isScheduleExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Editor</>}
-               </button>
+            <div className="flex flex-col gap-4">
+               <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                   <CalendarDays size={12} className="text-teal-400" /> Agenda de Trabalho
+                  </label>
+                  <button 
+                    onClick={() => setIsScheduleExpanded(!isScheduleExpanded)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-teal-400 hover:bg-slate-700 transition-all"
+                  >
+                    {isScheduleExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Editor</>}
+                  </button>
+               </div>
+
+               {/* BOTÕES DE AÇÃO RÁPIDA NA AGENDA */}
+               <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => onUpdateStatus(estStatus === 'lunch' ? 'open' : 'lunch')}
+                    className={`flex items-center justify-center gap-3 py-4 rounded-2xl text-[9px] font-black uppercase transition-all shadow-xl ${
+                      estStatus === 'lunch' 
+                        ? 'bg-amber-500 text-slate-950 shadow-amber-500/20' 
+                        : 'bg-slate-800 text-amber-500 border border-amber-500/20 hover:bg-slate-700'
+                    }`}
+                  >
+                    {estStatus === 'lunch' ? <Play size={14} fill="currentColor" /> : <Coffee size={14} />}
+                    {estStatus === 'lunch' ? 'Retomar Fila' : 'Pausa Almoço'}
+                  </button>
+
+                  <button 
+                    onClick={() => onUpdateStatus(estStatus === 'closed' ? 'open' : 'closed')}
+                    className={`flex items-center justify-center gap-3 py-4 rounded-2xl text-[9px] font-black uppercase transition-all shadow-xl ${
+                      estStatus === 'closed' 
+                        ? 'bg-indigo-600 text-white shadow-indigo-600/20' 
+                        : 'bg-slate-800 text-indigo-400 border border-indigo-500/20 hover:bg-slate-700'
+                    }`}
+                  >
+                    {estStatus === 'closed' ? <Zap size={14} /> : <Moon size={14} />}
+                    {estStatus === 'closed' ? 'Reabrir Manual' : 'Encerrar Dia'}
+                  </button>
+               </div>
+               {estStatus !== 'open' && (
+                 <p className="text-[8px] text-slate-500 font-bold uppercase text-center tracking-widest italic animate-pulse">
+                   * {estStatus === 'lunch' ? 'Pausa para almoço ativa' : 'Expediente encerrado'} (Reabre automaticamente amanhã)
+                 </p>
+               )}
             </div>
 
             {!isScheduleExpanded && (

@@ -20,6 +20,7 @@ export interface Establishment {
   name: string;
   ownerEmail: string;
   status: EstStatus;
+  statusUpdatedAt?: number; // Timestamp da última alteração de status
   bookingModel: BookingModel;
   pixKey?: string;
   openingHours?: string;

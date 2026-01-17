@@ -13,7 +13,7 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus } from './types';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus } from './types';
 
 // Audio Context Helper para notificações sem arquivos externos
 const playBeep = (type: 'entry' | 'alert') => {
@@ -204,6 +204,24 @@ const App: React.FC = () => {
     }
   };
 
+  // Reabertura Automática (Auto-Open Logic)
+  const checkAutoOpen = async (est: Establishment) => {
+    if (est.status === 'open') return;
+    
+    const lastUpdate = est.statusUpdatedAt || 0;
+    const now = new Date();
+    const lastDate = new Date(lastUpdate);
+
+    // Se a última alteração foi em um dia diferente de hoje, reabre.
+    if (now.getDate() !== lastDate.getDate() || now.getMonth() !== lastDate.getMonth() || now.getFullYear() !== lastDate.getFullYear()) {
+      console.log("🌅 Novo dia detectado! Reabrindo estabelecimento automaticamente...");
+      await updateDoc(doc(db, "establishments", est.id), { 
+        status: 'open',
+        statusUpdatedAt: Date.now()
+      });
+    }
+  };
+
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
     const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
@@ -213,9 +231,16 @@ const App: React.FC = () => {
         if (userEmail && data.ownerEmail && userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) {
           setUserRole('admin');
         } 
+        checkAutoOpen(data);
       }
     });
-    return () => unsubEst();
+    
+    // Intervalo de verificação de dia a cada minuto
+    const interval = setInterval(() => {
+      if (currentEst) checkAutoOpen(currentEst);
+    }, 60000);
+
+    return () => { unsubEst(); clearInterval(interval); };
   }, [currentEst?.id, isLoggedIn, userEmail]);
 
   useEffect(() => {
@@ -405,7 +430,7 @@ const App: React.FC = () => {
           {activeTab === 'admin' && userRole === 'admin' && (
             <AdminPanel 
               establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
-              onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), d)} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
+              onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d, statusUpdatedAt: Date.now() })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
               onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
               onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
             />
