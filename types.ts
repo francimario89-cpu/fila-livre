@@ -8,11 +8,11 @@ export type AuthProvider = 'google' | 'phone' | 'email';
 
 export interface DaySchedule {
   isOpen: boolean;
-  start: string; // "08:00"
-  end: string;   // "18:00"
+  start: string;
+  end: string;
   hasLunch?: boolean;
-  lunchStart?: string; // "12:00"
-  lunchEnd?: string;   // "13:00"
+  lunchStart?: string;
+  lunchEnd?: string;
 }
 
 export interface Establishment {
@@ -24,12 +24,12 @@ export interface Establishment {
   bookingModel: BookingModel;
   pixKey?: string;
   openingHours?: string;
-  workingDays?: number[]; // [0,1,2,3,4,5,6] onde 0 é domingo
+  workingDays?: number[];
   dailySchedules?: Record<number, DaySchedule>;
   plan: PlanType;
   trialStartedAt: number; 
   loyaltyEnabled: boolean;
-  loyaltyReward?: string; // Novo campo para o prêmio personalizado
+  loyaltyReward?: string;
   autoStatusEnabled?: boolean; 
 }
 
@@ -71,6 +71,7 @@ export interface QueueItem {
   scheduledTime?: string; 
   userEmail?: string;
   missedCount?: number; 
+  establishmentName?: string; // Adicionado para facilitar visualização global
 }
 
 export interface UserProfile {
@@ -78,8 +79,8 @@ export interface UserProfile {
   email: string;
   name: string;
   role: 'admin' | 'staff' | 'client';
-  activeBooking?: {
+  activeBookings?: { // Mudado para plural e array
     establishmentId: string;
     queueId: string;
-  } | null;
+  }[];
 }

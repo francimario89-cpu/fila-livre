@@ -1,35 +1,33 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NAVIGATION_ITEMS } from '../constants';
-import { Bell, Building2, User, MapPin, LayoutGrid, Wifi } from 'lucide-react';
+import { Bell, Building2, User, MapPin, LayoutGrid, Wifi, Zap, ListOrdered, ChevronUp } from 'lucide-react';
+import { QueueItem } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   notificationsCount?: number;
-  userRole: 'admin' | 'client';
+  userRole: 'admin' | 'client' | 'staff';
   establishmentCode: string;
   loyaltyEnabled: boolean;
   onBackToDashboard: () => void;
   onClearNotifications?: () => void;
+  userActiveQueues?: QueueItem[]; // Para o botão flutuante
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  activeTab, 
-  setActiveTab, 
-  notificationsCount = 0, 
-  userRole,
-  establishmentCode,
-  loyaltyEnabled,
-  onBackToDashboard,
-  onClearNotifications
+  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, loyaltyEnabled, onBackToDashboard, onClearNotifications, userActiveQueues = []
 }) => {
+  const [isStatusExpanded, setIsStatusExpanded] = useState(false);
   const filteredNav = NAVIGATION_ITEMS.filter(item => {
     if (item.id === 'fidelidade' && !loyaltyEnabled) return false;
-    return item.roles.includes(userRole);
+    return item.roles.includes(userRole as any);
   });
+
+  // Pega a fila mais próxima (pelo timestamp)
+  const mainActiveQueue = userActiveQueues.sort((a,b) => a.timestamp - b.timestamp)[0];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#050810] text-white">
@@ -43,31 +41,16 @@ export const Layout: React.FC<LayoutProps> = ({
               <h1 className="text-xs font-black font-orbitron tracking-tighter neon-text leading-none uppercase">FILA LIVRE</h1>
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-900 border border-white/5">
                 <Wifi size={8} className="text-emerald-500" />
-                <span className="text-[6px] font-black uppercase tracking-tighter text-slate-500">Online</span>
+                <span className="text-[6px] font-black uppercase tracking-tighter text-slate-500">Global</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <MapPin size={8} className="text-teal-400" />
-              <p className="text-[8px] text-slate-500 font-black tracking-widest uppercase">
-                ID: <span className="text-white font-mono">{establishmentCode}</span>
-              </p>
-            </div>
+            <p className="text-[8px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
+              Multi-Setores
+            </p>
           </div>
         </div>
         
         <div className="flex items-center gap-3">
-          <button 
-            onClick={onClearNotifications}
-            className="relative p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all active:scale-90"
-          >
-            <Bell size={18} />
-            {notificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#050810] animate-bounce">
-                {notificationsCount}
-              </span>
-            )}
-          </button>
-
           <div className={`w-9 h-9 rounded-xl p-[1.5px] shadow-lg ${
             userRole === 'admin' ? 'bg-indigo-600' : 'bg-teal-600'
           }`}>
@@ -78,9 +61,27 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 pb-32 overflow-y-auto px-4 py-8 max-w-2xl mx-auto w-full animate-in fade-in duration-500">
+      <main className="flex-1 pb-40 overflow-y-auto px-4 py-8 max-w-2xl mx-auto w-full animate-in fade-in duration-500">
         {children}
       </main>
+
+      {/* BOTÃO MINIMIZADO (FLOATING STATUS) */}
+      {mainActiveQueue && (
+        <div className="fixed bottom-24 right-4 z-[60] flex flex-col items-end gap-3 pointer-events-none">
+          <button 
+            onClick={() => setActiveTab('minhas-filas')}
+            className="pointer-events-auto bg-teal-500 text-slate-950 p-4 rounded-3xl shadow-[0_10px_30px_rgba(45,212,191,0.3)] flex items-center gap-3 active:scale-95 transition-all border-2 border-slate-950/20"
+          >
+            <div className="flex flex-col items-end">
+              <span className="text-[7px] font-black uppercase tracking-widest opacity-70">Minha Fila</span>
+              <span className="text-xs font-black uppercase tracking-tight">{mainActiveQueue.establishmentName || 'Atendimento'}</span>
+            </div>
+            <div className="w-10 h-10 bg-slate-950 text-teal-400 rounded-2xl flex items-center justify-center font-black shadow-inner">
+               {mainActiveQueue.status === 'serving' ? <Zap size={18} className="animate-pulse" /> : <ListOrdered size={18} />}
+            </div>
+          </button>
+        </div>
+      )}
 
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-lg z-50">
         <div className="glass-card rounded-[32px] flex items-center justify-between p-2 shadow-2xl border border-white/10">
