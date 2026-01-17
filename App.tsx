@@ -13,14 +13,13 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus } from './types';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus, BookingModel } from './types';
 
 const playBeep = (type: 'entry' | 'alert' | 'available') => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     
     if (type === 'alert') {
-      // Som Dinâmico: Dois bips em frequência crescente
       const playTone = (freq: number, start: number, duration: number) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -33,8 +32,8 @@ const playBeep = (type: 'entry' | 'alert' | 'available') => {
         osc.start(audioCtx.currentTime + start);
         osc.stop(audioCtx.currentTime + start + duration);
       };
-      playTone(440, 0, 0.2); // Nota Lá (grave)
-      playTone(880, 0.25, 0.3); // Nota Lá (agudo)
+      playTone(440, 0, 0.2); 
+      playTone(880, 0.25, 0.3);
     } else {
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
@@ -142,12 +141,10 @@ const App: React.FC = () => {
       const myItem = waitingList.find(i => i.userEmail === userEmail);
       const firstWaiting = waitingList[0];
       
-      // ALERTA DINÂMICO DE PRÓXIMO DA FILA
       if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
         if (!notifiedNearCalling.current) {
           playBeep('alert');
           if (navigator.vibrate) {
-            // Padrão de vibração dinâmico: vibra, para, vibra
             navigator.vibrate([200, 100, 200]);
           }
           notifiedNearCalling.current = true;
@@ -402,7 +399,26 @@ const App: React.FC = () => {
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-          onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} onUpdateServices={async (s) => { for(const sv of s) await setDoc(doc(db, "establishments", currentEst.id, "services", sv.id), sv, { merge: true }); }} onUpdatePros={async (p) => { for(const pr of p) await setDoc(doc(db, "establishments", currentEst.id, "professionals", pr.id), pr, { merge: true }); }} 
+          onCallNext={() => handleCallNext()} onFinish={handleFinish} onNoShow={handleNoShow} 
+          onUpdateServices={async (serviceArray) => {
+            // Sincroniza individualmente para garantir exclusão correta
+            const currentIds = serviceArray.map(s => s.id);
+            for (const s of services) {
+              if (!currentIds.includes(s.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id));
+            }
+            for (const s of serviceArray) {
+              await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s, { merge: true });
+            }
+          }} 
+          onUpdatePros={async (professionalArray) => {
+            const currentIds = professionalArray.map(p => p.id);
+            for (const p of professionals) {
+              if (!currentIds.includes(p.id)) await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id));
+            }
+            for (const p of professionalArray) {
+              await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p, { merge: true });
+            }
+          }} 
           onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
