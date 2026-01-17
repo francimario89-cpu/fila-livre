@@ -411,7 +411,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       onUpdateServices([...services, { id: `srv-${Date.now()}`, name: newSName, price: newSPrice, duration: Number(newSDuration) || 30, establishmentId: establishment.id }]);
                       setNewSName(''); setNewSPrice(''); setIsAddingService(false);
                     }} 
-                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
+                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20"
                    >
                      Cadastrar Serviço
                    </button>
@@ -427,31 +427,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 5. GESTÃO DE PROFISSIONAIS - COM MAXIMIZAR/MINIMIZAR SE > 2 */}
+      {/* 5. GESTÃO DE PROFISSIONAIS */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <Users2 size={14} className="text-indigo-400" /> Equipe Profissional
           </h3>
-          {professionals.length > 2 && (
-            <button 
-              onClick={() => setIsStaffExpanded(!isStaffExpanded)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
-            >
-              {isStaffExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Equipe</>}
-            </button>
-          )}
+          <button 
+            onClick={() => setIsStaffExpanded(!isStaffExpanded)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
+          >
+            {isStaffExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Equipe</>}
+          </button>
         </div>
 
-        {/* Visão Minimizada (Mostra apenas se len > 2 E não estiver expandido) */}
-        {(!isStaffExpanded && professionals.length > 2) ? (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between">
+        {/* Visão Minimizada */}
+        {!isStaffExpanded ? (
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between animate-in fade-in duration-300">
              <div className="flex -space-x-3 overflow-hidden">
-                {professionals.map(p => (
+                {professionals.length > 0 ? professionals.map(p => (
                   <div key={p.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-950 bg-slate-800 flex items-center justify-center text-teal-400">
                     <UserCircle size={20} />
                   </div>
-                ))}
+                )) : (
+                  <div className="h-10 w-10 rounded-full ring-2 ring-slate-950 bg-slate-800 flex items-center justify-center text-slate-600">
+                    <Users2 size={20} />
+                  </div>
+                )}
              </div>
              <div className="text-right">
                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">{professionals.length} Membros na Equipe</span>
@@ -487,7 +489,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]);
                       setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
                     }}
-                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
+                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20"
                   >
                     Cadastrar Barbeiro
                   </button>
