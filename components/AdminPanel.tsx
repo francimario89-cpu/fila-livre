@@ -78,6 +78,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newProEmail, setNewProEmail] = useState('');
   const [manualName, setManualName] = useState('');
   const [manualService, setManualService] = useState(services[0]?.name || '');
+  const [manualProId, setManualProId] = useState('any');
 
   useEffect(() => {
     setTempName(establishment.name);
@@ -86,6 +87,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setDailySchedules(establishment.dailySchedules);
     }
   }, [establishment]);
+
+  // Atualiza serviço manual quando a lista de serviços carregar
+  useEffect(() => {
+    if (services.length > 0 && !manualService) {
+      setManualService(services[0].name);
+    }
+  }, [services]);
 
   const updateDaySchedule = (dayId: number, field: keyof DaySchedule, value: any) => {
     setDailySchedules(prev => ({
@@ -310,7 +318,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Monitor size={22} className="text-teal-400" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Painel TV</span>
           </button>
-          <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl shadow-indigo-500/20 active:scale-95 transition-all">
+          <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
             <UserPlus size={22} className="text-white" />
             <span className="text-[10px] font-black text-white uppercase tracking-widest">Manual</span>
           </button>
@@ -510,7 +518,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Settings size={14} className="text-indigo-400" /> Configurações de Regra</h3>
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
           <div className="p-8 border-b border-slate-800 space-y-5">
-            <div className="flex items-center gap-3"><div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><ListOrdered size={18} /></div><span className="text-[10px] font-black text-white uppercase tracking-widest">Modelo de Fila</span></div>
+            <div className="flex items-center gap-3"><div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><ListOrdered size={18} /></div><span className="text-[10px] font-black text-white uppercase tracking-widest">Modelo de Atendimento</span></div>
             <div className="grid grid-cols-3 gap-2">
               {[{ id: 'queue', label: 'Só Fila' }, { id: 'appointment', label: 'Só Agenda' }, { id: 'both', label: 'Híbrido' }].map(m => (
                 <button key={m.id} onClick={() => onSetBookingModel(m.id as BookingModel)} className={`py-3 rounded-xl text-[7px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{m.label}</button>
@@ -538,10 +546,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="relative w-full max-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] space-y-6 shadow-2xl">
             <h3 className="text-xl font-black text-white uppercase tracking-tighter">Entrada de Balcão</h3>
             <div className="space-y-4">
-              <input placeholder="NOME DO CLIENTE" value={manualName} onChange={e => setManualName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none" />
-              <select value={manualService} onChange={e => setManualService(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none">{services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome do Cliente</label>
+                <input placeholder="NOME DO CLIENTE" value={manualName} onChange={e => setManualName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all" />
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Serviço</label>
+                <select value={manualService} onChange={e => setManualService(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Profissional Responsável</label>
+                <select value={manualProId} onChange={e => setManualProId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500 transition-all">
+                  <option value="any">Primeiro Disponível</option>
+                  {professionals.filter(p => p.status !== 'absent').map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <button onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: 'any', type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 transition-all">Inserir Agora</button>
+            <button 
+              onClick={() => { 
+                if(!manualName) return alert("Informe o nome do cliente."); 
+                onManualJoin({ name: manualName, service: manualService, professionalId: manualProId, type: 'walk-in' }); 
+                setManualName(''); 
+                setManualProId('any');
+                setIsAddingManual(false); 
+              }} 
+              className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={16} /> Inserir Agora
+            </button>
           </div>
         </div>
       )}
