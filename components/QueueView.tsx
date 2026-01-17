@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog, Sparkles, Megaphone } from 'lucide-react';
+// Added 'Users' to the import list from 'lucide-react'
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle, UserCog, Sparkles, Megaphone, Wifi, Users } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -33,7 +34,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
 
-  // Lógica de Disponibilidade Real: Status Livre E não está atendendo ninguém
   const availableProsList = useMemo(() => {
     const servingProIds = queue
       .filter(item => item.status === 'serving')
@@ -79,19 +79,66 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* BANNER DE DISPONIBILIDADE - SINCRO TOTAL */}
-      {availableProsList.length > 0 && estStatus === 'open' && (
-        <div className="bg-amber-400 border-2 border-amber-300 p-6 rounded-[40px] shadow-lg shadow-amber-500/20 flex items-center gap-5 animate-bounce-subtle">
-           <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shrink-0">
-              <Megaphone size={24} />
+      {/* STATUS DO ESTABELECIMENTO - PRIORIDADE ZERO (PRIMEIRA COISA VISÍVEL) */}
+      <section className={`rounded-[40px] p-6 border-2 shadow-2xl transition-all duration-700 ${
+        isTodayClosed ? 'bg-slate-900 border-red-500/30' :
+        estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/10' : 
+        estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 shadow-amber-500/10' : 
+        'bg-slate-900 border-red-500/50 shadow-red-500/5'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-inner ${
+              isTodayClosed || estStatus === 'closed' ? 'bg-red-500/20 text-red-500' :
+              estStatus === 'open' ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-amber-500'
+            }`}>
+              {isTodayClosed ? <DoorClosed size={32} /> : 
+               estStatus === 'open' ? <div className="relative"><Wifi size={32} className="animate-pulse" /><div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-950" /></div> : 
+               estStatus === 'lunch' ? <Coffee size={32} /> : 
+               <DoorClosed size={32} />}
+            </div>
+            <div>
+              <h2 className={`text-2xl font-black uppercase font-orbitron tracking-tighter leading-none ${
+                estStatus === 'open' && !isTodayClosed ? 'text-slate-950' : 
+                estStatus === 'lunch' ? 'text-slate-950' : 'text-white'
+              }`}>
+                {isTodayClosed ? 'FECHADO HOJE' : 
+                 estStatus === 'open' ? 'ESTAMOS ABERTOS' : 
+                 estStatus === 'lunch' ? 'PAUSA ALMOÇO' : 'LOJA FECHADA'}
+              </h2>
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1.5 ${
+                estStatus === 'open' && !isTodayClosed ? 'text-slate-900/60' : 
+                estStatus === 'lunch' ? 'text-slate-900/60' : 'text-slate-500'
+              }`}>
+                {isTodayClosed ? 'RETORNAMOS NO PRÓXIMO DIA ÚTIL' :
+                 estStatus === 'open' ? 'PODE ENTRAR NA LISTA AGORA' :
+                 estStatus === 'lunch' ? 'VOLTAMOS EM ALGUNS MINUTOS' : 'CONSULTE OS HORÁRIOS'}
+              </p>
+            </div>
+          </div>
+          {estStatus === 'open' && !isTodayClosed && (
+             <div className="hidden sm:block">
+                <div className="w-10 h-10 bg-slate-950/20 rounded-full flex items-center justify-center text-slate-900">
+                   <Sparkles size={20} />
+                </div>
+             </div>
+          )}
+        </div>
+      </section>
+
+      {/* BANNER DE VAGA DISPONÍVEL (QUANDO HOUVER PROFISSIONAL LIVRE) */}
+      {availableProsList.length > 0 && estStatus === 'open' && !isTodayClosed && (
+        <div className="bg-slate-900 border border-amber-500/20 p-5 rounded-[32px] shadow-lg flex items-center gap-4 animate-in slide-in-from-top-4">
+           <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center shrink-0">
+              <Megaphone size={20} />
            </div>
            <div className="flex-1">
-              <p className="text-[11px] font-black text-slate-950 uppercase tracking-tighter leading-none">Vaga Aberta!</p>
-              <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-tight mt-1">
-                {availableProsNames} {availableProsList.length > 1 ? 'estão disponíveis' : 'está disponível'} agora!
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Atendimento Imediato</p>
+              <p className="text-[11px] font-black text-white uppercase tracking-tight">
+                {availableProsNames} {availableProsList.length > 1 ? 'estão prontos' : 'está pronto'} para te atender!
               </p>
            </div>
-           <Sparkles size={22} className="text-slate-900 opacity-30 shrink-0" />
+           <button onClick={onOpenJoinModal} className="px-4 py-2 bg-amber-500 text-slate-950 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-amber-500/10 active:scale-95 transition-all">Entrar</button>
         </div>
       )}
 
@@ -99,9 +146,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
          <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-500 border border-slate-800'}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => {
-           // Um profissional está visualmente "disponível" no filtro se status for available E ele não estiver ocupado
            const isTrulyFree = pro.status === 'available' && !queue.some(i => i.status === 'serving' && i.professionalId === pro.id);
-           
            return (
              <button 
                key={pro.id} 
@@ -126,38 +171,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${
-          isTodayClosed ? 'bg-red-500/10 border-red-500/20 text-red-500' :
-          estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
-          estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 
-          'bg-slate-800/10 border-slate-800 text-slate-600'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/5 rounded-2xl">
-                {isTodayClosed ? <UserX size={22} /> : 
-                 estStatus === 'open' ? <CheckCircle size={22} /> : 
-                 estStatus === 'lunch' ? <Coffee size={22} /> : 
-                 <DoorClosed size={22} />}
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-widest leading-none">
-                  {isTodayClosed ? 'Fechado Hoje' : estStatus === 'open' ? 'Em Atendimento' : estStatus === 'lunch' ? 'Pausa Almoço' : 'Fechado'}
-                </h4>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-4">
         {pixKey && (
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl"><QrCode size={22} /></div>
-              <div><h4 className="text-[10px] font-black text-white uppercase tracking-widest">Pagamento</h4></div>
+              <div><h4 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Pague via PIX</h4><p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Sua vaga liberada na hora</p></div>
             </div>
             <button onClick={handleCopyPix} className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>
-              {copied ? 'OK!' : 'Chave PIX'}
+              {copied ? 'COPIADO!' : 'CHAVE PIX'}
             </button>
           </div>
         )}
@@ -245,6 +267,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
               </div>
             );
           })}
+          {waitingList.length === 0 && !currentTurn && (
+             <div className="py-12 text-center space-y-4">
+                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto text-slate-800">
+                   <Users size={32} />
+                </div>
+                <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.3em]">Ninguém na lista no momento</p>
+             </div>
+          )}
         </div>
       </section>
 
