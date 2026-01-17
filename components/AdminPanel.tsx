@@ -51,10 +51,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
-  const [isScheduleExpanded, setIsScheduleExpanded] = useState(true);
+  // Todas as seções minimizadas por padrão conforme solicitado
+  const [isIdentityExpanded, setIsIdentityExpanded] = useState(false);
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
-  const [isModelExpanded, setIsModelExpanded] = useState(false);
   const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
   
@@ -127,61 +128,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       
       {/* 0. CABEÇALHO & AUTOMAÇÃO */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-           <Store size={14} className="text-teal-400" /> Identidade & Automação
-        </h3>
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
-              <input 
-                value={tempName} 
-                onChange={(e) => setTempName(e.target.value.toUpperCase())} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
-              />
-            </div>
-
-            {/* EDIÇÃO DE ID DE ACESSO */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <div className="flex items-center gap-2 mb-1">
-                <Fingerprint size={12} className="text-teal-500" />
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso (ID)</label>
-              </div>
-              <div className="flex gap-2">
-                <input 
-                  value={tempId} 
-                  onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} 
-                  placeholder="NOVO-ID"
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-indigo-500 transition-all font-orbitron"
-                />
-                <button 
-                  onClick={handleChangeAccessCode}
-                  disabled={isChangingId || tempId.toUpperCase() === establishment.id}
-                  className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />}
-                  Trocar
-                </button>
-              </div>
-              <p className="text-[7px] text-slate-600 font-black uppercase italic ml-1">
-                * Atenção: Seus clientes atuais precisarão usar o novo código para conectar.
-              </p>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
-            className={`w-full py-6 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-1 shadow-xl ${
-              isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-               {isAutoMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
-               <span className="text-[10px] font-black uppercase tracking-[0.2em]">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'DESLIGADO'}</span>
-            </div>
-            <p className="text-[7px] font-black uppercase opacity-70">Sincroniza automaticamente com seus horários</p>
+        <div className="flex justify-between items-center px-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <Store size={14} className="text-teal-400" /> Identidade & Automação
+          </h3>
+          <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 hover:bg-slate-800 transition-all">
+              {isIdentityExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
           </button>
         </div>
+
+        {isIdentityExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
+                <input 
+                  value={tempName} 
+                  onChange={(e) => setTempName(e.target.value.toUpperCase())} 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
+                />
+              </div>
+
+              {/* EDIÇÃO DE ID DE ACESSO */}
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Fingerprint size={12} className="text-teal-500" />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso (ID)</label>
+                </div>
+                <div className="flex gap-2">
+                  <input 
+                    value={tempId} 
+                    onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} 
+                    placeholder="NOVO-ID"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-indigo-500 transition-all font-orbitron"
+                  />
+                  <button 
+                    onClick={handleChangeAccessCode}
+                    disabled={isChangingId || tempId.toUpperCase() === establishment.id}
+                    className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />}
+                    Trocar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
+              className={`w-full py-3 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-0.5 shadow-xl ${
+                isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                 {isAutoMode ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                 <span className="text-[9px] font-black uppercase tracking-[0.2em]">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'DESLIGADO'}</span>
+              </div>
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 1. AGENDA DE TRABALHO + CONTROLE MANUAL */}
@@ -195,42 +200,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
            </button>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          {/* BOTÕES DE CONTROLE MANUAL COMPACTOS - NOVO DESIGN */}
-          <div className="space-y-3">
-             <div className="flex items-center gap-2 mb-1 ml-1">
-                <Power size={11} className="text-teal-400" />
-                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual</label>
-             </div>
-             <div className="grid grid-cols-3 gap-2">
-                <button 
-                  onClick={() => onUpdateStatus('open')} 
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
-                >
-                   <CheckCircle2 size={14} />
-                   <span className="text-[7px] font-black uppercase">Abrir</span>
-                </button>
-                <button 
-                  onClick={() => onUpdateStatus('lunch')} 
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
-                >
-                   <Coffee size={14} />
-                   <span className="text-[7px] font-black uppercase">Almoço</span>
-                </button>
-                <button 
-                  onClick={() => onUpdateStatus('closed')} 
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
-                >
-                   <DoorClosed size={14} />
-                   <span className="text-[7px] font-black uppercase">Fechar</span>
-                </button>
-             </div>
-          </div>
+        {isScheduleExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+            {/* BOTÕES DE CONTROLE MANUAL COMPACTOS */}
+            <div className="space-y-3">
+               <div className="flex items-center gap-2 mb-1 ml-1">
+                  <Power size={11} className="text-teal-400" />
+                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual</label>
+               </div>
+               <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => onUpdateStatus('open')} 
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  >
+                     <CheckCircle2 size={14} />
+                     <span className="text-[7px] font-black uppercase">Abrir</span>
+                  </button>
+                  <button 
+                    onClick={() => onUpdateStatus('lunch')} 
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  >
+                     <Coffee size={14} />
+                     <span className="text-[7px] font-black uppercase">Almoço</span>
+                  </button>
+                  <button 
+                    onClick={() => onUpdateStatus('closed')} 
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950 shadow-md scale-[1.02]' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                  >
+                     <DoorClosed size={14} />
+                     <span className="text-[7px] font-black uppercase">Fechar</span>
+                  </button>
+               </div>
+            </div>
 
-          <div className="h-px bg-white/5 w-full" />
+            <div className="h-px bg-white/5 w-full" />
 
-          {isScheduleExpanded && (
-            <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="space-y-4">
                <div className="flex items-center gap-2 mb-2 ml-1">
                   <Clock size={12} className="text-slate-500" />
                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Configurar Horários Semanais</label>
@@ -271,9 +276,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Alterações
                </button>
             </div>
-          )}
-          {!isScheduleExpanded && <p className="text-center text-[8px] text-slate-600 font-black uppercase tracking-widest italic animate-pulse">* Clique em Maximizar para editar horários semanais</p>}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* 2. GESTÃO DE SERVIÇOS */}
@@ -431,19 +435,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 6. FERRAMENTAS */}
+      {/* 6. FERRAMENTAS - TV REDUZIDA E MANUAL REMOVIDO */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Store size={14} className="text-indigo-400" /> Painel & TV
         </h3>
-        <div className="grid grid-cols-2 gap-4">
-           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl hover:border-teal-500/30 transition-all">
-              <Monitor size={28} className="text-teal-400" />
+        <div className="flex justify-center">
+           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 py-4 px-10 rounded-[40px] flex items-center gap-3 shadow-xl hover:border-teal-500/30 transition-all active:scale-95">
+              <Monitor size={20} className="text-teal-400" />
               <span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span>
-           </button>
-           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl active:scale-95 transition-all">
-              <UserPlus size={28} className="text-white" />
-              <span className="text-[9px] font-black text-white uppercase tracking-widest">Manual</span>
            </button>
         </div>
       </section>
