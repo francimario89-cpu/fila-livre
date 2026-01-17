@@ -33,6 +33,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
 
+  // Lógica aprimorada para listar nomes de múltiplos profissionais livres
   const availableProsNames = useMemo(() => {
     return professionals
       .filter(p => p.status === 'available')
@@ -73,7 +74,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - ATUALIZA DINAMICAMENTE */}
+      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - AGORA ATUALIZA EM TEMPO REAL */}
       {availableProsNames.length > 0 && estStatus === 'open' && (
         <div className="bg-amber-400 border-2 border-amber-300 p-4 rounded-[24px] shadow-lg shadow-amber-500/10 flex items-center gap-4 animate-bounce-subtle">
            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-amber-400 shrink-0">

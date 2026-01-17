@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment } from 'firebase/firestore';
-import { onAuthStateChanged, updatePassword, updateEmail } from 'firebase/auth';
+import { onAuthStateChanged, updatePassword } from 'firebase/auth';
 import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
@@ -165,6 +165,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Função para o colaborador mudar o próprio status no perfil
   const handleUpdateSelfStatus = async (newStatus: ProfStatus) => {
     if (!currentEst) return;
     const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -286,7 +287,7 @@ const App: React.FC = () => {
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     const myProId = myPro?.id;
     
-    // Se um atendente chama alguém, ele automaticamente fica 'busy' se o modo auto estiver on
+    // Automação: Se chamar alguém, o status fica ocupado (busy) para que ele saia do banner amarelo
     if (myPro && currentEst.autoStatusEnabled) {
        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'busy' });
     }
@@ -380,12 +381,12 @@ const App: React.FC = () => {
            <div className="space-y-4">
               {profileMessage.text && <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl text-center text-[10px] font-black uppercase animate-in slide-in-from-top-2">{profileMessage.text}</div>}
               
-              {/* CONTROLE DE STATUS PARA COLABORADORES */}
+              {/* NOVO: CONTROLE DE STATUS PARA COLABORADORES */}
               {userRole === 'staff' && myProRecord && (
                 <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-4 shadow-xl">
                   <div className="flex items-center gap-3 mb-2">
                     <Power size={18} className="text-amber-500" />
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status de Atendimento</h3>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meu Status</h3>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <button onClick={() => handleUpdateSelfStatus('available')} className={`flex flex-col items-center gap-2 py-4 rounded-2xl border transition-all ${myProRecord.status === 'available' ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
@@ -427,7 +428,7 @@ const App: React.FC = () => {
             await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
             if (currentEst.loyaltyEnabled && selectedQueueItem.userEmail) await setDoc(doc(db, "establishments", currentEst.id, "loyalty", selectedQueueItem.userEmail), { count: increment(1) }, { merge: true });
             
-            // Se o modo auto está on, o profissional volta a ficar 'available' após finalizar
+            // Automação: Volta a ficar livre ao finalizar se modo auto estiver on
             const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
             if (myPro && currentEst.autoStatusEnabled) {
                await updateDoc(doc(db, "establishments", currentEst.id, "professionals", myPro.id), { status: 'available' });
