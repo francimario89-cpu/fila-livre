@@ -76,13 +76,10 @@ const App: React.FC = () => {
   const [globalUserQueues, setGlobalUserQueues] = useState<QueueItem[]>([]);
 
   const prevQueueLength = useRef(0);
-  const prevProStatuses = useRef<Record<string, ProfStatus>>({});
   const notifiedNearCalling = useRef(false);
 
   const [newPassword, setNewPassword] = useState('');
-  const [linkPhone, setLinkPhone] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -107,23 +104,25 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Listener global para buscar todas as filas do usuário
+  // Monitoramento GLOBAL de todas as filas do usuário
   useEffect(() => {
-    if (!userEmail || userRole !== 'client') return;
+    if (!userEmail || userRole !== 'client') {
+      setGlobalUserQueues([]);
+      return;
+    }
     
-    // Mudado para 'in' para evitar problemas de índice composto com '!='
+    // Busca em todas as coleções 'queue' do banco de dados
     const q = query(
       collectionGroup(db, "queue"), 
-      where("userEmail", "==", userEmail), 
+      where("userEmail", "==", userEmail),
       where("status", "in", ["waiting", "serving"])
     );
     
     const unsub = onSnapshot(q, (snap) => {
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem));
-      // Filtro adicional manual caso o Firestore demore a processar o 'in'
-      setGlobalUserQueues(items.filter(i => i.status !== 'completed'));
-    }, (err) => {
-      console.error("Erro na busca global de filas:", err);
+      setGlobalUserQueues(items);
+    }, (error) => {
+      console.error("Erro no listener global:", error);
     });
 
     return () => unsub();
@@ -162,12 +161,11 @@ const App: React.FC = () => {
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
-        setProfileMessage({ text: 'Senha alterada com sucesso!', type: 'success' });
         setNewPassword('');
+        alert("Senha atualizada!");
       }
     } catch (e) { alert("Sessão expirada."); } finally {
       setIsUpdatingProfile(false);
-      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
     }
   };
 
@@ -207,18 +205,15 @@ const App: React.FC = () => {
     if (!currentEst || !auth.currentUser) return;
     try {
       const baseTime = Date.now();
-      const allPeople = [data.mainPerson, ...(data.companions || [])];
-      for (let i = 0; i < allPeople.length; i++) {
-        const person = allPeople[i];
-        const payload: any = {
-          name: person.name, professionalId: data.professionalId, service: person.service, type: data.type,
-          userEmail: userRole === 'client' ? userEmail : null, establishmentId: currentEst.id,
-          establishmentName: currentEst.name, 
-          status: 'waiting', timestamp: baseTime + (i * 10), missedCount: 0
-        };
-        if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
-        await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
-      }
+      const person = data.mainPerson;
+      const payload: any = {
+        name: person.name, professionalId: data.professionalId, service: person.service, type: data.type,
+        userEmail: userRole === 'client' ? userEmail : null, establishmentId: currentEst.id,
+        establishmentName: currentEst.name, 
+        status: 'waiting', timestamp: baseTime, missedCount: 0
+      };
+      if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
+      await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) { alert(`Erro: ${e.message}`); }
   };
@@ -254,7 +249,9 @@ const App: React.FC = () => {
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} />;
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} />;
-  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
+  
+  // Repassando globalUserQueues para o seletor de negócios
+  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   return (
     <Layout 

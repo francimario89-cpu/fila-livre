@@ -78,7 +78,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS DO ESTABELECIMENTO - PRIORIDADE ZERO */}
+      {/* STATUS DO ESTABELECIMENTO */}
       <section className={`rounded-[40px] p-6 border-2 shadow-2xl transition-all duration-700 ${
         isTodayClosed ? 'bg-slate-900 border-red-500/30' :
         estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/10' : 
@@ -115,26 +115,19 @@ export const QueueView: React.FC<QueueViewProps> = ({
               </p>
             </div>
           </div>
-          {estStatus === 'open' && !isTodayClosed && (
-             <div className="hidden sm:block">
-                <div className="w-10 h-10 bg-slate-950/20 rounded-full flex items-center justify-center text-slate-900">
-                   <Sparkles size={20} />
-                </div>
-             </div>
-          )}
         </div>
       </section>
 
-      {/* BANNER DE VAGA DISPONÍVEL (AMARELO CHAMATIVO) */}
+      {/* BANNER DE VAGA DISPONÍVEL (AMARELO ALERTA) */}
       {availableProsList.length > 0 && estStatus === 'open' && !isTodayClosed && (
-        <div className="bg-amber-400 p-6 rounded-[32px] shadow-2xl shadow-amber-500/20 flex items-center gap-4 animate-in slide-in-from-top-4 border-b-4 border-amber-600">
-           <div className="w-12 h-12 bg-slate-950 text-amber-400 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+        <div className="bg-yellow-400 p-6 rounded-[32px] shadow-2xl shadow-yellow-500/20 flex items-center gap-4 animate-in slide-in-from-top-4 border-2 border-slate-950">
+           <div className="w-12 h-12 bg-slate-950 text-yellow-400 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
               <Megaphone size={24} className="animate-bounce" />
            </div>
            <div className="flex-1">
               <p className="text-[10px] font-black text-slate-950 uppercase tracking-[0.2em]">Cadeira Livre Agora!</p>
               <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">
-                {availableProsNames} {availableProsList.length > 1 ? 'estão esperando' : 'está esperando'} por você!
+                {availableProsNames} {availableProsList.length > 1 ? 'estão aguardando' : 'está aguardando'} por você!
               </p>
            </div>
            <button onClick={onOpenJoinModal} className="px-6 py-3 bg-slate-950 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl active:scale-95 transition-all border border-white/10">ENTRAR</button>
@@ -170,6 +163,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
+      {/* Restante da UI de Fila */}
       <div className="grid grid-cols-1 gap-4">
         {pixKey && (
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group">
@@ -195,12 +189,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
               <span className="w-1 h-1 bg-white/30 rounded-full"/>
               <span className="text-xs font-black text-white uppercase">{professionals.find(p => p.id === currentTurn.professionalId)?.name}</span>
             </div>
-            {(isAdmin || (isStaff && currentTurn.professionalId === myProId)) && (
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all"><UserX size={20} /></button>
-                <button onClick={() => onFinish?.(currentTurn)} className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2"><CheckCircle2 size={18} /> Finalizar Serviço</button>
-              </div>
-            )}
           </div>
         </section>
       )}
@@ -226,11 +214,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">
                         {item.service} • {item.professionalId === 'any' ? 'Livre' : professionals.find(p => p.id === item.professionalId)?.name}
                       </p>
-                      {item.missedCount && item.missedCount > 0 && (
-                        <p className="text-[8px] text-red-400 font-black uppercase mt-1 animate-pulse">
-                          {item.missedCount} {item.missedCount === 1 ? 'Ausência' : 'Ausências'} registrada(s)
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -239,30 +222,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                     )}
                     {canAction && (
-                       <>
-                          <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-red-600/20 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all" title="Registrar Falta"><UserX size={16} /></button>
-                          <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button>
-                       </>
+                       <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button>
                     )}
                   </div>
                 </div>
-
-                {isMe && item.status === 'waiting' && (
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                    <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-2"><Sparkles size={10} className="text-teal-400" /> Opções de Migração</p>
-                    <button onClick={() => setIsChangingPro(isChangingPro === item.id ? null : item.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${isChangingPro === item.id ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>
-                      Mudar Atendente
-                    </button>
-                    {isChangingPro === item.id && (
-                      <div className="absolute top-full left-0 right-0 mt-2 grid grid-cols-2 gap-2 bg-slate-900 p-4 rounded-3xl z-50 shadow-2xl border border-white/5">
-                        <button onClick={() => { onUpdateProfessional?.(item.id, 'any'); setIsChangingPro(null); }} className="py-2 rounded-xl text-[8px] font-black uppercase border border-slate-800 text-white">Primeiro Livre</button>
-                        {professionals.filter(p => p.status !== 'absent').map(p => (
-                          <button key={p.id} onClick={() => { onUpdateProfessional?.(item.id, p.id); setIsChangingPro(null); }} className="py-2 rounded-xl text-[8px] font-black uppercase border border-slate-800 text-white">{p.name}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}

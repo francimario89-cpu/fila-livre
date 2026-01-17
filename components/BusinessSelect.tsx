@@ -1,19 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { LOGO_SVG } from '../constants';
-import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database, Trash2, Wifi, Coffee, DoorClosed } from 'lucide-react';
-import { Establishment, EstStatus } from '../types';
+import { Plus, LogOut, ArrowRight, Loader2, AlertCircle, RefreshCw, ExternalLink, Search, Database, Trash2, Wifi, Coffee, DoorClosed, CheckCircle2, Zap } from 'lucide-react';
+import { Establishment, EstStatus, QueueItem } from '../types';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 
 interface BusinessSelectProps {
   userEmail: string;
   userRole: 'admin' | 'client';
+  userQueues: QueueItem[]; // Novo: recebe as filas ativas globais
   onSelect: (est: Establishment) => void;
   onLogout: () => void;
 }
 
-export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userRole, onSelect, onLogout }) => {
+export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userRole, userQueues, onSelect, onLogout }) => {
   const [connections, setConnections] = useState<Establishment[]>([]);
   const [liveStatuses, setLiveStatuses] = useState<Record<string, EstStatus>>({});
   const [newCode, setNewCode] = useState('');
@@ -27,7 +28,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     loadConnections();
   }, [userEmail, userRole]);
 
-  // Listener para atualizar status das lojas recentes em tempo real
+  // Listener em tempo real para status das lojas salvas
   useEffect(() => {
     if (connections.length === 0) return;
 
@@ -123,21 +124,21 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const renderStatusBadge = (id: string) => {
     const status = liveStatuses[id] || 'open';
     if (status === 'open') return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
-         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-         <span className="text-[7px] font-black uppercase tracking-widest">Aberto</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg shadow-emerald-500/20">
+         <div className="w-1.5 h-1.5 bg-slate-950 rounded-full animate-pulse" />
+         <span className="text-[8px] font-black uppercase tracking-widest">Aberto</span>
       </div>
     );
     if (status === 'lunch') return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full">
-         <Coffee size={8} />
-         <span className="text-[7px] font-black uppercase tracking-widest">Almoço</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-slate-950 rounded-full shadow-lg shadow-amber-500/20">
+         <Coffee size={10} />
+         <span className="text-[8px] font-black uppercase tracking-widest">Almoço</span>
       </div>
     );
     return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full">
-         <DoorClosed size={8} />
-         <span className="text-[7px] font-black uppercase tracking-widest">Fechado</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg shadow-red-600/20">
+         <DoorClosed size={10} />
+         <span className="text-[8px] font-black uppercase tracking-widest">Fechado</span>
       </div>
     );
   };
@@ -153,12 +154,12 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
 
       <div className="space-y-3 mb-10">
         <h1 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter">
-          {userRole === 'admin' ? 'Minhas Unidades' : 'Minhas Filas'}
+          {userRole === 'admin' ? 'Painel de Gestão' : 'Minhas Unidades'}
         </h1>
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{userEmail}</p>
       </div>
 
-      <div className="space-y-4 flex-1">
+      <div className="space-y-6 flex-1">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="animate-spin text-teal-500" size={32} />
@@ -167,34 +168,46 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         ) : (
           <>
             {connections.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Histórico Recente</p>
-                {connections.map(est => (
-                  <div key={est.id} className="relative group">
-                    <button 
-                      onClick={() => onSelect(est)} 
-                      className="w-full bg-slate-900/40 border border-slate-800 p-7 rounded-[40px] flex items-center justify-between group-hover:border-teal-500/50 transition-all shadow-xl"
-                    >
-                      <div className="text-left">
-                        <div className="flex items-center gap-3">
-                           <span className="text-white font-black uppercase font-orbitron block">{est.name}</span>
-                           {renderStatusBadge(est.id)}
-                        </div>
-                        <span className="text-[8px] text-slate-500 font-bold uppercase mt-1">ID: {est.id}</span>
-                      </div>
-                      <ArrowRight size={20} className="text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-                    </button>
-                    
-                    {userRole === 'client' && (
+              <div className="space-y-4">
+                <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Minhas Conexões</p>
+                {connections.map(est => {
+                  const isInQueue = userQueues.some(q => q.establishmentId === est.id);
+                  
+                  return (
+                    <div key={est.id} className="relative group">
                       <button 
-                        onClick={(e) => handleRemoveConnection(e, est.id)}
-                        className="absolute -top-1 -right-1 p-3 bg-slate-800 border border-white/10 text-red-500 rounded-2xl shadow-lg active:scale-90 transition-all z-10"
+                        onClick={() => onSelect(est)} 
+                        className={`w-full bg-slate-900/40 border-2 p-7 rounded-[40px] flex items-center justify-between transition-all shadow-xl ${isInQueue ? 'border-teal-500 bg-teal-500/5 shadow-teal-500/10' : 'border-slate-800 group-hover:border-slate-700'}`}
                       >
-                        <Trash2 size={16} />
+                        <div className="text-left space-y-2">
+                          <div className="flex items-center gap-3">
+                             <span className="text-white font-black uppercase font-orbitron text-lg block">{est.name}</span>
+                             {renderStatusBadge(est.id)}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[8px] text-slate-500 font-bold uppercase">ID: {est.id}</span>
+                            {isInQueue && (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-teal-500 rounded-full animate-pulse">
+                                <Zap size={8} className="text-slate-950 fill-current" />
+                                <span className="text-[7px] font-black text-slate-950 uppercase tracking-tighter">Você está nesta fila</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <ArrowRight size={20} className={`${isInQueue ? 'text-teal-400' : 'text-slate-500'} group-hover:translate-x-1 transition-all`} />
                       </button>
-                    )}
-                  </div>
-                ))}
+                      
+                      {userRole === 'client' && (
+                        <button 
+                          onClick={(e) => handleRemoveConnection(e, est.id)}
+                          className="absolute -top-1 -right-1 p-3 bg-slate-800 border border-white/10 text-red-500 rounded-2xl shadow-lg active:scale-90 transition-all z-10"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
