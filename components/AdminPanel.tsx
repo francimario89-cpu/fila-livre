@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar, LayoutList
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar, LayoutList, Sparkles
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule, ProfStatus } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -51,7 +51,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isIdentityExpanded, setIsIdentityExpanded] = useState(false);
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
-  const [isServicesExpanded, setIsServicesExpanded] = useState(true); // Aberto por padrão para facilitar
+  const [isServicesExpanded, setIsServicesExpanded] = useState(true);
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
@@ -123,7 +123,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* SEÇÃO DESTAQUE: MODO DE ATENDIMENTO (AGORA SEMPRE VISÍVEL NO TOPO) */}
+      {/* SEÇÃO DESTAQUE: MODO DE ATENDIMENTO */}
       <section className="bg-slate-900 border border-indigo-500/20 rounded-[40px] p-8 space-y-6 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center">
@@ -131,7 +131,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
           <div>
              <h3 className="text-sm font-black text-white uppercase tracking-tighter">Modo de Funcionamento</h3>
-             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Defina como seus clientes entram na lista</p>
+             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Como os clientes entram na lista</p>
           </div>
         </div>
 
@@ -146,6 +146,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <Zap size={16} className="mb-1" /> Ambos
            </button>
         </div>
+      </section>
+
+      {/* GESTÃO DE FIDELIDADE (VIP) */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <Gift size={14} className="text-amber-500" /> Clube VIP / Fidelidade
+           </h3>
+           <button onClick={() => setIsLoyaltyExpanded(!isLoyaltyExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-500">
+              {isLoyaltyExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
+        </div>
+
+        {isLoyaltyExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+             <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                <div className="flex items-center gap-3">
+                   <div className={`p-2 rounded-xl ${loyaltyEnabled ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-800 text-slate-600'}`}>
+                      <Gift size={20} />
+                   </div>
+                   <div>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Programa Ativo</h4>
+                      <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Visível para clientes</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)}
+                  className={`w-12 h-6 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-amber-500' : 'bg-slate-800'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+
+             {loyaltyEnabled && (
+               <div className="space-y-4 animate-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                       <Sparkles size={10} className="text-amber-500" /> Prêmio (O que o cliente ganha?)
+                    </label>
+                    <input 
+                      value={tempReward} 
+                      onChange={(e) => setTempReward(e.target.value.toUpperCase())} 
+                      placeholder="EX: UM CORTE GRÁTIS" 
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-amber-500 transition-all" 
+                    />
+                    <p className="text-[7px] text-slate-600 font-bold uppercase ml-1 tracking-widest">O prêmio é liberado após 10 atendimentos.</p>
+                  </div>
+                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-amber-500 text-slate-950 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
+                     {isSavingProfile ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Atualizar Prêmio
+                  </button>
+               </div>
+             )}
+          </div>
+        )}
       </section>
 
       {/* 0. IDENTIDADE DA UNIDADE */}
@@ -189,7 +243,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 2. GESTÃO DE SERVIÇOS (ABERTO POR PADRÃO) */}
+      {/* GESTÃO DE SERVIÇOS */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -234,7 +288,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 3. GESTÃO DE EQUIPE */}
+      {/* GESTÃO DE EQUIPE */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -284,7 +338,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 4. AGENDA DE TRABALHO */}
+      {/* AGENDA DE TRABALHO */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -338,7 +392,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 5. FIDELIDADE & FINANCEIRO (MANTIDOS) */}
+      {/* FINANCEIRO */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -359,7 +413,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 6. TV */}
+      {/* TV */}
       <section className="space-y-4">
         <div className="flex justify-center"><button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 py-3 px-8 rounded-[40px] flex items-center gap-2.5 shadow-xl hover:border-teal-500/30 transition-all active:scale-95"><Monitor size={18} className="text-teal-400" /><span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span></button></div>
       </section>
