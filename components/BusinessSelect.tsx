@@ -123,21 +123,21 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const renderStatusBadge = (id: string) => {
     const status = liveStatuses[id] || 'open';
     if (status === 'open') return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/50">
-         <div className="w-1.5 h-1.5 bg-slate-950 rounded-full animate-pulse" />
-         <span className="text-[9px] font-black uppercase tracking-widest">Aberto</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg border border-emerald-400/50">
+         <div className="w-1 h-1 bg-slate-950 rounded-full animate-pulse" />
+         <span className="text-[8px] font-black uppercase tracking-widest">Aberto</span>
       </div>
     );
     if (status === 'lunch') return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-400 text-slate-950 rounded-full shadow-lg shadow-yellow-500/20 border border-yellow-500/50">
-         <Coffee size={10} />
-         <span className="text-[9px] font-black uppercase tracking-widest">Almoço</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-400 text-slate-950 rounded-full shadow-lg border border-yellow-500/50">
+         <Coffee size={8} />
+         <span className="text-[8px] font-black uppercase tracking-widest">Almoço</span>
       </div>
     );
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg shadow-red-600/20 border border-red-500/50">
-         <DoorClosed size={10} />
-         <span className="text-[9px] font-black uppercase tracking-widest">Fechado</span>
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg border border-red-500/50">
+         <DoorClosed size={8} />
+         <span className="text-[8px] font-black uppercase tracking-widest">Fechado</span>
       </div>
     );
   };
@@ -177,11 +177,11 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                     <div key={est.id} className="relative group">
                       <button 
                         onClick={() => onSelect(est)} 
-                        className={`w-full bg-slate-900/40 border-2 p-7 rounded-[40px] flex items-center justify-between transition-all shadow-xl relative overflow-hidden ${isInQueue ? 'border-teal-500 bg-teal-500/10 shadow-teal-500/20' : 'border-slate-800 group-hover:border-slate-700'}`}
+                        className={`w-full bg-slate-900/40 border-2 p-6 rounded-[40px] flex items-center justify-between transition-all shadow-xl relative overflow-hidden ${isInQueue ? 'border-teal-500 bg-teal-500/10 shadow-teal-500/20' : 'border-slate-800 group-hover:border-slate-700'}`}
                       >
                         <div className="text-left space-y-3 relative z-10">
                           <div className="flex flex-wrap items-center gap-3">
-                             <span className="text-white font-black uppercase font-orbitron text-xl block leading-none">{est.name}</span>
+                             <span className="text-white font-black uppercase font-orbitron text-lg block leading-none">{est.name}</span>
                              {renderStatusBadge(est.id)}
                           </div>
                           
@@ -189,9 +189,14 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                             <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">ID: {est.id}</span>
                             
                             {isInQueue && (
-                              <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-500 text-slate-950 rounded-xl animate-bounce shadow-lg w-fit">
-                                <Zap size={10} className="fill-current" />
-                                <span className="text-[9px] font-black uppercase tracking-tighter">VOCÊ ESTÁ NESTA FILA</span>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-teal-500 text-slate-950 rounded-lg animate-pulse shadow-md w-fit">
+                                  <Zap size={10} className="fill-current" />
+                                  <span className="text-[9px] font-black uppercase tracking-tighter">VOCÊ ESTÁ NESTA FILA</span>
+                                </div>
+                                <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest ml-1">
+                                  Como: {userInQueue.name}
+                                </p>
                               </div>
                             )}
                           </div>

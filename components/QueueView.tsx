@@ -78,26 +78,26 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS DO ESTABELECIMENTO */}
-      <section className={`rounded-[40px] p-6 border-2 shadow-2xl transition-all duration-700 ${
+      {/* STATUS DO ESTABELECIMENTO - VERSÃO DISCRETA */}
+      <section className={`rounded-[32px] p-4 border-2 shadow-lg transition-all duration-700 ${
         isTodayClosed ? 'bg-slate-900 border-red-500/30' :
-        estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/10' : 
-        estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 shadow-amber-500/10' : 
+        estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/5' : 
+        estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 shadow-amber-500/5' : 
         'bg-slate-900 border-red-500/50 shadow-red-500/5'
       }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-inner ${
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-inner ${
               isTodayClosed || estStatus === 'closed' ? 'bg-red-500/20 text-red-500' :
               estStatus === 'open' ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-amber-500'
             }`}>
-              {isTodayClosed ? <DoorClosed size={32} /> : 
-               estStatus === 'open' ? <div className="relative"><Wifi size={32} className="animate-pulse" /><div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-950" /></div> : 
-               estStatus === 'lunch' ? <Coffee size={32} /> : 
-               <DoorClosed size={32} />}
+              {isTodayClosed ? <DoorClosed size={24} /> : 
+               estStatus === 'open' ? <div className="relative"><Wifi size={24} className="animate-pulse" /></div> : 
+               estStatus === 'lunch' ? <Coffee size={24} /> : 
+               <DoorClosed size={24} />}
             </div>
             <div>
-              <h2 className={`text-2xl font-black uppercase font-orbitron tracking-tighter leading-none ${
+              <h2 className={`text-base font-black uppercase font-orbitron tracking-tight leading-none ${
                 estStatus === 'open' && !isTodayClosed ? 'text-slate-950' : 
                 estStatus === 'lunch' ? 'text-slate-950' : 'text-white'
               }`}>
@@ -105,13 +105,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
                  estStatus === 'open' ? 'ESTAMOS ABERTOS' : 
                  estStatus === 'lunch' ? 'PAUSA ALMOÇO' : 'LOJA FECHADA'}
               </h2>
-              <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-1.5 ${
+              <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${
                 estStatus === 'open' && !isTodayClosed ? 'text-slate-900/60' : 
                 estStatus === 'lunch' ? 'text-slate-900/60' : 'text-slate-500'
               }`}>
-                {isTodayClosed ? 'RETORNAMOS NO PRÓXIMO DIA ÚTIL' :
-                 estStatus === 'open' ? 'PODE ENTRAR NA LISTA AGORA' :
-                 estStatus === 'lunch' ? 'VOLTAMOS EM ALGUNS MINUTOS' : 'CONSULTE OS HORÁRIOS'}
+                {isTodayClosed ? 'VOLTAMOS EM BREVE' :
+                 estStatus === 'open' ? 'ENTRE NA LISTA' :
+                 estStatus === 'lunch' ? 'VOLTAMOS LOGO' : 'FECHADO'}
               </p>
             </div>
           </div>
@@ -194,7 +194,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
       )}
 
       <section className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-3">Próximos na Lista</h2>
+        <div className="flex justify-between items-center px-3">
+           <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Próximos na Lista</h2>
+           <div className="h-[1px] flex-1 bg-slate-800 ml-4" />
+        </div>
         <div className="space-y-3">
           {waitingList.map((item, index) => {
             const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
