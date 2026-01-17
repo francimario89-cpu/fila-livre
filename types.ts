@@ -6,6 +6,12 @@ export type PaymentMethod = 'pix' | 'card' | 'cash';
 export type PlanType = 'free' | 'pro';
 export type AuthProvider = 'google' | 'phone' | 'email';
 
+export interface DaySchedule {
+  isOpen: boolean;
+  start: string; // "08:00"
+  end: string;   // "18:00"
+}
+
 export interface Establishment {
   id: string;
   name: string;
@@ -15,6 +21,7 @@ export interface Establishment {
   pixKey?: string;
   openingHours?: string;
   workingDays?: number[]; // [0,1,2,3,4,5,6] onde 0 é domingo
+  dailySchedules?: Record<number, DaySchedule>;
   plan: PlanType;
   trialStartedAt: number; 
   loyaltyEnabled: boolean; 

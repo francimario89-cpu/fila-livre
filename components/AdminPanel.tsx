@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays
 } from 'lucide-react';
-import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment } from '../types';
+import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
 
 interface AdminPanelProps {
@@ -27,20 +27,20 @@ interface AdminPanelProps {
   onCallNext: () => void;
   onFinish: (item: QueueItem) => void;
   onNoShow: (id?: string) => void;
-  onUpdateServices: (s: Service[]) => void;
-  onUpdatePros: (p: Professional[]) => void;
+  onUpdateServices: (serviceArray: Service[]) => void;
+  onUpdatePros: (professionalArray: Professional[]) => void;
   onManualJoin: (data: any) => void;
   onToggleTVMode: () => void;
 }
 
 const DAYS_OF_WEEK = [
-  { id: 0, label: 'Dom' },
-  { id: 1, label: 'Seg' },
-  { id: 2, label: 'Ter' },
-  { id: 3, label: 'Qua' },
-  { id: 4, label: 'Qui' },
-  { id: 5, label: 'Sex' },
-  { id: 6, label: 'Sáb' }
+  { id: 0, label: 'Domingo' },
+  { id: 1, label: 'Segunda' },
+  { id: 2, label: 'Terça' },
+  { id: 3, label: 'Quarta' },
+  { id: 4, label: 'Quinta' },
+  { id: 5, label: 'Sexta' },
+  { id: 6, label: 'Sábado' }
 ];
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -52,7 +52,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   
   const [tempName, setTempName] = useState(establishment.name);
   const [tempHours, setTempHours] = useState(establishment.openingHours || '');
-  const [workingDays, setWorkingDays] = useState<number[]>(establishment.workingDays || [1, 2, 3, 4, 5, 6]);
+  
+  // Estado local para horários diários
+  const [dailySchedules, setDailySchedules] = useState<Record<number, DaySchedule>>(
+    establishment.dailySchedules || {
+      1: { isOpen: true, start: "08:00", end: "18:00" },
+      2: { isOpen: true, start: "08:00", end: "18:00" },
+      3: { isOpen: true, start: "08:00", end: "18:00" },
+      4: { isOpen: true, start: "08:00", end: "18:00" },
+      5: { isOpen: true, start: "08:00", end: "18:00" },
+      6: { isOpen: true, start: "08:00", end: "13:00" },
+      0: { isOpen: false, start: "08:00", end: "12:00" },
+    }
+  );
+
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [isAddingService, setIsAddingService] = useState(false);
@@ -70,18 +83,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     setTempName(establishment.name);
     setTempHours(establishment.openingHours || '');
-    setWorkingDays(establishment.workingDays || [1, 2, 3, 4, 5, 6]);
+    if (establishment.dailySchedules) {
+      setDailySchedules(establishment.dailySchedules);
+    }
   }, [establishment]);
 
-  const toggleDay = (dayId: number) => {
-    setWorkingDays(prev => 
-      prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId].sort()
-    );
+  const updateDaySchedule = (dayId: number, field: keyof DaySchedule, value: any) => {
+    setDailySchedules(prev => ({
+      ...prev,
+      [dayId]: { ...prev[dayId], [field]: value }
+    }));
   };
 
+  // Fixed line 102 error: Property 'isOpen' does not exist on type 'unknown'.
+  // We explicitly cast the result of Object.entries(dailySchedules) to [string, DaySchedule][] 
+  // to ensure TypeScript knows the type of 'sched'.
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    await onUpdateEstablishment({ name: tempName, openingHours: tempHours, workingDays });
+    // Sincroniza workingDays baseado nos dailySchedules para compatibilidade
+    const workingDays = (Object.entries(dailySchedules) as [string, DaySchedule][])
+      .filter(([_, sched]) => sched.isOpen)
+      .map(([id]) => parseInt(id));
+
+    await onUpdateEstablishment({ 
+      name: tempName, 
+      openingHours: tempHours, 
+      workingDays, 
+      dailySchedules 
+    });
     setTimeout(() => setIsSavingProfile(false), 1000);
   };
 
@@ -141,7 +170,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Building2 size={14} className="text-teal-400" /> Perfil do Negócio
         </h3>
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
+        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl">
           <div className="space-y-2">
             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
             <div className="relative">
@@ -154,37 +183,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Horário de Funcionamento (Exibição)</label>
-            <div className="relative">
-              <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
-              <input 
-                value={tempHours} 
-                onChange={(e) => setTempHours(e.target.value)} 
-                placeholder="EX: SEG A SEX, 08H ÀS 20H" 
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold outline-none focus:border-indigo-500 transition-all"
-              />
-            </div>
-          </div>
 
-          <div className="space-y-3 pt-2">
+          <div className="space-y-4">
             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <CalendarDays size={12} className="text-teal-400" /> Dias Disponíveis para Agendamento
+              <CalendarDays size={12} className="text-teal-400" /> Horários por Dia da Semana
             </label>
-            <div className="grid grid-cols-7 gap-1">
-              {DAYS_OF_WEEK.map(day => (
-                <button
-                  key={day.id}
-                  onClick={() => toggleDay(day.id)}
-                  className={`py-3 rounded-xl text-[8px] font-black uppercase transition-all border ${
-                    workingDays.includes(day.id) 
-                      ? 'bg-teal-500 border-teal-400 text-slate-950' 
-                      : 'bg-slate-950 border-slate-800 text-slate-600'
-                  }`}
-                >
-                  {day.label}
-                </button>
-              ))}
+            <div className="space-y-2">
+              {DAYS_OF_WEEK.map(day => {
+                const sched = dailySchedules[day.id] || { isOpen: false, start: "08:00", end: "18:00" };
+                return (
+                  <div key={day.id} className="bg-slate-950/50 border border-slate-800/50 rounded-2xl p-4 transition-all">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                         <button 
+                           onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)}
+                           className={`w-10 h-6 rounded-full relative transition-all ${sched.isOpen ? 'bg-teal-500' : 'bg-slate-800'}`}
+                         >
+                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${sched.isOpen ? 'left-5' : 'left-1'}`} />
+                         </button>
+                         <span className={`text-[10px] font-black uppercase tracking-widest ${sched.isOpen ? 'text-white' : 'text-slate-600'}`}>{day.label}</span>
+                      </div>
+                      {!sched.isOpen && <span className="text-[8px] font-black text-red-500/50 uppercase">Fechado</span>}
+                    </div>
+                    
+                    {sched.isOpen && (
+                      <div className="flex items-center gap-4 animate-in slide-in-from-top-1">
+                        <div className="flex-1 space-y-1">
+                           <p className="text-[7px] font-black text-slate-600 uppercase ml-1">Abertura</p>
+                           <input 
+                             type="time" 
+                             value={sched.start}
+                             onChange={(e) => updateDaySchedule(day.id, 'start', e.target.value)}
+                             className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none focus:border-teal-500"
+                           />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                           <p className="text-[7px] font-black text-slate-600 uppercase ml-1">Fechamento</p>
+                           <input 
+                             type="time" 
+                             value={sched.end}
+                             onChange={(e) => updateDaySchedule(day.id, 'end', e.target.value)}
+                             className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white font-bold outline-none focus:border-teal-500"
+                           />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           
@@ -194,7 +240,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isSavingProfile ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
           >
             {isSavingProfile ? <CheckCircle2 size={18} /> : <Save size={18} />}
-            {isSavingProfile ? 'Alterações Salvas!' : 'Salvar Perfil'}
+            {isSavingProfile ? 'Horários Atualizados!' : 'Salvar Configurações'}
           </button>
         </div>
       </section>
