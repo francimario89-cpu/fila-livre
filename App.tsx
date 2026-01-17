@@ -298,20 +298,53 @@ const App: React.FC = () => {
 
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst) return;
+    
+    // Identificar qual profissional está tentando chamar (se for staff)
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
     const myProId = myPro?.id;
+
     if (specificId) {
+      // Chamada de um item específico (Botão Zap individual)
       const item = queue.find(i => i.id === specificId);
-      const targetProId = item?.professionalId !== 'any' ? item?.professionalId : (myProId || professionals[0]?.id);
-      if (targetProId && currentEst.autoStatusEnabled) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
+      if (!item) return;
+      
+      const targetProId = item.professionalId !== 'any' ? item.professionalId : (myProId || professionals[0]?.id || 'any');
+      
+      if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
+        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
+      }
+      
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { 
+        status: 'serving', 
+        professionalId: targetProId, 
+        timestamp: Date.now() 
+      });
       return;
     }
-    const nextItem = queue.find(i => i.status === 'waiting');
+
+    // Chamada Geral (Botão principal no rodapé)
+    // Se for staff, tenta chamar o próximo atribuído a ele ou 'any'. Se for admin, o próximo global.
+    let nextItem = null;
+    if (userRole === 'staff' && myProId) {
+       nextItem = queue.find(i => i.status === 'waiting' && (i.professionalId === myProId || i.professionalId === 'any'));
+    } else {
+       nextItem = queue.find(i => i.status === 'waiting');
+    }
+
     if (nextItem) {
-      const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id);
-      if (targetProId && currentEst.autoStatusEnabled) await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
+      const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id || 'any');
+      
+      if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
+        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
+      }
+      
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { 
+        status: 'serving', 
+        professionalId: targetProId, 
+        timestamp: Date.now() 
+      });
+    } else {
+      alert("Não há clientes aguardando na lista para serem chamados.");
     }
   };
 
