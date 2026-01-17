@@ -78,7 +78,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* STATUS DO ESTABELECIMENTO - VERSÃO DISCRETA */}
+      {/* STATUS DO ESTABELECIMENTO - DISCRETO */}
       <section className={`rounded-[32px] p-4 border-2 shadow-lg transition-all duration-700 ${
         isTodayClosed ? 'bg-slate-900 border-red-500/30' :
         estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/5' : 
@@ -87,31 +87,31 @@ export const QueueView: React.FC<QueueViewProps> = ({
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-inner ${
+            <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-inner ${
               isTodayClosed || estStatus === 'closed' ? 'bg-red-500/20 text-red-500' :
               estStatus === 'open' ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-amber-500'
             }`}>
-              {isTodayClosed ? <DoorClosed size={24} /> : 
-               estStatus === 'open' ? <div className="relative"><Wifi size={24} className="animate-pulse" /></div> : 
-               estStatus === 'lunch' ? <Coffee size={24} /> : 
-               <DoorClosed size={24} />}
+              {isTodayClosed ? <DoorClosed size={20} /> : 
+               estStatus === 'open' ? <div className="relative"><Wifi size={20} className="animate-pulse" /></div> : 
+               estStatus === 'lunch' ? <Coffee size={20} /> : 
+               <DoorClosed size={20} />}
             </div>
             <div>
-              <h2 className={`text-base font-black uppercase font-orbitron tracking-tight leading-none ${
+              <h2 className={`text-sm font-black uppercase font-orbitron tracking-tight leading-none ${
                 estStatus === 'open' && !isTodayClosed ? 'text-slate-950' : 
                 estStatus === 'lunch' ? 'text-slate-950' : 'text-white'
               }`}>
                 {isTodayClosed ? 'FECHADO HOJE' : 
-                 estStatus === 'open' ? 'ESTAMOS ABERTOS' : 
-                 estStatus === 'lunch' ? 'PAUSA ALMOÇO' : 'LOJA FECHADA'}
+                 estStatus === 'open' ? 'ABERTO' : 
+                 estStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}
               </h2>
-              <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${
+              <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${
                 estStatus === 'open' && !isTodayClosed ? 'text-slate-900/60' : 
                 estStatus === 'lunch' ? 'text-slate-900/60' : 'text-slate-500'
               }`}>
-                {isTodayClosed ? 'VOLTAMOS EM BREVE' :
-                 estStatus === 'open' ? 'ENTRE NA LISTA' :
-                 estStatus === 'lunch' ? 'VOLTAMOS LOGO' : 'FECHADO'}
+                {isTodayClosed ? 'RETORNAMOS EM BREVE' :
+                 estStatus === 'open' ? 'PODE ENTRAR NA LISTA' :
+                 estStatus === 'lunch' ? 'VOLTAMOS JÁ' : 'LOJA FECHADA'}
               </p>
             </div>
           </div>
@@ -163,21 +163,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
-      {/* Restante da UI de Fila */}
-      <div className="grid grid-cols-1 gap-4">
-        {pixKey && (
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl"><QrCode size={22} /></div>
-              <div><h4 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Pague via PIX</h4><p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Sua vaga liberada na hora</p></div>
-            </div>
-            <button onClick={handleCopyPix} className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>
-              {copied ? 'COPIADO!' : 'CHAVE PIX'}
-            </button>
-          </div>
-        )}
-      </div>
-
       {currentTurn && (
         <section className="bg-indigo-600 rounded-[40px] p-8 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
           <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Zap size={120} /></div>
@@ -189,6 +174,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
               <span className="w-1 h-1 bg-white/30 rounded-full"/>
               <span className="text-xs font-black text-white uppercase">{professionals.find(p => p.id === currentTurn.professionalId)?.name}</span>
             </div>
+            
+            {(isAdmin || (isStaff && currentTurn.professionalId === myProId)) && (
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all"><UserX size={20} /></button>
+                <button onClick={() => onFinish?.(currentTurn)} className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2"><CheckCircle2 size={18} /> Finalizar Serviço</button>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -225,7 +217,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                     )}
                     {canAction && (
-                       <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button>
+                       <>
+                          <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-red-600/20 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all" title="Registrar Falta"><UserX size={16} /></button>
+                          <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button>
+                       </>
                     )}
                   </div>
                 </div>

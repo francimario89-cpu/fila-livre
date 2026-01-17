@@ -235,6 +235,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleNoShow = async (itemId: string) => {
+    if (!currentEst) return;
+    if (confirm("Registrar falta para este cliente? Ele será removido do atendimento atual.")) {
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { status: 'completed', missedCount: increment(1) });
+      // Se tiver profissional vinculado e autoStatus ativo, libera ele
+      const item = queue.find(i => i.id === itemId);
+      if (item && item.professionalId !== 'any' && currentEst.autoStatusEnabled) {
+        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", item.professionalId), { status: 'available' });
+      }
+      await deleteDoc(doc(db, "establishments", currentEst.id, "queue", itemId));
+    }
+  };
+
   const handleLeaveQueue = async (estId: string, queueId: string) => {
     if(confirm("Remover do atendimento?")) {
       await deleteDoc(doc(db, "establishments", estId, "queue", queueId));
@@ -264,7 +277,7 @@ const App: React.FC = () => {
         <QueueView 
           queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
-          onNoShow={(id) => { }}
+          onNoShow={handleNoShow}
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={(id) => handleLeaveQueue(currentEst.id, id)}
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
@@ -275,7 +288,7 @@ const App: React.FC = () => {
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={async (c) => true} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-          onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={() => {}} 
+          onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={handleNoShow} 
           onUpdateServices={async (s) => {}} onUpdatePros={async (p) => {}} onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
