@@ -29,7 +29,8 @@ export interface Establishment {
   plan: PlanType;
   trialStartedAt: number; 
   loyaltyEnabled: boolean;
-  autoStatusEnabled?: boolean; // Novo campo para o modo automático
+  loyaltyReward?: string; // Novo campo para o prêmio personalizado
+  autoStatusEnabled?: boolean; 
 }
 
 export interface Professional {

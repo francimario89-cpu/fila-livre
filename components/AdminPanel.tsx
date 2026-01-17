@@ -1,9 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight,
-  // Added Loader2 to fix the error on line 213
-  Loader2
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -52,13 +50,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
-  // Estados de Expansão (Minimizar/Maximizar)
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isModelExpanded, setIsModelExpanded] = useState(false);
+  const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
+  const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
   
   const [tempName, setTempName] = useState(establishment.name);
+  const [tempReward, setTempReward] = useState(establishment.loyaltyReward || 'Corte Grátis');
   const [dailySchedules, setDailySchedules] = useState<Record<number, DaySchedule>>(
     establishment.dailySchedules || {
       1: { isOpen: true, start: "08:00", end: "18:00", hasLunch: true, lunchStart: "12:00", lunchEnd: "13:00" },
@@ -76,6 +76,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newSName, setNewSName] = useState('');
   const [newSPrice, setNewSPrice] = useState('');
   const [newSDuration, setNewSDuration] = useState('30');
+  
   const [isAddingPro, setIsAddingPro] = useState(false);
   const [newProName, setNewProName] = useState('');
   const [newProEmail, setNewProEmail] = useState('');
@@ -86,6 +87,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   useEffect(() => {
     setTempName(establishment.name);
+    if (establishment.loyaltyReward) setTempReward(establishment.loyaltyReward);
     if (establishment.dailySchedules) setDailySchedules(establishment.dailySchedules);
   }, [establishment]);
 
@@ -98,7 +100,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    await onUpdateEstablishment({ name: tempName, dailySchedules });
+    await onUpdateEstablishment({ name: tempName, dailySchedules, loyaltyReward: tempReward });
     setTimeout(() => {
       setIsSavingProfile(false);
       setIsScheduleExpanded(false);
@@ -114,31 +116,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* 0. MODO AUTOMÁTICO - DESTAQUE PRINCIPAL */}
+      {/* 0. CABEÇALHO & AUTOMAÇÃO */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-           <Zap size={14} className="text-teal-400" /> Inteligência de Operação
+           <Store size={14} className="text-teal-400" /> Identidade & Automação
         </h3>
-        <button 
-          onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
-          className={`w-full py-8 rounded-[40px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-2 shadow-2xl ${
-            isAutoMode 
-              ? 'bg-emerald-500 border-emerald-400 text-slate-950' 
-              : 'bg-red-500 border-red-400 text-white'
-          }`}
-        >
-          <div className="flex items-center gap-4">
-             {isAutoMode ? <ToggleRight size={40} /> : <ToggleLeft size={40} />}
-             <div className="text-left">
-               <h4 className="text-lg font-black uppercase tracking-tighter leading-none">
-                 MODO AUTOMÁTICO: {isAutoMode ? 'LIGADO' : 'DESLIGADO'}
-               </h4>
-               <p className="text-[8px] font-black uppercase tracking-widest opacity-80 mt-1">
-                 {isAutoMode ? 'Sincronizado com Agenda de Trabalho' : 'Controle Manual Habilitado'}
-               </p>
-             </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Unidade</label>
+            <input 
+              value={tempName} 
+              onChange={(e) => setTempName(e.target.value.toUpperCase())} 
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all"
+            />
           </div>
-        </button>
+
+          <button 
+            onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
+            className={`w-full py-6 rounded-[32px] border-2 transition-all duration-500 flex flex-col items-center justify-center gap-1 shadow-xl ${
+              isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+               {isAutoMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+               <span className="text-[10px] font-black uppercase tracking-[0.2em]">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'DESLIGADO'}</span>
+            </div>
+            <p className="text-[7px] font-black uppercase opacity-70">O status muda conforme os horários abaixo</p>
+          </button>
+        </div>
       </section>
 
       {/* 1. AGENDA DE TRABALHO */}
@@ -153,27 +158,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          {/* Controles Manuais (Só se Auto estiver OFF) */}
-          {!isAutoMode && (
-             <div className="grid grid-cols-2 gap-3 mb-4 animate-in slide-in-from-top-2">
-                <button onClick={() => onUpdateStatus(estStatus === 'open' ? 'closed' : 'open')} className={`flex flex-col items-center gap-2 py-5 rounded-3xl border-2 transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-                   <Power size={20}/>
-                   <span className="text-[8px] font-black uppercase">{estStatus === 'open' ? 'Aberto' : 'Abrir Manual'}</span>
-                </button>
-                <button onClick={() => onUpdateStatus(estStatus === 'lunch' ? 'open' : 'lunch')} className={`flex flex-col items-center gap-2 py-5 rounded-3xl border-2 transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-                   <Coffee size={20}/>
-                   <span className="text-[8px] font-black uppercase">{estStatus === 'lunch' ? 'Em Almoço' : 'Pausa Almoço'}</span>
-                </button>
-             </div>
-          )}
-
-          {isAutoMode && (
-             <div className="flex items-center gap-4 bg-slate-950 border border-emerald-500/20 p-5 rounded-3xl mb-4">
-                <div className="w-10 h-10 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center animate-pulse"><CheckCircle2 size={24}/></div>
+          {isAutoMode ? (
+             <div className="flex items-center gap-4 bg-slate-950 border border-emerald-500/20 p-5 rounded-3xl mb-2">
+                <div className="w-10 h-10 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center"><CheckCircle2 size={24}/></div>
                 <div>
-                   <p className="text-[10px] text-white font-black uppercase tracking-widest">Status: <span className="text-emerald-400">{estStatus === 'open' ? 'ABERTO' : estStatus === 'lunch' ? 'PAUSA' : 'FECHADO'}</span></p>
-                   <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Gerenciado pela Automação</p>
+                   <p className="text-[10px] text-white font-black uppercase tracking-widest">Operação Automática</p>
+                   <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Status Atual: <span className="text-emerald-400 font-black">{estStatus === 'open' ? 'ABERTO' : estStatus === 'lunch' ? 'PAUSA' : 'FECHADO'}</span></p>
                 </div>
+             </div>
+          ) : (
+             <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-3xl mb-2">
+                <p className="text-[8px] text-amber-500 font-black uppercase tracking-widest text-center leading-relaxed">
+                   Atenção: O Modo Inteligente está desligado. <br/> Ative acima para automatizar o status da loja.
+                </p>
              </div>
           )}
 
@@ -211,13 +208,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                   );
                })}
-               <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all">
-                  {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Agenda
+               <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                  {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Alterações
                </button>
             </div>
-          )}
-          {!isScheduleExpanded && (
-             <p className="text-center text-[8px] text-slate-600 font-black uppercase tracking-widest italic animate-pulse">* Agenda de funcionamento salva e ativa</p>
           )}
         </div>
       </section>
@@ -234,7 +228,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         {isServicesExpanded && (
-          <div className="space-y-3 animate-in fade-in duration-300">
+          <div className="space-y-3 animate-in fade-in">
             {services.map(s => (
               <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between shadow-xl">
                  <div className="flex items-center gap-4">
@@ -253,7 +247,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
                 <div className="flex gap-2">
                    <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Cancelar</button>
-                   <button onClick={() => { if(!newSName) return; onUpdateServices([...services, { id: `srv-${Date.now()}`, name: newSName, price: newSPrice, duration: Number(newSDuration) || 30, establishmentId: establishment.id }]); setIsAddingService(false); setNewSName(''); }} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-600/20">Cadastrar</button>
+                   <button onClick={() => { if(!newSName) return; onUpdateServices([...services, { id: `srv-${Date.now()}`, name: newSName, price: newSPrice, duration: Number(newSDuration) || 30, establishmentId: establishment.id }]); setIsAddingService(false); setNewSName(''); }} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Cadastrar</button>
                 </div>
               </div>
             ) : (
@@ -277,7 +271,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         {isStaffExpanded && (
-          <div className="space-y-3 animate-in fade-in duration-300">
+          <div className="space-y-3 animate-in fade-in">
             {professionals.map(p => (
               <div key={p.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between shadow-xl">
                  <div className="flex items-center gap-4">
@@ -293,7 +287,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <input placeholder="E-MAIL DE ACESSO" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
                 <div className="flex gap-2">
                    <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Cancelar</button>
-                   <button onClick={() => { if(!newProName) return; onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]); setIsAddingPro(false); setNewProName(''); }} className="flex-[2] bg-amber-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-amber-500/20">Cadastrar</button>
+                   <button onClick={() => { if(!newProName) return; onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]); setIsAddingPro(false); setNewProName(''); }} className="flex-[2] bg-amber-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Cadastrar</button>
                 </div>
               </div>
             ) : (
@@ -305,70 +299,91 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 4. MODELO DE ATENDIMENTO */}
+      {/* 4. FIDELIDADE VIP */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <ListOrdered size={14} className="text-indigo-400" /> Modelo de Atendimento
+             <Gift size={14} className="text-amber-500" /> Fidelidade & Regras
            </h3>
-           <button onClick={() => setIsModelExpanded(!isModelExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-indigo-400">
-              {isModelExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           <button onClick={() => setIsLoyaltyExpanded(!isLoyaltyExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-400">
+              {isLoyaltyExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
            </button>
         </div>
 
-        {isModelExpanded && (
-           <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in duration-300">
-              <div className="grid grid-cols-3 gap-2">
-                {[{ id: 'queue', label: 'Só Fila' }, { id: 'appointment', label: 'Só Agenda' }, { id: 'both', label: 'Híbrido' }].map(m => (
-                  <button key={m.id} onClick={() => onSetBookingModel(m.id as BookingModel)} className={`py-4 rounded-2xl text-[8px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-                     {m.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[8px] text-slate-500 font-bold uppercase text-center leading-relaxed">O modelo Híbrido permite que clientes entrem na fila agora ou agendem horários futuros.</p>
-           </div>
+        {isLoyaltyExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 shadow-2xl space-y-6 animate-in fade-in">
+             <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center"><Settings size={20}/></div>
+                   <div><p className="text-[10px] text-white font-black uppercase tracking-widest">Cartão Fidelidade</p><p className="text-[8px] text-slate-500 font-bold uppercase">{loyaltyEnabled ? 'Ativo' : 'Desativado'}</p></div>
+                </div>
+                <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-14 h-8 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}>
+                   <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+             
+             {loyaltyEnabled && (
+               <div className="space-y-3 animate-in slide-in-from-top-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">O que o cliente ganha ao completar 10 selos?</label>
+                  <div className="relative">
+                     <input 
+                       value={tempReward} 
+                       onChange={(e) => setTempReward(e.target.value)} 
+                       placeholder="Ex: Corte Grátis, Cerveja, 50% OFF" 
+                       className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white text-xs font-bold outline-none focus:border-amber-500 transition-all"
+                     />
+                     <button onClick={handleSaveProfile} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-amber-500 rounded-xl text-slate-950 hover:scale-105 active:scale-95 transition-all">
+                        <Save size={14} />
+                     </button>
+                  </div>
+               </div>
+             )}
+          </div>
         )}
       </section>
 
-      {/* 5. FINANCEIRO & FIDELIDADE */}
+      {/* 5. FINANCEIRO & PIX */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <BarChart3 size={14} className="text-emerald-500" /> Faturamento & VIP
-        </h3>
-        <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-           <div className="flex items-center justify-between">
-              <div>
-                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p>
-                 <h4 className="text-3xl font-black text-white font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-              </div>
-              <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all"><FileText size={24}/></button>
-           </div>
-
-           <div className="pt-6 border-t border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center"><Settings size={20}/></div>
-                 <div><p className="text-[10px] text-white font-black uppercase tracking-widest">Fidelidade VIP</p><p className="text-[8px] text-slate-500 font-bold uppercase">{loyaltyEnabled ? 'Sistema Ativo' : 'Sistema Desativado'}</p></div>
-              </div>
-              <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-14 h-8 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}>
-                 <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} />
-              </button>
-           </div>
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <BarChart3 size={14} className="text-emerald-500" /> Faturamento & PIX
+           </h3>
+           <button onClick={() => setIsFinancialExpanded(!isFinancialExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-500">
+              {isFinancialExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
         </div>
+
+        {isFinancialExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+             <div className="flex items-center justify-between">
+                <div>
+                   <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p>
+                   <h4 className="text-3xl font-black text-white font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+                </div>
+                <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20"><FileText size={24}/></button>
+             </div>
+
+             <div className="pt-6 border-t border-white/5 space-y-3">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave PIX (Para pagamento do cliente)</label>
+                <input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Celular, E-mail ou CNPJ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all" />
+             </div>
+          </div>
+        )}
       </section>
 
-      {/* 6. OPERAÇÃO RÁPIDA & TV */}
+      {/* 6. FERRAMENTAS */}
       <section className="space-y-4">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Store size={14} className="text-indigo-400" /> Ferramentas de Painel
+          <Store size={14} className="text-indigo-400" /> Painel & TV
         </h3>
         <div className="grid grid-cols-2 gap-4">
-           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl hover:border-teal-500/30 transition-all">
+           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl">
               <Monitor size={28} className="text-teal-400" />
-              <span className="text-[9px] font-black text-white uppercase tracking-widest">Abrir Painel TV</span>
+              <span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span>
            </button>
-           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
+           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl">
               <UserPlus size={28} className="text-white" />
-              <span className="text-[9px] font-black text-white uppercase tracking-widest">Entrada Manual</span>
+              <span className="text-[9px] font-black text-white uppercase tracking-widest">Manual</span>
            </button>
         </div>
       </section>
@@ -388,7 +403,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                  {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-            <button onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: manualProId, type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center justify-center gap-2"><CheckCircle size={16} /> Confirmar Entrada</button>
+            <button onClick={() => { if(!manualName) return; onManualJoin({ name: manualName, service: manualService, professionalId: manualProId, type: 'walk-in' }); setManualName(''); setIsAddingManual(false); }} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center justify-center gap-2"><CheckCircle size={16} /> Confirmar</button>
           </div>
         </div>
       )}

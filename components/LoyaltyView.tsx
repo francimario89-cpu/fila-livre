@@ -4,9 +4,10 @@ import { Gift, Check, Star, PartyPopper, Trophy, Sparkles, Crown } from 'lucide-
 
 interface LoyaltyViewProps {
   cutsCount: number;
+  reward?: string;
 }
 
-export const LoyaltyView: React.FC<LoyaltyViewProps> = ({ cutsCount }) => {
+export const LoyaltyView: React.FC<LoyaltyViewProps> = ({ cutsCount, reward = 'Corte Grátis' }) => {
   const totalSlots = 10;
   const isDayOfGlory = cutsCount >= 10;
   
@@ -35,7 +36,7 @@ export const LoyaltyView: React.FC<LoyaltyViewProps> = ({ cutsCount }) => {
               DIA DE <span className="text-amber-500">GLÓRIA!</span>
             </h2>
             <p className="text-xl font-black text-teal-400 uppercase tracking-widest">
-              PRÓXIMO CORTE 100% GRÁTIS
+              VOCÊ GANHOU: <span className="text-white">{reward.toUpperCase()}</span>
             </p>
             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.3em] leading-relaxed">
               PARABÉNS! VOCÊ COMPLETOU O CARTÃO. <br/> 
@@ -66,7 +67,7 @@ export const LoyaltyView: React.FC<LoyaltyViewProps> = ({ cutsCount }) => {
           <Gift className="text-amber-500" />
           Clube Fidelidade
         </h2>
-        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Caminho para o Corte Grátis</p>
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Caminho para o seu prêmio</p>
       </header>
 
       <div className="glass-card rounded-[40px] p-8 shadow-2xl relative overflow-hidden group">
@@ -120,7 +121,7 @@ export const LoyaltyView: React.FC<LoyaltyViewProps> = ({ cutsCount }) => {
                 <Sparkles size={18} />
              </div>
              <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                Complete os 10 selos para desbloquear o <span className="text-amber-500 font-black uppercase">Dia de Glória</span> e não pagar nada no seu próximo corte.
+                Complete os 10 selos para ganhar: <span className="text-amber-500 font-black uppercase">{reward}</span>.
              </p>
           </div>
         </div>

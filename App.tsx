@@ -61,7 +61,6 @@ const App: React.FC = () => {
 
   const [newPassword, setNewPassword] = useState('');
   const [linkPhone, setLinkPhone] = useState('');
-  const [linkEmail, setLinkEmail] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
 
@@ -120,10 +119,10 @@ const App: React.FC = () => {
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
-        setProfileMessage({ text: 'Senha alterada!', type: 'success' });
+        setProfileMessage({ text: 'Senha alterada com sucesso!', type: 'success' });
         setNewPassword('');
       }
-    } catch (e) { alert("Sessão expirada."); } finally {
+    } catch (e) { alert("Sessão expirada. Saia e entre de novo."); } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
     }
@@ -131,16 +130,16 @@ const App: React.FC = () => {
 
   const handleLinkPhone = async () => {
     const digits = linkPhone.replace(/\D/g, '');
-    if (digits.length < 10) return alert("Informe o DDD.");
+    if (digits.length < 10) return alert("Informe o DDD (Ex: 11999998888).");
     setIsUpdatingProfile(true);
     try {
       if (auth.currentUser) {
         await updateDoc(doc(db, "users", auth.currentUser.uid), { phone: digits });
         setUserProfile({ ...userProfile, phone: digits });
-        setProfileMessage({ text: 'Celular vinculado!', type: 'success' });
+        setProfileMessage({ text: 'Celular vinculado com sucesso!', type: 'success' });
         setLinkPhone('');
       }
-    } catch (e) { alert("Erro ao vincular."); } finally {
+    } catch (e) { alert("Erro ao vincular celular."); } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
     }
@@ -270,12 +269,12 @@ const App: React.FC = () => {
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'admin' : userRole} establishmentCode={currentEst.id} onBackToDashboard={() => setCurrentEst(null)} loyaltyEnabled={currentEst.loyaltyEnabled}>
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} userRole={userRole} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules}
+          queue={queue} isAdmin={userRole === 'admin'} userRole={userRole} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={handleFinish} onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onLeaveQueue={async (id) => { if(confirm("Remover da fila?")) await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id)); }}
         />
       )}
-      {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} />}
+      {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
@@ -294,15 +293,15 @@ const App: React.FC = () => {
               <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6">
                  {profileMessage.text && <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl text-center text-[10px] font-black uppercase">{profileMessage.text}</div>}
                  <div className="space-y-4">
-                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="NOVA SENHA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-indigo-500" />
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha de Acesso</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-indigo-500" /></div>
                     <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Trocar Senha</button>
                  </div>
                  <div className="pt-6 border-t border-white/5 space-y-4">
-                    <input type="text" value={linkPhone} onChange={e => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "DDD + CELULAR"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-teal-500" />
-                    <button onClick={handleLinkPhone} disabled={isUpdatingProfile} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Vincular Celular</button>
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vincular Celular</label><input type="text" value={linkPhone} onChange={e => setLinkPhone(e.target.value)} placeholder={userProfile?.phone || "DDD + CELULAR"} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none focus:border-teal-500" /></div>
+                    <button onClick={handleLinkPhone} disabled={isUpdatingProfile} className="w-full bg-slate-100 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Salvar Celular</button>
                  </div>
               </section>
-              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-xl shadow-red-500/20">Sair da Conta</button>
+              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-xl">Sair da Conta</button>
            </div>
         </div>
       )}
