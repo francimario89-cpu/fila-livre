@@ -13,7 +13,6 @@ import { BusinessSelect } from './components/BusinessSelect';
 import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
-import { MyQueuesView } from './components/MyQueuesView';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus, BookingModel } from './types';
 
 const playBeep = (type: 'entry' | 'alert' | 'available') => {
@@ -111,7 +110,6 @@ const App: React.FC = () => {
       return;
     }
     
-    // Busca em todas as coleções 'queue' do banco de dados
     const q = query(
       collectionGroup(db, "queue"), 
       where("userEmail", "==", userEmail),
@@ -250,7 +248,6 @@ const App: React.FC = () => {
   if (!isConfigured) return <div className="min-h-screen bg-[#050810] flex items-center justify-center"><Settings className="text-teal-500 animate-spin" /></div>;
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} />;
   
-  // Repassando globalUserQueues para o seletor de negócios
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   return (
@@ -273,7 +270,6 @@ const App: React.FC = () => {
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
         />
       )}
-      {activeTab === 'minhas-filas' && <MyQueuesView userQueues={globalUserQueues} onLeaveQueue={handleLeaveQueue} onSelectEstablishment={(id) => { }} />}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 

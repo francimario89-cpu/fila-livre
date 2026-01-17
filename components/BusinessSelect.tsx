@@ -9,7 +9,7 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } fr
 interface BusinessSelectProps {
   userEmail: string;
   userRole: 'admin' | 'client';
-  userQueues: QueueItem[]; // Novo: recebe as filas ativas globais
+  userQueues: QueueItem[];
   onSelect: (est: Establishment) => void;
   onLogout: () => void;
 }
@@ -28,7 +28,6 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
     loadConnections();
   }, [userEmail, userRole]);
 
-  // Listener em tempo real para status das lojas salvas
   useEffect(() => {
     if (connections.length === 0) return;
 
@@ -124,21 +123,21 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
   const renderStatusBadge = (id: string) => {
     const status = liveStatuses[id] || 'open';
     if (status === 'open') return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg shadow-emerald-500/20">
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 text-slate-950 rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/50">
          <div className="w-1.5 h-1.5 bg-slate-950 rounded-full animate-pulse" />
-         <span className="text-[8px] font-black uppercase tracking-widest">Aberto</span>
+         <span className="text-[9px] font-black uppercase tracking-widest">Aberto</span>
       </div>
     );
     if (status === 'lunch') return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-slate-950 rounded-full shadow-lg shadow-amber-500/20">
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-400 text-slate-950 rounded-full shadow-lg shadow-yellow-500/20 border border-yellow-500/50">
          <Coffee size={10} />
-         <span className="text-[8px] font-black uppercase tracking-widest">Almoço</span>
+         <span className="text-[9px] font-black uppercase tracking-widest">Almoço</span>
       </div>
     );
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg shadow-red-600/20">
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg shadow-red-600/20 border border-red-500/50">
          <DoorClosed size={10} />
-         <span className="text-[8px] font-black uppercase tracking-widest">Fechado</span>
+         <span className="text-[9px] font-black uppercase tracking-widest">Fechado</span>
       </div>
     );
   };
@@ -152,9 +151,9 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         </button>
       </header>
 
-      <div className="space-y-3 mb-10">
+      <div className="space-y-3 mb-10 text-center sm:text-left">
         <h1 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter">
-          {userRole === 'admin' ? 'Painel de Gestão' : 'Minhas Unidades'}
+          {userRole === 'admin' ? 'Painel de Gestão' : 'Unidades Disponíveis'}
         </h1>
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{userEmail}</p>
       </div>
@@ -171,36 +170,48 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
               <div className="space-y-4">
                 <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest ml-4">Minhas Conexões</p>
                 {connections.map(est => {
-                  const isInQueue = userQueues.some(q => q.establishmentId === est.id);
+                  const userInQueue = userQueues.find(q => q.establishmentId === est.id);
+                  const isInQueue = !!userInQueue;
                   
                   return (
                     <div key={est.id} className="relative group">
                       <button 
                         onClick={() => onSelect(est)} 
-                        className={`w-full bg-slate-900/40 border-2 p-7 rounded-[40px] flex items-center justify-between transition-all shadow-xl ${isInQueue ? 'border-teal-500 bg-teal-500/5 shadow-teal-500/10' : 'border-slate-800 group-hover:border-slate-700'}`}
+                        className={`w-full bg-slate-900/40 border-2 p-7 rounded-[40px] flex items-center justify-between transition-all shadow-xl relative overflow-hidden ${isInQueue ? 'border-teal-500 bg-teal-500/10 shadow-teal-500/20' : 'border-slate-800 group-hover:border-slate-700'}`}
                       >
-                        <div className="text-left space-y-2">
-                          <div className="flex items-center gap-3">
-                             <span className="text-white font-black uppercase font-orbitron text-lg block">{est.name}</span>
+                        <div className="text-left space-y-3 relative z-10">
+                          <div className="flex flex-wrap items-center gap-3">
+                             <span className="text-white font-black uppercase font-orbitron text-xl block leading-none">{est.name}</span>
                              {renderStatusBadge(est.id)}
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[8px] text-slate-500 font-bold uppercase">ID: {est.id}</span>
+                          
+                          <div className="flex flex-col gap-2">
+                            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">ID: {est.id}</span>
+                            
                             {isInQueue && (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-teal-500 rounded-full animate-pulse">
-                                <Zap size={8} className="text-slate-950 fill-current" />
-                                <span className="text-[7px] font-black text-slate-950 uppercase tracking-tighter">Você está nesta fila</span>
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-500 text-slate-950 rounded-xl animate-bounce shadow-lg w-fit">
+                                <Zap size={10} className="fill-current" />
+                                <span className="text-[9px] font-black uppercase tracking-tighter">VOCÊ ESTÁ NESTA FILA</span>
                               </div>
                             )}
                           </div>
                         </div>
-                        <ArrowRight size={20} className={`${isInQueue ? 'text-teal-400' : 'text-slate-500'} group-hover:translate-x-1 transition-all`} />
+                        <div className="flex flex-col items-end gap-2 relative z-10">
+                           <ArrowRight size={24} className={`${isInQueue ? 'text-teal-400' : 'text-slate-500'} group-hover:translate-x-1 transition-all`} />
+                           {isInQueue && userInQueue.status === 'serving' && (
+                             <span className="text-[7px] font-black bg-white text-slate-950 px-2 py-0.5 rounded-full uppercase">Sua Vez!</span>
+                           )}
+                        </div>
+                        
+                        {isInQueue && (
+                           <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 blur-3xl -z-0 pointer-events-none" />
+                        )}
                       </button>
                       
                       {userRole === 'client' && (
                         <button 
                           onClick={(e) => handleRemoveConnection(e, est.id)}
-                          className="absolute -top-1 -right-1 p-3 bg-slate-800 border border-white/10 text-red-500 rounded-2xl shadow-lg active:scale-90 transition-all z-10"
+                          className="absolute -top-1 -right-1 p-3 bg-slate-800 border border-white/10 text-red-500 rounded-2xl shadow-lg active:scale-90 transition-all z-20"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -223,7 +234,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                 {userRole === 'admin' && (
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Empresa</label>
-                    <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="EX: BARBEARIA DO JAPA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold uppercase focus:border-teal-500 outline-none" />
+                    <input value={newName} onChange={e => setNewName(e.target.value.toUpperCase())} placeholder="EX: BARBEARIA DO JAPA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white font-bold uppercase focus:border-teal-500 outline-none" />
                   </div>
                 )}
 
