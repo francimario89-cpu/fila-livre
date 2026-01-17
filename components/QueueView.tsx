@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { QueueItem, EstStatus, Professional, Service, BookingModel } from '../types';
-import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check } from 'lucide-react';
+import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
+import { CheckCircle, Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, RefreshCw, Scissors, ArrowRight, CheckCircle2, UserX, Clock, Calendar, QrCode, Copy, Check, AlertCircle } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -16,6 +16,7 @@ interface QueueViewProps {
   bookingModel: BookingModel;
   professionals: Professional[];
   services: Service[];
+  dailySchedules?: Record<number, DaySchedule>;
   onCallNext?: (id?: string) => void;
   onFinish?: (item: QueueItem) => void;
   onNoShow?: (id: string) => void;
@@ -25,7 +26,7 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue
 }) => {
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
   const [copied, setCopied] = useState(false);
@@ -45,6 +46,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const currentTurn = filteredQueue.find(item => item.status === 'serving');
   const waitingList = filteredQueue.filter(item => item.status === 'waiting');
 
+  // Lógica para mostrar o horário de hoje baseado na agenda dinâmica
+  const todaySchedule = useMemo(() => {
+    const today = new Date().getDay();
+    if (dailySchedules && dailySchedules[today]) {
+      return dailySchedules[today];
+    }
+    return null;
+  }, [dailySchedules]);
+
   const handleCopyPix = () => {
     if (!pixKey) return;
     navigator.clipboard.writeText(pixKey);
@@ -60,6 +70,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
     } catch (e) { return isoString; }
   };
 
+  const isTodayClosed = todaySchedule && !todaySchedule.isOpen;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       {/* Filtros de Barbeiro */}
@@ -71,45 +83,57 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Status da Loja */}
-        <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+        {/* Status da Loja Inteligente */}
+        <div className={`p-5 rounded-[32px] border-2 flex flex-col shadow-lg transition-all ${
+          isTodayClosed ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+          estStatus === 'open' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
+          estStatus === 'lunch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 
+          'bg-slate-800/10 border-slate-800 text-slate-600'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/5 rounded-2xl">{estStatus === 'open' ? <CheckCircle size={22} /> : estStatus === 'lunch' ? <Coffee size={22} /> : <DoorClosed size={22} />}</div>
+              <div className="p-2.5 bg-white/5 rounded-2xl">
+                {isTodayClosed ? <UserX size={22} /> : 
+                 estStatus === 'open' ? <CheckCircle size={22} /> : 
+                 estStatus === 'lunch' ? <Coffee size={22} /> : 
+                 <DoorClosed size={22} />}
+              </div>
               <div>
                 <h4 className="text-xs font-black uppercase tracking-widest">
-                  {estStatus === 'open' ? 'Aberto' : estStatus === 'lunch' ? 'Pausa' : 'Fechado'}
+                  {isTodayClosed ? 'Fechado Hoje' :
+                   estStatus === 'open' ? 'Aberto' : 
+                   estStatus === 'lunch' ? 'Pausa' : 'Fechado'}
                 </h4>
-                <div className="flex items-center gap-1.5 mt-0.5 opacity-70">
-                  <Clock size={10} />
-                  <p className="text-[8px] font-bold uppercase">
-                    {openingHours || 'Horário não informado'}
-                  </p>
+                <div className="flex flex-col mt-0.5 opacity-70">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={10} />
+                    <p className="text-[8px] font-bold uppercase">
+                      {isTodayClosed ? 'Dia de Descanso' : 
+                       todaySchedule ? `${todaySchedule.start} às ${todaySchedule.end}` :
+                       openingHours || 'Consultar Horário'}
+                    </p>
+                  </div>
+                  {todaySchedule?.hasLunch && !isTodayClosed && (
+                    <p className="text-[7px] font-black uppercase text-amber-500/80 ml-4">Intervalo: {todaySchedule.lunchStart}-{todaySchedule.lunchEnd}</p>
+                  )}
                 </div>
               </div>
             </div>
-            <div className={`w-3 h-3 rounded-full animate-pulse ${estStatus === 'open' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            <div className={`w-3 h-3 rounded-full animate-pulse ${isTodayClosed ? 'bg-red-500' : estStatus === 'open' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
           </div>
         </div>
 
-        {/* Card de Pagamento PIX Rápido (Somente se houver chave) */}
+        {/* Card de Pagamento PIX Rápido */}
         {pixKey && (
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] flex items-center justify-between shadow-lg group hover:border-teal-500/30 transition-all">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl">
-                <QrCode size={22} />
-              </div>
+              <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl"><QrCode size={22} /></div>
               <div>
                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Pagamento PIX</h4>
-                <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5 truncate max-w-[120px]">
-                  {pixKey}
-                </p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5 truncate max-w-[120px]">{pixKey}</p>
               </div>
             </div>
-            <button 
-              onClick={handleCopyPix}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-teal-400 hover:bg-slate-700'}`}
-            >
+            <button onClick={handleCopyPix} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-teal-400 hover:bg-slate-700'}`}>
               {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? 'Copiado!' : 'Copiar'}
             </button>
@@ -120,9 +144,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* Atendimento Atual */}
       {currentTurn && (
         <section className="bg-indigo-600 rounded-[40px] p-8 shadow-2xl relative overflow-hidden animate-in zoom-in duration-500">
-          <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
-            <Scissors size={120} />
-          </div>
+          <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Scissors size={120} /></div>
           <div className="relative z-10 space-y-5">
             <div className="flex items-center gap-2">
               <span className="bg-white/20 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Em Atendimento</span>
@@ -134,18 +156,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
               <span className="w-1 h-1 bg-white/30 rounded-full"/>
               <span className="text-xs font-black text-white uppercase">{professionals.find(p => p.id === currentTurn.professionalId)?.name}</span>
             </div>
-            
             {(isAdmin || (isStaff && currentTurn.professionalId === myProId)) && (
               <div className="flex gap-2 pt-2">
-                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all">
-                  <UserX size={20} />
-                </button>
-                <button 
-                  onClick={() => onFinish?.(currentTurn)} 
-                  className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl"
-                >
-                  <CheckCircle2 size={18} /> Finalizar Serviço
-                </button>
+                <button onClick={() => onNoShow?.(currentTurn.id)} className="p-4 bg-red-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all"><UserX size={20} /></button>
+                <button onClick={() => onFinish?.(currentTurn)} className="flex-1 bg-white text-indigo-600 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xl"><CheckCircle2 size={18} /> Finalizar Serviço</button>
               </div>
             )}
           </div>
@@ -161,22 +175,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
             const isMyTurn = (isStaff || isAdmin) && (item.professionalId === 'any' || item.professionalId === myProId);
             const canAction = isAdmin || isMyTurn;
             const isAppointment = item.type === 'appointment';
-            
-            // Lógica de visibilidade do horário: Só gestor ou o próprio cliente vê o horário agendado
             const showScheduledInfo = isAppointment && (isAdmin || isStaff || isMe);
 
             return (
               <div key={item.id} className={`bg-slate-900 border ${isMe ? 'border-teal-500/50 bg-teal-500/5 shadow-teal-500/5' : 'border-slate-800'} rounded-[32px] p-6 flex items-center justify-between shadow-lg relative overflow-hidden group transition-all hover:border-slate-700`}>
                 {isAppointment && <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity"><Calendar size={40} /></div>}
-                
                 <div className="flex items-center gap-4 relative z-10">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${
-                    isAppointment 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
-                      : index === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-teal-400'
-                  }`}>
-                    {isAppointment ? <Clock size={18} /> : index + 1}
-                  </div>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${isAppointment ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : index === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-teal-400'}`}>{isAppointment ? <Clock size={18} /> : index + 1}</div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-black text-white text-lg uppercase leading-none">{item.name}</h4>
@@ -184,35 +189,18 @@ export const QueueView: React.FC<QueueViewProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <p className="text-[9px] text-slate-500 font-bold uppercase">{item.service} • {item.professionalId === 'any' ? 'Barbeiro Livre' : professionals.find(p => p.id === item.professionalId)?.name}</p>
-                      
-                      {showScheduledInfo && (
-                        <span className="text-[9px] font-black text-indigo-400 uppercase flex items-center gap-1">
-                          <span className="w-1 h-1 bg-slate-700 rounded-full" /> {formatTime(item.scheduledTime)}
-                        </span>
-                      )}
+                      {showScheduledInfo && <span className="text-[9px] font-black text-indigo-400 uppercase flex items-center gap-1"><span className="w-1 h-1 bg-slate-700 rounded-full" /> {formatTime(item.scheduledTime)}</span>}
                     </div>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3 relative z-10">
                   {canAction || isMe ? (
                     <div className="flex gap-2">
-                       {isAdmin && (
-                         <button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                           <Trash2 size={16} />
-                         </button>
-                       )}
+                       {isAdmin && (<button onClick={() => onLeaveQueue?.(item.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>)}
                        {canAction && (
-                         <>
-                           <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all">
-                             <UserX size={16} />
-                           </button>
-                           <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all">
-                             <Zap size={16} />
-                           </button>
-                         </>
+                         <><button onClick={() => onNoShow?.(item.id)} className="p-3 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><UserX size={16} /></button><button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-3 rounded-xl shadow-lg hover:bg-teal-400 active:scale-90 transition-all"><Zap size={16} /></button></>
                        )}
-                       {isMe && !isAdmin && <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-all">Sair da Fila</button>}
+                       {isMe && !isAdmin && <button onClick={() => onLeaveQueue?.(item.id)} className="text-red-500 text-[8px] font-black uppercase border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-all">Sair</button>}
                     </div>
                   ) : null}
                 </div>
@@ -227,17 +215,17 @@ export const QueueView: React.FC<QueueViewProps> = ({
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
           <div className="flex gap-3">
-            <button onClick={onOpenJoinModal} className="w-16 h-16 bg-slate-100 text-slate-950 rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-slate-950">
-              <UserPlus size={24} />
-            </button>
-            <button onClick={() => onCallNext?.()} className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
-              <BellRing size={20} /> Chamar Próximo
-            </button>
+            <button onClick={onOpenJoinModal} className="w-16 h-16 bg-slate-100 text-slate-950 rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 border-2 border-slate-950"><UserPlus size={24} /></button>
+            <button onClick={() => onCallNext?.()} className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl shadow-indigo-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><BellRing size={20} /> Chamar Próximo</button>
           </div>
         ) : (
-          estStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl shadow-teal-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3">
-            <Zap size={20} /> Entrar na Fila
-          </button>
+          !isTodayClosed && estStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl shadow-teal-500/20 uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={20} /> Entrar na Fila</button>
+        )}
+        {isTodayClosed && userRole === 'client' && (
+           <div className="bg-red-500 text-white p-6 rounded-[32px] flex items-center justify-center gap-3 shadow-2xl shadow-red-500/20 border-2 border-red-400/30 animate-pulse">
+              <AlertCircle size={20} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Estabelecimento Fechado Hoje</span>
+           </div>
         )}
       </div>
     </div>

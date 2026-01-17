@@ -50,6 +50,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   
   const [tempName, setTempName] = useState(establishment.name);
   const [tempHours, setTempHours] = useState(establishment.openingHours || '');
@@ -110,13 +111,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }, 800);
   };
 
-  // Fix: Added handleUpdateServiceField to handle service field changes
   const handleUpdateServiceField = (id: string, field: keyof Service, value: string) => {
     const updated = services.map(s => s.id === id ? { ...s, [field]: field === 'duration' ? Number(value) : value } : s);
     onUpdateServices(updated);
   };
 
-  // Fix: Added handleUpdateProEmail to handle professional email changes
   const handleUpdateProEmail = (id: string, email: string) => {
     const updated = professionals.map(p => p.id === id ? { ...p, email: email.toLowerCase() } : p);
     onUpdatePros(updated);
@@ -161,7 +160,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                </button>
             </div>
 
-            {/* Visualização Minimizada */}
             {!isScheduleExpanded && (
               <div className="flex flex-wrap gap-1.5">
                 {DAYS_OF_WEEK.map(day => (
@@ -172,7 +170,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             )}
 
-            {/* Visualização Maximizada (Editor Detalhado) */}
             {isScheduleExpanded && (
               <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
                 {DAYS_OF_WEEK.map(day => {
@@ -238,8 +235,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             disabled={isSavingProfile}
             className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${isSavingProfile ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
           >
-            {isSavingProfile ? <CheckCircle2 size={18} /> : (isScheduleExpanded ? <><Minimize2 size={18} /> Concluir e Minimizar</> : <Save size={18} />)}
-            {!isSavingProfile && !isScheduleExpanded && 'Salvar Configurações'}
+            {isSavingProfile ? <CheckCircle2 size={18} /> : (isScheduleExpanded ? <><Minimize2 size={18} /> Concluir Agenda</> : <Save size={18} />)}
+            {!isSavingProfile && !isScheduleExpanded && 'Salvar Alterações'}
           </button>
         </div>
       </section>
@@ -265,7 +262,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
               <div className="flex gap-2">
-                <button title="Faltou / No-show" onClick={(e) => { e.stopPropagation(); onNoShow(serving.id); }} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                <button title="Faltou" onClick={(e) => { e.stopPropagation(); onNoShow(serving.id); }} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
                   <UserX size={16} />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); onFinish(serving); }} className="bg-teal-500 text-slate-950 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-teal-500/10 active:scale-95 transition-all flex items-center gap-2">
@@ -345,47 +342,88 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* 4. GESTÃO DE SERVIÇOS */}
+      {/* 4. GESTÃO DE SERVIÇOS - COM MAXIMIZAR/MINIMIZAR */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <Scissors size={14} className="text-indigo-400" /> Catálogo de Serviços
           </h3>
-        </div>
-        <div className="grid grid-cols-1 gap-3">
-          {services.map(s => (
-            <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 group shadow-xl transition-all hover:border-indigo-500/20">
-               <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center"><Scissors size={20} /></div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-tight">{s.name}</h4>
-                 </div>
-                 <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="p-2 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-               </div>
-               <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="space-y-1.5">
-                    <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Preço Sugerido</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-500">R$</span>
-                      <input type="text" value={s.price} onChange={(e) => handleUpdateServiceField(s.id, 'price', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-3 text-[10px] font-black text-white outline-none focus:border-emerald-500 transition-all" />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Duração</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={12} />
-                      <input type="number" value={s.duration} onChange={(e) => handleUpdateServiceField(s.id, 'duration', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-12 text-[10px] font-black text-white outline-none focus:border-indigo-500 transition-all" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-600 uppercase">Min</span>
-                    </div>
-                  </div>
-               </div>
-            </div>
-          ))}
-          <button onClick={() => setIsAddingService(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[40px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
-             <Plus size={24} />
-             <span className="text-[9px] font-black uppercase tracking-widest">Novo Serviço</span>
+          <button 
+            onClick={() => setIsServicesExpanded(!isServicesExpanded)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl text-[8px] font-black uppercase text-indigo-400 hover:bg-slate-700 transition-all"
+          >
+            {isServicesExpanded ? <><Minimize2 size={12}/> Minimizar</> : <><Maximize2 size={12}/> Maximizar Catalogo</>}
           </button>
         </div>
+
+        {!isServicesExpanded && services.length > 0 && (
+           <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex flex-wrap gap-2">
+              <div className="w-full mb-2"><span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{services.length} Serviços Cadastrados</span></div>
+              {services.map(s => (
+                <span key={s.id} className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-[8px] font-black text-slate-400 uppercase">{s.name}</span>
+              ))}
+           </div>
+        )}
+
+        {isServicesExpanded && (
+          <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-top-2 duration-300">
+            {services.map(s => (
+              <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex flex-col gap-4 group shadow-xl transition-all hover:border-indigo-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center"><Scissors size={20} /></div>
+                      <h4 className="text-sm font-black text-white uppercase tracking-tight">{s.name}</h4>
+                  </div>
+                  <button onClick={() => onUpdateServices(services.filter(x => x.id !== s.id))} className="p-2 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Preço Sugerido</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-emerald-500">R$</span>
+                        <input type="text" value={s.price} onChange={(e) => handleUpdateServiceField(s.id, 'price', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-3 text-[10px] font-black text-white outline-none focus:border-emerald-500 transition-all" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Duração</label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={12} />
+                        <input type="number" value={s.duration} onChange={(e) => handleUpdateServiceField(s.id, 'duration', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-12 text-[10px] font-black text-white outline-none focus:border-indigo-500 transition-all" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-600 uppercase">Min</span>
+                      </div>
+                    </div>
+                </div>
+              </div>
+            ))}
+            {isAddingService ? (
+              <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
+                <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                <div className="grid grid-cols-2 gap-4">
+                  <input placeholder="PREÇO" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                  <input placeholder="MINUTOS" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                </div>
+                <div className="flex gap-2">
+                   <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
+                   <button 
+                    onClick={() => {
+                      if(!newSName || !newSPrice) return;
+                      onUpdateServices([...services, { id: `srv-${Date.now()}`, name: newSName, price: newSPrice, duration: Number(newSDuration) || 30, establishmentId: establishment.id }]);
+                      setNewSName(''); setNewSPrice(''); setIsAddingService(false);
+                    }} 
+                    className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
+                   >
+                     Cadastrar Serviço
+                   </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setIsAddingService(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
+                <Plus size={24} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Novo Serviço</span>
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 5. GESTÃO DE PROFISSIONAIS */}
@@ -409,10 +447,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
           ))}
-          <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[40px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
-             <Plus size={24} />
-             <span className="text-[9px] font-black uppercase tracking-widest">Novo Barbeiro</span>
-          </button>
+          {isAddingPro ? (
+            <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 animate-in slide-in-from-bottom-4">
+              <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+              <input placeholder="E-MAIL" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+              <div className="flex gap-2">
+                <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Voltar</button>
+                <button 
+                  onClick={() => {
+                    if(!newProName) return;
+                    onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]);
+                    setNewProName(''); setNewProEmail(''); setIsAddingPro(false);
+                  }}
+                  className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20"
+                >
+                  Cadastrar Barbeiro
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex flex-col items-center gap-2">
+              <Plus size={24} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Novo Barbeiro</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -427,6 +485,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button key={m.id} onClick={() => onSetBookingModel(m.id as BookingModel)} className={`py-3 rounded-xl text-[7px] font-black uppercase border transition-all ${bookingModel === m.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>{m.label}</button>
               ))}
             </div>
+          </div>
+          <div className="p-8 flex items-center justify-between">
+             <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl"><Settings size={18} /></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Fidelidade VIP</span>
+                  <span className="text-[7px] font-bold text-slate-500 uppercase mt-1.5">{loyaltyEnabled ? 'Ativo' : 'Desativado'}</span>
+                </div>
+             </div>
+             <button onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)} className={`w-16 h-9 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-emerald-500' : 'bg-slate-800'}`}>
+                <div className={`absolute top-1 w-7 h-7 bg-white rounded-full shadow-lg transition-all ${loyaltyEnabled ? 'left-8' : 'left-1'}`} />
+             </button>
           </div>
         </div>
       </section>

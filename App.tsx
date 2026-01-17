@@ -397,7 +397,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'fila' && (
             <QueueView 
-              queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myOnDutyPro?.id} currentUserEmail={userEmail} estStatus={currentEst.status} openingHours={currentEst.openingHours} pixKey={currentEst.pixKey} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} 
+              queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myOnDutyPro?.id} currentUserEmail={userEmail} estStatus={currentEst.status} openingHours={currentEst.openingHours} pixKey={currentEst.pixKey} bookingModel={currentEst.bookingModel || 'both'} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} onCallNext={handleCallNext} onFinish={handleFinish} onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} 
               onLeaveQueue={(id) => { const item = queue.find(i => i.id === id); if(confirm(`Remover "${item?.name}" da fila?`)) handleRemoveFromQueue(id, item?.userEmail); }}
             />
           )}
