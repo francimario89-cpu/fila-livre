@@ -50,7 +50,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isAddingManual, setIsAddingManual] = useState(false);
   
-  const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(true);
   const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isModelExpanded, setIsModelExpanded] = useState(false);
@@ -103,14 +103,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     await onUpdateEstablishment({ name: tempName, dailySchedules, loyaltyReward: tempReward });
     setTimeout(() => {
       setIsSavingProfile(false);
-      setIsScheduleExpanded(false);
     }, 800);
   };
 
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
-  const servingList = useMemo(() => queue.filter(i => i.status === 'serving'), [queue]);
-  const nextInLine = useMemo(() => queue.find(i => i.status === 'waiting'), [queue]);
-
   const isAutoMode = establishment.autoStatusEnabled || false;
 
   return (
@@ -141,41 +137,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                {isAutoMode ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
                <span className="text-[10px] font-black uppercase tracking-[0.2em]">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'DESLIGADO'}</span>
             </div>
-            <p className="text-[7px] font-black uppercase opacity-70">O status muda conforme os horários abaixo</p>
+            <p className="text-[7px] font-black uppercase opacity-70">Sincroniza automaticamente com seus horários</p>
           </button>
         </div>
       </section>
 
-      {/* 1. AGENDA DE TRABALHO */}
+      {/* 1. AGENDA DE TRABALHO + CONTROLE MANUAL */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
              <CalendarDays size={14} className="text-teal-400" /> Agenda de Trabalho
            </h3>
-           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
+           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 hover:bg-slate-800 transition-all">
               {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
            </button>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl">
-          {isAutoMode ? (
-             <div className="flex items-center gap-4 bg-slate-950 border border-emerald-500/20 p-5 rounded-3xl mb-2">
-                <div className="w-10 h-10 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center"><CheckCircle2 size={24}/></div>
-                <div>
-                   <p className="text-[10px] text-white font-black uppercase tracking-widest">Operação Automática</p>
-                   <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Status Atual: <span className="text-emerald-400 font-black">{estStatus === 'open' ? 'ABERTO' : estStatus === 'lunch' ? 'PAUSA' : 'FECHADO'}</span></p>
-                </div>
+          {/* BOTÕES DE CONTROLE MANUAL - NOVO PEDIDO */}
+          <div className="space-y-3">
+             <div className="flex items-center gap-2 mb-2 ml-1">
+                <Power size={12} className="text-teal-400" />
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Controle Manual de Status</label>
              </div>
-          ) : (
-             <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-3xl mb-2">
-                <p className="text-[8px] text-amber-500 font-black uppercase tracking-widest text-center leading-relaxed">
-                   Atenção: O Modo Inteligente está desligado. <br/> Ative acima para automatizar o status da loja.
-                </p>
+             <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => onUpdateStatus('open')} 
+                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                >
+                   <CheckCircle2 size={18} />
+                   <span className="text-[8px] font-black uppercase">Abrir</span>
+                </button>
+                <button 
+                  onClick={() => onUpdateStatus('lunch')} 
+                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                >
+                   <Coffee size={18} />
+                   <span className="text-[8px] font-black uppercase">Almoço</span>
+                </button>
+                <button 
+                  onClick={() => onUpdateStatus('closed')} 
+                  className={`flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
+                >
+                   <DoorClosed size={18} />
+                   <span className="text-[8px] font-black uppercase">Fechar</span>
+                </button>
              </div>
-          )}
+             {isAutoMode && (
+               <p className="text-[7px] text-emerald-500/60 font-black uppercase tracking-widest text-center mt-2 italic">
+                 * O Modo Inteligente pode alterar o status automaticamente em instantes.
+               </p>
+             )}
+          </div>
+
+          <div className="h-px bg-white/5 w-full" />
 
           {isScheduleExpanded && (
             <div className="space-y-4 animate-in fade-in duration-300">
+               <div className="flex items-center gap-2 mb-2 ml-1">
+                  <Clock size={12} className="text-slate-500" />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Configurar Horários Semanais</label>
+               </div>
                {DAYS_OF_WEEK.map(day => {
                   const sched = dailySchedules[day.id];
                   return (
@@ -213,6 +235,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                </button>
             </div>
           )}
+          {!isScheduleExpanded && <p className="text-center text-[8px] text-slate-600 font-black uppercase tracking-widest italic animate-pulse">* Clique em Maximizar para editar horários semanais</p>}
         </div>
       </section>
 
@@ -360,7 +383,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p>
                    <h4 className="text-3xl font-black text-white font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
                 </div>
-                <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20"><FileText size={24}/></button>
+                <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all"><FileText size={24}/></button>
              </div>
 
              <div className="pt-6 border-t border-white/5 space-y-3">
@@ -377,11 +400,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <Store size={14} className="text-indigo-400" /> Painel & TV
         </h3>
         <div className="grid grid-cols-2 gap-4">
-           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl">
+           <button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl hover:border-teal-500/30 transition-all">
               <Monitor size={28} className="text-teal-400" />
               <span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span>
            </button>
-           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl">
+           <button onClick={() => setIsAddingManual(true)} className="bg-indigo-600 p-8 rounded-[40px] flex flex-col items-center gap-3 shadow-xl active:scale-95 transition-all">
               <UserPlus size={28} className="text-white" />
               <span className="text-[9px] font-black text-white uppercase tracking-widest">Manual</span>
            </button>
