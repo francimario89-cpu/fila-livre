@@ -18,31 +18,43 @@ import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserPro
 const playBeep = (type: 'entry' | 'alert' | 'available') => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
     
-    if (type === 'entry') {
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'available') {
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.3);
+    if (type === 'alert') {
+      // Som Dinâmico: Dois bips em frequência crescente
+      const playTone = (freq: number, start: number, duration: number) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + start + duration);
+        osc.start(audioCtx.currentTime + start);
+        osc.stop(audioCtx.currentTime + start + duration);
+      };
+      playTone(440, 0, 0.2); // Nota Lá (grave)
+      playTone(880, 0.25, 0.3); // Nota Lá (agudo)
     } else {
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
-      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.5);
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      if (type === 'entry') {
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.1);
+      } else if (type === 'available') {
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.3);
+      }
     }
   } catch (e) {}
 };
@@ -109,9 +121,16 @@ const App: React.FC = () => {
     prevQueueLength.current = queue.length;
 
     if (userRole === 'client') {
+      const servingProIds = queue
+        .filter(item => item.status === 'serving')
+        .map(item => item.professionalId);
+
       professionals.forEach(pro => {
         const prevStatus = prevProStatuses.current[pro.id];
-        if (pro.status === 'available' && prevStatus && prevStatus !== 'available') {
+        const isTrulyAvailable = pro.status === 'available' && !servingProIds.includes(pro.id);
+        const wasTrulyAvailable = prevStatus === 'available';
+
+        if (isTrulyAvailable && !wasTrulyAvailable) {
           setAvailabilityAlert(`Cadeira do(a) ${pro.name} disponível!`);
           playBeep('available');
           setTimeout(() => setAvailabilityAlert(null), 8000);
@@ -122,9 +141,15 @@ const App: React.FC = () => {
       const waitingList = queue.filter(i => i.status === 'waiting');
       const myItem = waitingList.find(i => i.userEmail === userEmail);
       const firstWaiting = waitingList[0];
+      
+      // ALERTA DINÂMICO DE PRÓXIMO DA FILA
       if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
         if (!notifiedNearCalling.current) {
           playBeep('alert');
+          if (navigator.vibrate) {
+            // Padrão de vibração dinâmico: vibra, para, vibra
+            navigator.vibrate([200, 100, 200]);
+          }
           notifiedNearCalling.current = true;
         }
       } else {

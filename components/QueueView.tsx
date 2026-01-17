@@ -33,17 +33,18 @@ export const QueueView: React.FC<QueueViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
 
-  // Lógica inteligente: Só lista no banner se status for 'available' E não estiver com ninguém no 'serving'
-  const availableProsNames = useMemo(() => {
+  // Lógica de Disponibilidade Real: Status Livre E não está atendendo ninguém
+  const availableProsList = useMemo(() => {
     const servingProIds = queue
       .filter(item => item.status === 'serving')
       .map(item => item.professionalId);
 
-    return professionals
-      .filter(p => p.status === 'available' && !servingProIds.includes(p.id))
-      .map(p => p.name)
-      .join(', ');
+    return professionals.filter(p => p.status === 'available' && !servingProIds.includes(p.id));
   }, [professionals, queue]);
+
+  const availableProsNames = useMemo(() => {
+    return availableProsList.map(p => p.name).join(', ');
+  }, [availableProsList]);
 
   const filteredQueue = useMemo(() => {
     let list = [...queue];
@@ -78,16 +79,16 @@ export const QueueView: React.FC<QueueViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* AVISO GLOBAL DE DISPONIBILIDADE COM NOMES - AGORA 100% DINÂMICO COM ATENDIMENTOS */}
-      {availableProsNames.length > 0 && estStatus === 'open' && (
-        <div className="bg-amber-400 border-2 border-amber-300 p-6 rounded-[40px] shadow-lg shadow-amber-500/10 flex items-center gap-5 animate-bounce-subtle">
+      {/* BANNER DE DISPONIBILIDADE - SINCRO TOTAL */}
+      {availableProsList.length > 0 && estStatus === 'open' && (
+        <div className="bg-amber-400 border-2 border-amber-300 p-6 rounded-[40px] shadow-lg shadow-amber-500/20 flex items-center gap-5 animate-bounce-subtle">
            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shrink-0">
               <Megaphone size={24} />
            </div>
            <div className="flex-1">
               <p className="text-[11px] font-black text-slate-950 uppercase tracking-tighter leading-none">Vaga Aberta!</p>
               <p className="text-sm font-black text-slate-900 uppercase tracking-widest leading-tight mt-1">
-                {availableProsNames} {availableProsNames.includes(',') ? 'estão disponíveis' : 'está disponível'} agora!
+                {availableProsNames} {availableProsList.length > 1 ? 'estão disponíveis' : 'está disponível'} agora!
               </p>
            </div>
            <Sparkles size={22} className="text-slate-900 opacity-30 shrink-0" />
@@ -98,7 +99,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
          <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-500 border border-slate-800'}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => {
-           const isAvailable = pro.status === 'available';
+           // Um profissional está visualmente "disponível" no filtro se status for available E ele não estiver ocupado
+           const isTrulyFree = pro.status === 'available' && !queue.some(i => i.status === 'serving' && i.professionalId === pro.id);
+           
            return (
              <button 
                key={pro.id} 
@@ -106,13 +109,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
                className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all relative border ${
                  filterPro === pro.id 
                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 border-amber-400' 
-                 : isAvailable 
+                 : isTrulyFree 
                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                    : 'bg-slate-900 text-slate-500 border-slate-800'
                }`}
              >
                {pro.name}
-               {isAvailable && (
+               {isTrulyFree && (
                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
