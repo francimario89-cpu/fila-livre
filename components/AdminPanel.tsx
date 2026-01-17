@@ -443,7 +443,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           )}
         </div>
 
-        {/* Visão Minimizada (Mostra sempre se len <= 2 ou se isStaffExpanded for false) */}
+        {/* Visão Minimizada (Mostra apenas se len > 2 E não estiver expandido) */}
         {(!isStaffExpanded && professionals.length > 2) ? (
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] shadow-xl flex items-center justify-between">
              <div className="flex -space-x-3 overflow-hidden">
