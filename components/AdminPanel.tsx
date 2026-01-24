@@ -51,7 +51,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isIdentityExpanded, setIsIdentityExpanded] = useState(false);
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
-  const [isServicesExpanded, setIsServicesExpanded] = useState(true);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(false);
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
@@ -191,7 +191,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       placeholder="EX: UM CORTE GRÁTIS" 
                       className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-amber-500 transition-all" 
                     />
-                    <p className="text-[7px] text-slate-600 font-bold uppercase ml-1 tracking-widest">O prêmio é liberado após 10 atendimentos.</p>
                   </div>
                   <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-amber-500 text-slate-950 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
                      {isSavingProfile ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Atualizar Prêmio
@@ -202,7 +201,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* 0. IDENTIDADE DA UNIDADE */}
+      {/* IDENTIDADE DA UNIDADE */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -224,7 +223,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="space-y-2 pt-2 border-t border-white/5">
                 <div className="flex items-center gap-2 mb-1">
                   <Fingerprint size={12} className="text-teal-500" />
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Alterar Código de Acesso</label>
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Código de Acesso</label>
                 </div>
                 <div className="flex gap-2">
                   <input value={tempId} onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none font-orbitron" />
@@ -234,16 +233,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
             </div>
-
-            <button onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })} className={`w-full py-2.5 rounded-[32px] border-2 transition-all flex items-center justify-center gap-2 shadow-xl ${isAutoMode ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-red-500/10 border-red-500/40 text-red-500'}`}>
-               {isAutoMode ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-               <span className="text-[9px] font-black uppercase tracking-widest">MODO INTELIGENTE: {isAutoMode ? 'ATIVO' : 'OFF'}</span>
-            </button>
           </div>
         )}
       </section>
 
-      {/* GESTÃO DE SERVIÇOS */}
+      {/* GESTÃO DE SERVIÇOS - MELHORADO: OCULTA TUDO AO MINIMIZAR */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -306,17 +300,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center"><UserCircle size={24}/></div>
-                       <div><h4 className="text-sm font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">{p.email || 'Sem e-mail vinculado'}</p></div>
+                       <div><h4 className="text-sm font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">{p.email || 'Sem e-mail'}</p></div>
                     </div>
                     <button onClick={() => { if(confirm("Deseja excluir este profissional?")) onUpdatePros(professionals.filter(x => x.id !== p.id)) }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
                        <Trash2 size={20}/>
                     </button>
-                 </div>
-                 
-                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
-                    <button onClick={() => updateProStatus(p.id, 'available')} className={`py-1.5 rounded-lg text-[7px] font-black uppercase border transition-all ${p.status === 'available' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>Disponível</button>
-                    <button onClick={() => updateProStatus(p.id, 'lunch')} className={`py-1.5 rounded-lg text-[7px] font-black uppercase border transition-all ${p.status === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>Almoço</button>
-                    <button onClick={() => updateProStatus(p.id, 'absent')} className={`py-1.5 rounded-lg text-[7px] font-black uppercase border transition-all ${p.status === 'absent' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>Ausente</button>
                  </div>
               </div>
             ))}
@@ -361,32 +349,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={12} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
                   <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={12} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
                </div>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t border-white/5">
-               {DAYS_OF_WEEK.map(day => {
-                  const sched = dailySchedules[day.id];
-                  return (
-                    <div key={day.id} className="bg-slate-950 p-5 rounded-[32px] border border-slate-800 space-y-4">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <button onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)} className={`w-10 h-6 rounded-full relative transition-all ${sched.isOpen ? 'bg-teal-500' : 'bg-slate-800'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${sched.isOpen ? 'left-5' : 'left-1'}`} /></button>
-                             <span className="text-[10px] font-black text-white uppercase">{day.label}</span>
-                          </div>
-                          {sched.isOpen && (<button onClick={() => updateDaySchedule(day.id, 'hasLunch', !sched.hasLunch)} className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border ${sched.hasLunch ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}><Coffee size={10} className="inline mr-1"/> Almoço</button>)}
-                       </div>
-                       {sched.isOpen && (
-                         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Abertura</p><input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
-                            <div className="space-y-1"><p className="text-[7px] font-black text-slate-600 uppercase ml-1">Fechamento</p><input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-[10px] text-white outline-none"/></div>
-                         </div>
-                       )}
-                    </div>
-                  );
-               })}
-               <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                  {isSavingProfile ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Salvar Alterações
-               </button>
             </div>
           </div>
         )}
