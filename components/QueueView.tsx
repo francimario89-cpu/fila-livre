@@ -12,6 +12,7 @@ interface QueueViewProps {
   currentUserEmail?: string;
   establishmentName: string;
   estStatus: EstStatus;
+  autoStatusEnabled?: boolean;
   openingHours?: string;
   pixKey?: string;
   bookingModel?: BookingModel;
@@ -28,11 +29,36 @@ interface QueueViewProps {
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, openingHours, pixKey, professionals, services, dailySchedules, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
 }) => {
   const [filterPro, setFilterPro] = useState<'all' | string>('all');
-  const [copied, setCopied] = useState(false);
-  const [isChangingPro, setIsChangingPro] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentDaySchedule = useMemo(() => {
+    const today = now.getDay();
+    return dailySchedules ? dailySchedules[today] : null;
+  }, [dailySchedules, now]);
+
+  // Lógica de Status: Se autoStatusEnabled for false, manda o estStatus (manual).
+  // Se for true, calcula baseado no horário.
+  const displayStatus = useMemo(() => {
+    if (!autoStatusEnabled) return estStatus;
+    if (!currentDaySchedule || !currentDaySchedule.isOpen) return 'closed' as EstStatus;
+
+    const currentTimeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const { start, end, hasLunch, lunchStart, lunchEnd } = currentDaySchedule;
+
+    if (currentTimeStr < start || currentTimeStr >= end) return 'closed' as EstStatus;
+    if (hasLunch && lunchStart && lunchEnd) {
+      if (currentTimeStr >= lunchStart && currentTimeStr < lunchEnd) return 'lunch' as EstStatus;
+    }
+    return 'open' as EstStatus;
+  }, [autoStatusEnabled, estStatus, currentDaySchedule, now]);
 
   const availableProsList = useMemo(() => {
     const servingProIds = queue
@@ -64,21 +90,12 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
   const waitingList = filteredQueue.filter(item => item.status === 'waiting');
 
-  const todaySchedule = useMemo(() => {
-    const today = new Date().getDay();
-    if (dailySchedules && dailySchedules[today]) return dailySchedules[today];
-    return null;
-  }, [dailySchedules]);
-
-  const isTodayClosed = todaySchedule && !todaySchedule.isOpen;
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
-      {/* NOME DO ESTABELECIMENTO NO TOPO DA FILA */}
       <header className="text-center py-4 space-y-2">
          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <div className={`w-1.5 h-1.5 rounded-full ${displayStatus === 'open' ? 'bg-teal-500 animate-pulse' : 'bg-red-500'}`} />
             <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">Unidade Selecionada</span>
          </div>
          <h1 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter leading-none neon-text">
@@ -90,48 +107,47 @@ export const QueueView: React.FC<QueueViewProps> = ({
          </div>
       </header>
       
-      {/* STATUS DO ESTABELECIMENTO */}
       <section className={`rounded-[32px] p-4 border-2 shadow-lg transition-all duration-700 ${
-        isTodayClosed ? 'bg-slate-900 border-red-500/30' :
-        estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/5' : 
-        estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 shadow-amber-500/5' : 
+        displayStatus === 'open' ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/5' : 
+        displayStatus === 'lunch' ? 'bg-amber-500 border-amber-400 shadow-amber-500/5' : 
         'bg-slate-900 border-red-500/50 shadow-red-500/5'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-inner ${
-              isTodayClosed || estStatus === 'closed' ? 'bg-red-500/20 text-red-500' :
-              estStatus === 'open' ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-amber-500'
+              displayStatus === 'closed' ? 'bg-red-500/20 text-red-500' :
+              displayStatus === 'open' ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-amber-500'
             }`}>
-              {isTodayClosed ? <DoorClosed size={20} /> : 
-               estStatus === 'open' ? <div className="relative"><Wifi size={20} className="animate-pulse" /></div> : 
-               estStatus === 'lunch' ? <Coffee size={20} /> : 
+              {displayStatus === 'open' ? <div className="relative"><Wifi size={20} className="animate-pulse" /></div> : 
+               displayStatus === 'lunch' ? <Coffee size={20} /> : 
                <DoorClosed size={20} />}
             </div>
             <div>
               <h2 className={`text-sm font-black uppercase font-orbitron tracking-tight leading-none ${
-                estStatus === 'open' && !isTodayClosed ? 'text-slate-950' : 
-                estStatus === 'lunch' ? 'text-slate-950' : 'text-white'
+                displayStatus === 'open' ? 'text-slate-950' : 
+                displayStatus === 'lunch' ? 'text-slate-950' : 'text-white'
               }`}>
-                {isTodayClosed ? 'FECHADO HOJE' : 
-                 estStatus === 'open' ? 'ABERTO' : 
-                 estStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}
+                {displayStatus === 'open' ? 'ABERTO' : 
+                 displayStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}
               </h2>
               <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${
-                estStatus === 'open' && !isTodayClosed ? 'text-slate-900/60' : 
-                estStatus === 'lunch' ? 'text-slate-900/60' : 'text-slate-500'
+                displayStatus === 'open' ? 'text-slate-900/60' : 
+                displayStatus === 'lunch' ? 'text-slate-900/60' : 'text-slate-500'
               }`}>
-                {isTodayClosed ? 'RETORNAMOS EM BREVE' :
-                 estStatus === 'open' ? 'PODE ENTRAR NA LISTA' :
-                 estStatus === 'lunch' ? 'VOLTAMOS JÁ' : 'LOJA FECHADA'}
+                {displayStatus === 'open' ? 'PODE ENTRAR NA LISTA' :
+                 displayStatus === 'lunch' ? 'VOLTAMOS JÁ' : 'LOJA FECHADA'}
               </p>
             </div>
           </div>
+          {autoStatusEnabled && (
+             <div className="bg-slate-950/20 px-3 py-1 rounded-full border border-white/5">
+                <span className="text-[7px] font-black uppercase tracking-widest text-slate-100/40">Modo Automático</span>
+             </div>
+          )}
         </div>
       </section>
 
-      {/* BANNER DE VAGA DISPONÍVEL */}
-      {availableProsList.length > 0 && estStatus === 'open' && !isTodayClosed && (
+      {availableProsList.length > 0 && displayStatus === 'open' && (
         <div className="bg-yellow-400 p-6 rounded-[32px] shadow-2xl shadow-yellow-500/20 flex items-center gap-4 animate-in slide-in-from-top-4 border-2 border-slate-950">
            <div className="w-12 h-12 bg-slate-950 text-yellow-400 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
               <Megaphone size={24} className="animate-bounce" />
@@ -146,7 +162,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       )}
 
-      {/* Filtros de Atendentes */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
          <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-900 text-slate-500 border border-slate-800'}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => {
@@ -175,7 +190,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
          })}
       </div>
 
-      {/* SEÇÃO EM ATENDIMENTO */}
       {servingList.length > 0 && (
         <section className="space-y-4">
           <div className="flex justify-between items-center px-3">
@@ -213,7 +227,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </section>
       )}
 
-      {/* PRÓXIMOS NA LISTA */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-3">
            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Próximos na Lista</h2>
@@ -274,7 +287,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
             <button onClick={() => onCallNext?.()} className="flex-1 bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><BellRing size={20} /> Chamar Próximo</button>
           </div>
         ) : (
-          !isTodayClosed && estStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={20} /> Entrar na Lista</button>
+          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={20} /> Entrar na Lista</button>
         )}
       </div>
     </div>

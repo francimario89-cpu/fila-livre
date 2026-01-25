@@ -362,7 +362,7 @@ const App: React.FC = () => {
     >
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} establishmentName={currentEst.name} estStatus={currentEst.status} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
+          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} establishmentName={currentEst.name} estStatus={currentEst.status} autoStatusEnabled={currentEst.autoStatusEnabled} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey}
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
           onNoShow={handleNoShow}
           onOpenJoinModal={() => setIsJoinModalOpen(true)}
