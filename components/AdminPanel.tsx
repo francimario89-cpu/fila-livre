@@ -35,13 +35,13 @@ interface AdminPanelProps {
 }
 
 const DAYS_OF_WEEK = [
-  { id: 0, label: 'Domingo' },
   { id: 1, label: 'Segunda' },
   { id: 2, label: 'Terça' },
   { id: 3, label: 'Quarta' },
   { id: 4, label: 'Quinta' },
   { id: 5, label: 'Sexta' },
-  { id: 6, label: 'Sábado' }
+  { id: 6, label: 'Sábado' },
+  { id: 0, label: 'Domingo' }
 ];
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -115,11 +115,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const isAutoMode = establishment.autoStatusEnabled || false;
 
-  const updateProStatus = (proId: string, newStatus: ProfStatus) => {
-    const updated = professionals.map(p => p.id === proId ? { ...p, status: newStatus } : p);
-    onUpdatePros(updated);
-  };
-
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
@@ -148,96 +143,99 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* GESTÃO DE FIDELIDADE (VIP) */}
+      {/* AGENDA DE TRABALHO E AUTOMAÇÃO */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <Gift size={14} className="text-amber-500" /> Clube VIP / Fidelidade
+             <CalendarDays size={14} className="text-teal-400" /> Agenda & Automação
            </h3>
-           <button onClick={() => setIsLoyaltyExpanded(!isLoyaltyExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-500">
-              {isLoyaltyExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
+              {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
            </button>
         </div>
 
-        {isLoyaltyExpanded && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
-             <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-3">
-                   <div className={`p-2 rounded-xl ${loyaltyEnabled ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-800 text-slate-600'}`}>
-                      <Gift size={20} />
-                   </div>
-                   <div>
-                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Programa Ativo</h4>
-                      <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Visível para clientes</p>
-                   </div>
-                </div>
-                <button 
-                  onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)}
-                  className={`w-12 h-6 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-amber-500' : 'bg-slate-800'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} />
-                </button>
-             </div>
-
-             {loyaltyEnabled && (
-               <div className="space-y-4 animate-in slide-in-from-top-2">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                       <Sparkles size={10} className="text-amber-500" /> Prêmio (O que o cliente ganha?)
-                    </label>
-                    <input 
-                      value={tempReward} 
-                      onChange={(e) => setTempReward(e.target.value.toUpperCase())} 
-                      placeholder="EX: UM CORTE GRÁTIS" 
-                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-amber-500 transition-all" 
-                    />
+        {isScheduleExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl animate-in fade-in">
+            
+            {/* Status Manual e Automação */}
+            <div className="space-y-6">
+               <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3">
+                     <div className={`p-2 rounded-xl ${isAutoMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-600'}`}>
+                        <Power size={20} />
+                     </div>
+                     <div>
+                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Ativação Automática</h4>
+                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Abre/Fecha sozinho pelos horários</p>
+                     </div>
                   </div>
-                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-amber-500 text-slate-950 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
-                     {isSavingProfile ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Atualizar Prêmio
+                  <button 
+                    onClick={() => onUpdateEstablishment({ autoStatusEnabled: !isAutoMode })}
+                    className={`w-12 h-6 rounded-full relative transition-all ${isAutoMode ? 'bg-indigo-600' : 'bg-slate-800'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isAutoMode ? 'left-7' : 'left-1'}`} />
                   </button>
                </div>
-             )}
-          </div>
-        )}
-      </section>
 
-      {/* IDENTIDADE DA UNIDADE */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <Store size={14} className="text-teal-400" /> Identidade da Unidade
-          </h3>
-          <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
-              {isIdentityExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
-          </button>
-        </div>
+               <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-1 ml-1">
+                     <Settings size={11} className="text-slate-500" />
+                     <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Forçado (Manual)</label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                     <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle size={14} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
+                     <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={14} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
+                     <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={14} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
+                  </div>
+               </div>
+            </div>
 
-        {isIdentityExpanded && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome da Loja</label>
-                <input value={tempName} onChange={(e) => setTempName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all" />
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <Fingerprint size={12} className="text-teal-500" />
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Código de Acesso</label>
-                </div>
-                <div className="flex gap-2">
-                  <input value={tempId} onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none font-orbitron" />
-                  <button onClick={handleChangeAccessCode} disabled={isChangingId || tempId.toUpperCase() === establishment.id} className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 flex items-center gap-2 transition-all">
-                    {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />} Trocar
+            {/* Configuração de Horários Diários */}
+            <div className="space-y-4 pt-6 border-t border-white/5">
+               <div className="flex items-center justify-between px-1">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Configuração Semanal</span>
+                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="text-[9px] font-black text-teal-400 uppercase tracking-widest flex items-center gap-2 hover:opacity-70">
+                    {isSavingProfile ? <Loader2 className="animate-spin" size={12}/> : <Save size={12}/>} Salvar Alterações
                   </button>
-                </div>
-              </div>
+               </div>
+
+               <div className="space-y-3">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const sched = dailySchedules[day.id];
+                    return (
+                      <div key={day.id} className="bg-slate-950/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-white uppercase tracking-widest">{day.label}</span>
+                          <button 
+                            onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)}
+                            className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${sched.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}
+                          >
+                            {sched.isOpen ? 'ABERTO' : 'FECHADO'}
+                          </button>
+                        </div>
+                        
+                        {sched.isOpen && (
+                          <div className="grid grid-cols-2 gap-3 animate-in fade-in">
+                            <div className="space-y-1.5">
+                               <label className="text-[7px] font-bold text-slate-500 uppercase ml-1">Entrada</label>
+                               <input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-[10px] text-white outline-none focus:border-indigo-500" />
+                            </div>
+                            <div className="space-y-1.5">
+                               <label className="text-[7px] font-bold text-slate-500 uppercase ml-1">Saída</label>
+                               <input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-[10px] text-white outline-none focus:border-indigo-500" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+               </div>
             </div>
           </div>
         )}
       </section>
 
-      {/* GESTÃO DE SERVIÇOS - MELHORADO: OCULTA TUDO AO MINIMIZAR */}
+      {/* GESTÃO DE SERVIÇOS - RECOLHIMENTO TOTAL */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -278,78 +276,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <Plus size={24} /><span className="text-[9px] font-black uppercase tracking-widest">Novo Serviço</span>
               </button>
             )}
-          </div>
-        )}
-      </section>
-
-      {/* GESTÃO DE EQUIPE */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <Users2 size={14} className="text-amber-400" /> Equipe Profissional
-           </h3>
-           <button onClick={() => setIsStaffExpanded(!isStaffExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-400">
-              {isStaffExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
-           </button>
-        </div>
-
-        {isStaffExpanded && (
-          <div className="space-y-3 animate-in fade-in">
-            {professionals.map(p => (
-              <div key={p.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] shadow-xl space-y-4">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center"><UserCircle size={24}/></div>
-                       <div><h4 className="text-sm font-black text-white uppercase">{p.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">{p.email || 'Sem e-mail'}</p></div>
-                    </div>
-                    <button onClick={() => { if(confirm("Deseja excluir este profissional?")) onUpdatePros(professionals.filter(x => x.id !== p.id)) }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
-                       <Trash2 size={20}/>
-                    </button>
-                 </div>
-              </div>
-            ))}
-            {isAddingPro ? (
-              <div className="bg-slate-900 border border-amber-500/30 p-8 rounded-[40px] space-y-4 shadow-2xl">
-                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-amber-500" />
-                <input placeholder="E-MAIL DE ACESSO" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                <div className="flex gap-2">
-                   <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Cancelar</button>
-                   <button onClick={() => { if(!newProName) return; onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]); setIsAddingPro(false); setNewProName(''); }} className="flex-[2] bg-amber-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Cadastrar</button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-amber-400 hover:border-amber-500/30 transition-all flex flex-col items-center gap-2">
-                <Plus size={24} /><span className="text-[9px] font-black uppercase tracking-widest">Novo Profissional</span>
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* AGENDA DE TRABALHO */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <CalendarDays size={14} className="text-teal-400" /> Agenda de Trabalho
-           </h3>
-           <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
-              {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
-           </button>
-        </div>
-
-        {isScheduleExpanded && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
-            <div className="space-y-3">
-               <div className="flex items-center gap-2 mb-1 ml-1">
-                  <Power size={11} className="text-teal-400" />
-                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Manual Loja</label>
-               </div>
-               <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle2 size={12} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
-                  <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={12} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
-                  <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={12} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
-               </div>
-            </div>
           </div>
         )}
       </section>
