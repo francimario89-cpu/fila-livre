@@ -44,10 +44,12 @@ export const QueueView: React.FC<QueueViewProps> = ({
     return dailySchedules ? dailySchedules[today] : null;
   }, [dailySchedules, now]);
 
-  // Lógica de Status: Se autoStatusEnabled for false, manda o estStatus (manual).
-  // Se for true, calcula baseado no horário.
+  // Lógica de Status Otimizada
   const displayStatus = useMemo(() => {
+    // Se o gestor NÃO ativou o modo automático, manda o estStatus (que é o botão manual)
     if (!autoStatusEnabled) return estStatus;
+
+    // Se ativou o modo automático, calcula baseado no horário do dia
     if (!currentDaySchedule || !currentDaySchedule.isOpen) return 'closed' as EstStatus;
 
     const currentTimeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -141,7 +143,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
           </div>
           {autoStatusEnabled && (
              <div className="bg-slate-950/20 px-3 py-1 rounded-full border border-white/5">
-                <span className="text-[7px] font-black uppercase tracking-widest text-slate-100/40">Modo Automático</span>
+                <span className="text-[7px] font-black uppercase tracking-widest text-slate-100/40">Auto</span>
              </div>
           )}
         </div>
@@ -153,7 +155,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
               <Megaphone size={24} className="animate-bounce" />
            </div>
            <div className="flex-1">
-              <p className="text-[10px] font-black text-slate-950 uppercase tracking-[0.2em]">Cadeira Livre Agora!</p>
+              <p className="text-[10px] font-black text-slate-950 uppercase tracking-[0.2em]">Cadeira Livre!</p>
               <p className="text-[12px] font-black text-slate-900 uppercase tracking-tight leading-tight">
                 {availableProsNames} {availableProsList.length > 1 ? 'estão aguardando' : 'está aguardando'} por você!
               </p>
@@ -179,12 +181,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
                }`}
              >
                {pro.name}
-               {isTrulyFree && (
-                 <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                 </span>
-               )}
              </button>
            );
          })}
@@ -217,7 +213,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   {(isAdmin || (isStaff && item.professionalId === myProId)) && (
                     <div className="flex gap-2 pt-2">
                       <button onClick={() => onNoShow?.(item.id)} className="p-3 bg-red-500 text-white rounded-xl shadow-lg active:scale-95 transition-all"><UserX size={18} /></button>
-                      <button onClick={() => onFinish?.(item)} className="flex-1 bg-white text-indigo-600 font-black py-3 rounded-xl uppercase text-[9px] tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95"><CheckCircle2 size={16} /> Finalizar Atendimento</button>
+                      <button onClick={() => onFinish?.(item)} className="flex-1 bg-white text-indigo-600 font-black py-3 rounded-xl uppercase text-[9px] tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95"><CheckCircle2 size={16} /> Finalizar</button>
                     </div>
                   )}
                 </div>
@@ -269,14 +265,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
               </div>
             );
           })}
-          {waitingList.length === 0 && servingList.length === 0 && (
-             <div className="py-12 text-center space-y-4">
-                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto text-slate-800">
-                   <Users size={32} />
-                </div>
-                <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.3em]">Ninguém na lista no momento</p>
-             </div>
-          )}
         </div>
       </section>
 

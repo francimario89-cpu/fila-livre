@@ -118,7 +118,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
       
-      {/* SEÇÃO DESTAQUE: MODO DE ATENDIMENTO */}
+      {/* MODO DE ATENDIMENTO */}
       <section className="bg-slate-900 border border-indigo-500/20 rounded-[40px] p-8 space-y-6 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center">
@@ -126,7 +126,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
           <div>
              <h3 className="text-sm font-black text-white uppercase tracking-tighter">Modo de Funcionamento</h3>
-             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Como os clientes entram na lista</p>
+             <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Configuração de entrada de clientes</p>
           </div>
         </div>
 
@@ -143,11 +143,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* AGENDA DE TRABALHO E AUTOMAÇÃO */}
+      {/* AGENDA & STATUS DA LOJA */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <CalendarDays size={14} className="text-teal-400" /> Agenda & Automação
+             <CalendarDays size={14} className="text-teal-400" /> Agenda & Status
            </h3>
            <button onClick={() => setIsScheduleExpanded(!isScheduleExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
               {isScheduleExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
@@ -156,8 +156,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         {isScheduleExpanded && (
           <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-8 shadow-2xl animate-in fade-in">
-            
-            {/* Status Manual e Automação */}
             <div className="space-y-6">
                <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
                   <div className="flex items-center gap-3">
@@ -165,8 +163,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <Power size={20} />
                      </div>
                      <div>
-                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Ativação Automática</h4>
-                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Abre/Fecha sozinho pelos horários</p>
+                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Modo Automático</h4>
+                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Abre/Fecha sozinho conforme horário</p>
                      </div>
                   </div>
                   <button 
@@ -180,52 +178,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-1 ml-1">
                      <Settings size={11} className="text-slate-500" />
-                     <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status Forçado (Manual)</label>
+                     <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Controle Manual</label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                     <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle size={14} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
-                     <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={14} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
-                     <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={14} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
+                     <button onClick={() => onUpdateStatus('open')} className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${estStatus === 'open' ? 'bg-emerald-500 border-emerald-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><CheckCircle size={14} /><span className="text-[7px] font-black uppercase">Abrir</span></button>
+                     <button onClick={() => onUpdateStatus('lunch')} className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${estStatus === 'lunch' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><Coffee size={14} /><span className="text-[7px] font-black uppercase">Almoço</span></button>
+                     <button onClick={() => onUpdateStatus('closed')} className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${estStatus === 'closed' ? 'bg-red-500 border-red-400 text-slate-950' : 'bg-slate-950 border-slate-800 text-slate-500'}`}><DoorClosed size={14} /><span className="text-[7px] font-black uppercase">Fechar</span></button>
                   </div>
                </div>
             </div>
 
-            {/* Configuração de Horários Diários */}
             <div className="space-y-4 pt-6 border-t border-white/5">
                <div className="flex items-center justify-between px-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Configuração Semanal</span>
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Configuração de Horários</span>
                   <button onClick={handleSaveProfile} disabled={isSavingProfile} className="text-[9px] font-black text-teal-400 uppercase tracking-widest flex items-center gap-2 hover:opacity-70">
-                    {isSavingProfile ? <Loader2 className="animate-spin" size={12}/> : <Save size={12}/>} Salvar Alterações
+                    {isSavingProfile ? <Loader2 className="animate-spin" size={12}/> : <Save size={12}/>} Salvar Horários
                   </button>
                </div>
 
-               <div className="space-y-3">
+               <div className="space-y-2">
                   {DAYS_OF_WEEK.map((day) => {
                     const sched = dailySchedules[day.id];
                     return (
-                      <div key={day.id} className="bg-slate-950/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black text-white uppercase tracking-widest">{day.label}</span>
-                          <button 
-                            onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)}
-                            className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${sched.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}
-                          >
-                            {sched.isOpen ? 'ABERTO' : 'FECHADO'}
+                      <div key={day.id} className="bg-slate-950/50 p-3 rounded-2xl border border-white/5 flex items-center justify-between">
+                        <span className="text-[9px] font-black text-white uppercase tracking-widest w-20">{day.label}</span>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => updateDaySchedule(day.id, 'isOpen', !sched.isOpen)} className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase ${sched.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}>
+                            {sched.isOpen ? 'Aberto' : 'Fechado'}
                           </button>
+                          {sched.isOpen && (
+                            <div className="flex items-center gap-1">
+                               <input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg p-1 text-[8px] text-white outline-none" />
+                               <span className="text-slate-600 text-[8px]">-</span>
+                               <input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="bg-slate-900 border border-slate-800 rounded-lg p-1 text-[8px] text-white outline-none" />
+                            </div>
+                          )}
                         </div>
-                        
-                        {sched.isOpen && (
-                          <div className="grid grid-cols-2 gap-3 animate-in fade-in">
-                            <div className="space-y-1.5">
-                               <label className="text-[7px] font-bold text-slate-500 uppercase ml-1">Entrada</label>
-                               <input type="time" value={sched.start} onChange={e => updateDaySchedule(day.id, 'start', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-[10px] text-white outline-none focus:border-indigo-500" />
-                            </div>
-                            <div className="space-y-1.5">
-                               <label className="text-[7px] font-bold text-slate-500 uppercase ml-1">Saída</label>
-                               <input type="time" value={sched.end} onChange={e => updateDaySchedule(day.id, 'end', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-[10px] text-white outline-none focus:border-indigo-500" />
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -235,7 +223,95 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </section>
 
-      {/* GESTÃO DE SERVIÇOS - RECOLHIMENTO TOTAL */}
+      {/* CLUBE VIP / FIDELIDADE */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <Gift size={14} className="text-amber-500" /> Clube VIP / Fidelidade
+           </h3>
+           <button onClick={() => setIsLoyaltyExpanded(!isLoyaltyExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-500">
+              {isLoyaltyExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
+        </div>
+
+        {isLoyaltyExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+             <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                <div className="flex items-center gap-3">
+                   <div className={`p-2 rounded-xl ${loyaltyEnabled ? 'bg-amber-500/20 text-amber-500' : 'bg-slate-800 text-slate-600'}`}>
+                      <Gift size={20} />
+                   </div>
+                   <div>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Programa Fidelidade</h4>
+                      <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Ativar cartão virtual de 10 selos</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => onSetLoyaltyEnabled(!loyaltyEnabled)}
+                  className={`w-12 h-6 rounded-full relative transition-all ${loyaltyEnabled ? 'bg-amber-500' : 'bg-slate-800'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${loyaltyEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+
+             {loyaltyEnabled && (
+               <div className="space-y-4 animate-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">O que o cliente ganha ao completar 10 selos?</label>
+                    <input value={tempReward} onChange={(e) => setTempReward(e.target.value.toUpperCase())} placeholder="EX: UM CORTE GRÁTIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-amber-500" />
+                  </div>
+                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-amber-500 text-slate-950 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
+                     {isSavingProfile ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Salvar Recompensa
+                  </button>
+               </div>
+             )}
+          </div>
+        )}
+      </section>
+
+      {/* EQUIPE PROFISSIONAL */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <Users2 size={14} className="text-amber-400" /> Equipe de Trabalho
+           </h3>
+           <button onClick={() => setIsStaffExpanded(!isStaffExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-amber-400">
+              {isStaffExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
+        </div>
+
+        {isStaffExpanded && (
+          <div className="space-y-3 animate-in fade-in">
+            {professionals.map(p => (
+              <div key={p.id} className="bg-slate-900 border border-slate-800 p-5 rounded-[32px] shadow-xl flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center"><UserCircle size={20}/></div>
+                    <div><h4 className="text-xs font-black text-white uppercase">{p.name}</h4><p className="text-[7px] text-slate-500 font-bold uppercase">{p.email}</p></div>
+                 </div>
+                 <button onClick={() => { if(confirm("Remover este profissional?")) onUpdatePros(professionals.filter(x => x.id !== p.id)) }} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                    <Trash2 size={16}/>
+                 </button>
+              </div>
+            ))}
+            {isAddingPro ? (
+              <div className="bg-slate-900 border border-amber-500/30 p-8 rounded-[40px] space-y-4 shadow-2xl">
+                <input placeholder="NOME DO PROFISSIONAL" value={newProName} onChange={e => setNewProName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase" />
+                <input placeholder="E-MAIL (OPCIONAL)" value={newProEmail} onChange={e => setNewProEmail(e.target.value.toLowerCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white" />
+                <div className="flex gap-2">
+                   <button onClick={() => setIsAddingPro(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Cancelar</button>
+                   <button onClick={() => { if(!newProName) return; onUpdatePros([...professionals, { id: `pro-${Date.now()}`, name: newProName, status: 'available', establishmentId: establishment.id, email: newProEmail }]); setIsAddingPro(false); setNewProName(''); }} className="flex-[2] bg-amber-500 text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase">Cadastrar</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setIsAddingPro(true)} className="w-full border-2 border-dashed border-slate-800 p-8 rounded-[32px] text-slate-600 hover:text-amber-400 hover:border-amber-500/30 transition-all flex flex-col items-center gap-2">
+                <Plus size={24} /><span className="text-[9px] font-black uppercase tracking-widest">Novo Profissional</span>
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* CATÁLOGO DE SERVIÇOS */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -251,20 +327,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {services.map(s => (
               <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-[32px] flex items-center justify-between shadow-xl">
                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center"><Scissors size={20}/></div>
-                    <div><h4 className="text-sm font-black text-white uppercase">{s.name}</h4><p className="text-[8px] text-slate-500 font-bold uppercase">R$ {s.price} • {s.duration} min</p></div>
+                    <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center"><Scissors size={18}/></div>
+                    <div><h4 className="text-xs font-black text-white uppercase">{s.name}</h4><p className="text-[7px] text-slate-500 font-bold uppercase">R$ {s.price} • {s.duration} min</p></div>
                  </div>
-                 <button onClick={() => { if(confirm("Deseja realmente excluir este serviço?")) onUpdateServices(services.filter(x => x.id !== s.id)) }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
-                    <Trash2 size={20}/>
+                 <button onClick={() => { if(confirm("Remover este serviço?")) onUpdateServices(services.filter(x => x.id !== s.id)) }} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                    <Trash2 size={16}/>
                  </button>
               </div>
             ))}
             {isAddingService ? (
               <div className="bg-slate-900 border border-indigo-500/30 p-8 rounded-[40px] space-y-4 shadow-2xl">
-                <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500" />
+                <input placeholder="NOME DO SERVIÇO" value={newSName} onChange={e => setNewSName(e.target.value.toUpperCase())} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase" />
                 <div className="grid grid-cols-2 gap-4">
-                   <input placeholder="PREÇO" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
-                   <input placeholder="MINUTOS" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white outline-none" />
+                   <input placeholder="PREÇO" value={newSPrice} onChange={e => setNewSPrice(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white" />
+                   <input placeholder="MINUTOS" value={newSDuration} onChange={e => setNewSDuration(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white" />
                 </div>
                 <div className="flex gap-2">
                    <button onClick={() => setIsAddingService(false)} className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase">Cancelar</button>
@@ -284,7 +360,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-             <BarChart3 size={14} className="text-emerald-500" /> Faturamento & PIX
+             <BarChart3 size={14} className="text-emerald-500" /> Financeiro & PIX
            </h3>
            <button onClick={() => setIsFinancialExpanded(!isFinancialExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-emerald-500">
               {isFinancialExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
@@ -296,14 +372,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Acumulado</p><h4 className="text-3xl font-black text-white font-orbitron">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4></div>
                 <button onClick={() => setIsFinancialModalOpen(true)} className="p-4 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all"><FileText size={24}/></button>
              </div>
-             <div className="pt-6 border-t border-white/5 space-y-3"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave PIX</label><input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Celular, E-mail ou CNPJ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all" /></div>
+             <div className="pt-6 border-t border-white/5 space-y-3"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave PIX para Recebimentos</label><input value={pixKey} onChange={(e) => onSetPixKey(e.target.value)} placeholder="Celular, E-mail ou CNPJ" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-5 px-6 text-white text-xs font-bold outline-none focus:border-emerald-500 transition-all" /></div>
           </div>
         )}
       </section>
 
       {/* TV */}
       <section className="space-y-4">
-        <div className="flex justify-center"><button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 py-3 px-8 rounded-[40px] flex items-center gap-2.5 shadow-xl hover:border-teal-500/30 transition-all active:scale-95"><Monitor size={18} className="text-teal-400" /><span className="text-[9px] font-black text-white uppercase tracking-widest">Painel TV</span></button></div>
+        <div className="flex justify-center"><button onClick={onToggleTVMode} className="bg-slate-900 border border-slate-800 py-3 px-8 rounded-[40px] flex items-center gap-2.5 shadow-xl hover:border-teal-500/30 transition-all active:scale-95"><Monitor size={18} className="text-teal-400" /><span className="text-[9px] font-black text-white uppercase tracking-widest">Abrir Painel TV</span></button></div>
       </section>
 
       {isFinancialModalOpen && <FinancialDetailModal revenue={revenue} onClose={() => setIsFinancialModalOpen(false)} />}
