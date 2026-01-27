@@ -143,6 +143,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
+      {/* IDENTIDADE DA UNIDADE (RESTAURADO) */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <Store size={14} className="text-teal-400" /> Identidade da Unidade
+           </h3>
+           <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
+              {isIdentityExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
+        </div>
+
+        {isIdentityExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Comercial</label>
+                <div className="flex gap-2">
+                  <input value={tempName} onChange={(e) => setTempName(e.target.value.toUpperCase())} className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all" />
+                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="px-6 bg-teal-500 text-slate-950 rounded-2xl text-[9px] font-black uppercase flex items-center gap-2 transition-all">
+                    {isSavingProfile ? <Loader2 size={14} className="animate-spin"/> : <Save size={14} />} Salvar
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Fingerprint size={12} className="text-teal-500" />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Código de Acesso (ID)</label>
+                </div>
+                <div className="flex gap-2">
+                  <input value={tempId} onChange={(e) => setTempId(e.target.value.toUpperCase().replace(/\s/g, ''))} className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none font-orbitron focus:border-indigo-500" />
+                  <button onClick={handleChangeAccessCode} disabled={isChangingId || tempId.toUpperCase() === establishment.id} className="px-6 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase disabled:opacity-30 flex items-center gap-2 transition-all">
+                    {isChangingId ? <Loader2 size={14} className="animate-spin"/> : <RefreshCcw size={14} />} Trocar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* AGENDA & STATUS DA LOJA */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
