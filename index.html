@@ -3,21 +3,8 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fila Livre - Performance & Estilo</title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#050810" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Fila Livre" />
-    
-    <!-- Manifest & Icons -->
-    <link rel="manifest" href="./manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjI0IiBmaWxsPSIjMDUwODEwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzJkZDRiZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PHBhdGggZD0iTSA0MiAzMiBMIDU4IDMyIE0gNDIgMzIgTCA0MiA0OCBNIDQyIDQwIEwgNTQgNDAgTSA1MiA0OCBMIDY0IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiMyZGQ0YmYiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHRleHQgeD0iNTAiIHk9Ijg0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMmRkNGJmIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zaXplPSIxNiIgbGV0dGVyLXNwYWNpbmc9IjQiPkZJTEE8L3RleHQ+PC9zdmc+" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjI0IiBmaWxsPSIjMDUwODEwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzJkZDRiZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PHBhdGggZD0iTSA0MiAzMiBMIDU4IDMyIE0gNDIgMzIgTCA0MiA0OCBNIDQyIDQwIEwgNTQgNDAgTSA1MiA0OCBMIDY0IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiMyZGQ0YmYiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHRleHQgeD0iNTAiIHk9Ijg0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMmRkNGJmIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zaXplPSIxNiIgbGV0dGVyLXNwYWNpbmc9IjQiPkZJTEE8L3RleHQ+PC9zdmc+" />
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -31,8 +18,6 @@
         padding: 0;
         overflow-x: hidden;
         transition: background-color 0.3s ease, color 0.3s ease;
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
       }
       .font-orbitron { font-family: 'Orbitron', sans-serif; }
       
@@ -54,13 +39,32 @@
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #2dd4bf; border-radius: 10px; }
       
-      /* Animação de Bounce Suave para o Banner de Instalação */
-      @keyframes bounce-short {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-4px); }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
       }
-      .animate-bounce-short {
-        animation: bounce-short 3s infinite ease-in-out;
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+
+      /* Classes de Tema */
+      .theme-dark {
+        background-color: #050810;
+        color: #f8fafc;
+      }
+      .theme-light {
+        background-color: #f1f5f9;
+        color: #0f172a;
+      }
+      .theme-light .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      }
+      .theme-dark .glass-card {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(45, 212, 191, 0.15);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
       }
     </style>
   <script type="importmap">

@@ -1,19 +1,19 @@
 
-import React, { useState, useEffect } from 'react';
-import { db, auth, isConfigured } from './services/firebase.ts';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, collectionGroup } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { db, auth, isConfigured } from './services/firebase';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment, collectionGroup } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { Settings, User, Zap, Download, Smartphone, Apple, Moon, Sun } from 'lucide-react';
-import { Layout } from './components/Layout.tsx';
-import { QueueView } from './components/QueueView.tsx';
-import { AdminPanel } from './components/AdminPanel.tsx';
-import { LoyaltyView } from './components/LoyaltyView.tsx';
-import { AuthView } from './components/AuthView.tsx';
-import { BusinessSelect } from './components/BusinessSelect.tsx';
-import { JoinQueueModal } from './components/JoinQueueModal.tsx';
-import { ServiceCompletionModal } from './components/ServiceCompletionModal.tsx';
-import { TVView } from './components/TVView.tsx';
-import { QueueItem, Service, Professional, Establishment, RevenueRecord } from './types.ts';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed, Zap, Layers, Sun, Moon, Download, Smartphone, Share, Apple } from 'lucide-react';
+import { Layout } from './components/Layout';
+import { QueueView } from './components/QueueView';
+import { AdminPanel } from './components/AdminPanel';
+import { LoyaltyView } from './components/LoyaltyView';
+import { AuthView } from './components/AuthView';
+import { BusinessSelect } from './components/BusinessSelect';
+import { JoinQueueModal } from './components/JoinQueueModal';
+import { ServiceCompletionModal } from './components/ServiceCompletionModal';
+import { TVView } from './components/TVView';
+import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus, BookingModel } from './types';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Check if app is already installed/standalone
     const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     setIsStandalone(!!checkStandalone);
 
@@ -175,11 +176,14 @@ const App: React.FC = () => {
     } catch (e: any) { alert(`Erro: ${e.message}`); }
   };
 
-  const handleUpdatePassword = async (newPass: string) => {
-    if (newPass.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const handleUpdatePassword = async () => {
+    if (newPassword.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
+    setIsUpdatingProfile(true);
     try {
-      if (auth.currentUser) { await updatePassword(auth.currentUser, newPass); alert("Senha atualizada!"); }
-    } catch (e) { alert("Sessão expirada."); }
+      if (auth.currentUser) { await updatePassword(auth.currentUser, newPassword); setNewPassword(''); alert("Senha atualizada!"); }
+    } catch (e) { alert("Sessão expirada."); } finally { setIsUpdatingProfile(false); }
   };
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} theme={theme} />;
@@ -222,6 +226,7 @@ const App: React.FC = () => {
            </div>
 
            <div className="space-y-6">
+              {/* Seção de Instalação do Aplicativo (Oculta se já instalado) */}
               {!isStandalone && (
                 <section className={`p-8 rounded-[40px] border shadow-xl ${theme === 'dark' ? 'bg-slate-900 border-teal-500/20' : 'bg-white border-slate-200'}`}>
                    <div className="flex items-center gap-4 mb-6">
@@ -231,11 +236,27 @@ const App: React.FC = () => {
                          <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido sem usar o navegador</p>
                       </div>
                    </div>
-                   <button onClick={handleInstallApp} className="w-full bg-teal-500 text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
-                      <Download size={18} /> Instalar Agora
-                   </button>
+                   
+                   <div className="space-y-4">
+                      <button onClick={handleInstallApp} className="w-full bg-teal-500 text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+                         <Download size={18} /> Instalar Agora
+                      </button>
+                      
+                      <div className="flex items-center justify-center gap-6 pt-2 opacity-50">
+                         <div className="flex items-center gap-2"><Apple size={14}/><span className="text-[7px] font-black uppercase">iOS</span></div>
+                         <div className="flex items-center gap-2"><Smartphone size={14}/><span className="text-[7px] font-black uppercase">Android</span></div>
+                      </div>
+                   </div>
                 </section>
               )}
+
+              <section className={`p-8 rounded-[40px] border shadow-lg ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                 <div className="space-y-4">
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Trocar Senha</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className={`w-full border rounded-2xl py-4 px-6 outline-none ${theme === 'dark' ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} /></div>
+                    <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Atualizar Senha</button>
+                 </div>
+              </section>
+
               <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-lg shadow-red-500/20">Sair do App</button>
            </div>
         </div>
