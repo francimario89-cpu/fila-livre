@@ -29,27 +29,39 @@ export const LOGO_SVG = (
     </defs>
     
     <g filter="url(#neon-glow)">
-      {/* Círculo Principal */}
-      <circle cx="50" cy="50" r="40" fill="none" stroke="#2DD4BF" strokeWidth="5" strokeDasharray="180 60" />
+      {/* Círculo Principal - Subido um pouco para dar espaço ao texto */}
+      <circle cx="50" cy="42" r="35" fill="none" stroke="#2DD4BF" strokeWidth="5" strokeDasharray="180 60" />
       
-      {/* Linhas de Movimento (Esquerda) */}
-      <line x1="15" y1="40" x2="35" y2="40" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
-      <line x1="20" y1="50" x2="35" y2="50" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
-      <line x1="15" y1="60" x2="35" y2="60" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
+      {/* Linhas de Movimento */}
+      <line x1="15" y1="35" x2="30" y2="35" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
+      <line x1="20" y1="42" x2="32" y2="42" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
+      <line x1="15" y1="49" x2="30" y2="49" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
 
       {/* Letras FL Estilizadas */}
       <path 
-        d="M 45 35 L 65 35 M 45 35 L 45 65 M 45 50 L 60 50 M 55 65 L 75 65" 
+        d="M 45 32 L 60 32 M 45 32 L 45 52 M 45 42 L 55 42 M 52 52 L 65 52" 
         fill="none" 
         stroke="#2DD4BF" 
-        strokeWidth="7" 
+        strokeWidth="6" 
         strokeLinecap="round" 
         strokeLinejoin="round" 
       />
       
-      {/* Ponteiro de Velocidade */}
-      <path d="M 55 55 L 85 25" fill="none" stroke="#2DD4BF" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="55" cy="55" r="4" fill="#2DD4BF" />
+      {/* Ponteiro */}
+      <path d="M 55 45 L 80 20" fill="none" stroke="#2DD4BF" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="55" cy="45" r="3" fill="#2DD4BF" />
+
+      {/* TEXTO FILA NO ÍCONE */}
+      <text 
+        x="50" 
+        y="88" 
+        textAnchor="middle" 
+        fill="#2DD4BF" 
+        className="font-orbitron font-black" 
+        style={{ fontSize: '18px', letterSpacing: '4px' }}
+      >
+        FILA
+      </text>
     </g>
   </svg>
 );
