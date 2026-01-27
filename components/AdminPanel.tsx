@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar, LayoutList, Sparkles
+  Plus, Trash2, BarChart3, Users2, UserCircle, Zap, FileText, Store, Monitor, UserPlus, Coffee, DoorClosed, CheckCircle2, Scissors, ListOrdered, Settings, QrCode, BellRing, UserX, Mail, Link as LinkIcon, CheckCircle, Clock, Save, Building2, CalendarDays, ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Moon, Power, ToggleLeft, ToggleRight, Loader2, Gift, Fingerprint, RefreshCcw, Calendar, LayoutList, Sparkles, HelpCircle, ToggleRight as ToggleActive
 } from 'lucide-react';
 import { Professional, Service, QueueItem, EstStatus, BookingModel, RevenueRecord, PlanType, Establishment, DaySchedule, ProfStatus } from '../types';
 import { FinancialDetailModal } from './FinancialDetailModal';
@@ -55,11 +55,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isStaffExpanded, setIsStaffExpanded] = useState(false);
   const [isLoyaltyExpanded, setIsLoyaltyExpanded] = useState(false);
   const [isFinancialExpanded, setIsFinancialExpanded] = useState(false);
+  const [isPreferenceExpanded, setIsPreferenceExpanded] = useState(false);
   
   const [tempName, setTempName] = useState(establishment.name);
   const [tempId, setTempId] = useState(establishment.id);
   const [isChangingId, setIsChangingId] = useState(false);
   const [tempReward, setTempReward] = useState(establishment.loyaltyReward || 'Corte Grátis');
+  const [tempAnyLabel, setTempAnyLabel] = useState(establishment.anyProfessionalLabel || 'Qualquer Atendente');
+  
   const [dailySchedules, setDailySchedules] = useState<Record<number, DaySchedule>>(
     establishment.dailySchedules || {
       1: { isOpen: true, start: "08:00", end: "18:00", hasLunch: true, lunchStart: "12:00", lunchEnd: "13:00" },
@@ -87,6 +90,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setTempId(establishment.id);
     if (establishment.loyaltyReward) setTempReward(establishment.loyaltyReward);
     if (establishment.dailySchedules) setDailySchedules(establishment.dailySchedules);
+    if (establishment.anyProfessionalLabel) setTempAnyLabel(establishment.anyProfessionalLabel);
   }, [establishment]);
 
   const updateDaySchedule = (dayId: number, field: keyof DaySchedule, value: any) => {
@@ -98,7 +102,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    await onUpdateEstablishment({ name: tempName, dailySchedules, loyaltyReward: tempReward });
+    await onUpdateEstablishment({ 
+      name: tempName, 
+      dailySchedules, 
+      loyaltyReward: tempReward,
+      anyProfessionalLabel: tempAnyLabel 
+    });
     setTimeout(() => {
       setIsSavingProfile(false);
     }, 800);
@@ -114,6 +123,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const totalEarnings = useMemo(() => revenue.reduce((acc, curr) => acc + curr.amount, 0), [revenue]);
   const isAutoMode = establishment.autoStatusEnabled || false;
+  const isAnyProEnabled = establishment.anyProfessionalEnabled ?? true;
 
   return (
     <div className="space-y-8 pb-32 animate-in fade-in duration-500">
@@ -143,7 +153,58 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </section>
 
-      {/* IDENTIDADE DA UNIDADE (RESTAURADO) */}
+      {/* PREFERÊNCIA DE ATENDIMENTO */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+             <HelpCircle size={14} className="text-teal-400" /> Preferência de Atendimento
+           </h3>
+           <button onClick={() => setIsPreferenceExpanded(!isPreferenceExpanded)} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-teal-400">
+              {isPreferenceExpanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}
+           </button>
+        </div>
+
+        {isPreferenceExpanded && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6 shadow-2xl animate-in fade-in">
+             <div className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                <div className="flex items-center gap-3">
+                   <div className={`p-2 rounded-xl ${isAnyProEnabled ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-800 text-slate-600'}`}>
+                      <Users2 size={20} />
+                   </div>
+                   <div>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Opção "Qualquer um"</h4>
+                      <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Ativar botão de triagem geral na fila</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => onUpdateEstablishment({ anyProfessionalEnabled: !isAnyProEnabled })}
+                  className={`w-12 h-6 rounded-full relative transition-all ${isAnyProEnabled ? 'bg-teal-500' : 'bg-slate-800'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isAnyProEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+
+             {isAnyProEnabled && (
+               <div className="space-y-4 animate-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome para o botão "Qualquer um"</label>
+                    <input 
+                      value={tempAnyLabel} 
+                      onChange={(e) => setTempAnyLabel(e.target.value.toUpperCase())} 
+                      placeholder="EX: QUALQUER ATENDENTE / TRIAGEM" 
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs font-bold uppercase outline-none focus:border-teal-500 transition-all" 
+                    />
+                  </div>
+                  <button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full bg-teal-500 text-slate-950 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
+                     {isSavingProfile ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Salvar Nome do Botão
+                  </button>
+               </div>
+             )}
+          </div>
+        )}
+      </section>
+
+      {/* IDENTIDADE DA UNIDADE */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">

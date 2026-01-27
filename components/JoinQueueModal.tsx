@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Service, Professional, BookingModel, QueueItem, DaySchedule } from '../types';
+import { Service, Professional, BookingModel, QueueItem, DaySchedule, Establishment } from '../types';
 import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2, Coffee, Scissors } from 'lucide-react';
 
 interface Companion {
@@ -10,6 +10,7 @@ interface Companion {
 }
 
 interface JoinQueueModalProps {
+  establishment: Establishment; // Agora recebe o estabelecimento todo
   services: Service[];
   professionals: Professional[];
   bookingModel: BookingModel;
@@ -28,12 +29,17 @@ interface JoinQueueModalProps {
 }
 
 export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({ 
-  services, professionals, bookingModel, currentQueue, workingDays = [1,2,3,4,5,6], dailySchedules, initialName = '', onClose, onSubmit 
+  establishment, services, professionals, bookingModel, currentQueue, workingDays = [1,2,3,4,5,6], dailySchedules, initialName = '', onClose, onSubmit 
 }) => {
   const [name, setName] = useState(initialName);
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
   const [companions, setCompanions] = useState<Companion[]>([]);
-  const [professionalId, setProfessionalId] = useState('any');
+  
+  // Se "Qualquer um" estiver desativado, o padrão deve ser o primeiro profissional da lista
+  const anyEnabled = establishment.anyProfessionalEnabled ?? true;
+  const anyLabel = establishment.anyProfessionalLabel || 'Qualquer Atendente';
+  
+  const [professionalId, setProfessionalId] = useState(anyEnabled ? 'any' : (professionals[0]?.id || ''));
   const [type, setType] = useState<'walk-in' | 'appointment'>(bookingModel === 'appointment' ? 'appointment' : 'walk-in');
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState('');
@@ -154,7 +160,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
              <div className="space-y-3">
                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Atendimento com:</label>
                <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500">
-                 <option value="any">Qualquer Atendente</option>
+                 {anyEnabled && <option value="any">{anyLabel}</option>}
                  {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                </select>
              </div>

@@ -30,7 +30,9 @@ export interface Establishment {
   trialStartedAt: number; 
   loyaltyEnabled: boolean;
   loyaltyReward?: string;
-  autoStatusEnabled?: boolean; 
+  autoStatusEnabled?: boolean;
+  anyProfessionalEnabled?: boolean; // Novo: Habilita/Desabilita "Qualquer um"
+  anyProfessionalLabel?: string;    // Novo: Nome customizado para "Qualquer um"
 }
 
 export interface Professional {
@@ -71,7 +73,7 @@ export interface QueueItem {
   scheduledTime?: string; 
   userEmail?: string;
   missedCount?: number; 
-  establishmentName?: string; // Adicionado para facilitar visualização global
+  establishmentName?: string; 
 }
 
 export interface UserProfile {
@@ -79,7 +81,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role: 'admin' | 'staff' | 'client';
-  activeBookings?: { // Mudado para plural e array
+  activeBookings?: { 
     establishmentId: string;
     queueId: string;
   }[];

@@ -344,7 +344,7 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-      {isJoinModalOpen && <JoinQueueModal services={services} currentQueue={queue} professionals={professionals} dailySchedules={currentEst?.dailySchedules} bookingModel={currentEst?.bookingModel || 'both'} initialName={userProfile?.name || ''} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
+      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} currentQueue={queue} professionals={professionals} dailySchedules={currentEst?.dailySchedules} bookingModel={currentEst?.bookingModel || 'both'} initialName={userProfile?.name || ''} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
       {isCompletionModalOpen && selectedQueueItem && (
         <ServiceCompletionModal 
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 
