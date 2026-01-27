@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
-import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2, Users } from 'lucide-react';
+import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2, Users, Zap } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
 interface TVViewProps {
@@ -157,7 +157,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       </header>
 
       <div className="flex-1 flex gap-6 overflow-hidden">
-        {/* GRID DE PROFISSIONAIS (CHAMADOS ATUAIS) */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar pr-2">
           {professionals.filter(p => p.status !== 'absent').map(pro => {
             const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
@@ -175,15 +174,18 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
                 {serving ? (
                   <div className={`flex-1 flex flex-col justify-center text-center p-6 rounded-[36px] transition-all duration-500 shadow-xl ${isCalling ? 'bg-amber-400 text-slate-950 scale-105 shadow-amber-500/20' : 'bg-indigo-600 text-white'}`}>
-                     <p className={`text-[10px] font-black uppercase mb-3 ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>CHAMANDO AGORA:</p>
+                     <p className={`text-[10px] font-black uppercase mb-3 ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>SENDO ATENDIDO:</p>
                      <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
                        {serving.name.split(' ')[0]}
                      </h2>
-                     <p className={`text-[11px] font-bold uppercase mt-5 ${isCalling ? 'text-slate-900/80' : 'text-indigo-100 opacity-70'}`}>{serving.service}</p>
+                     <div className="flex items-center justify-center gap-2 mt-4">
+                        <Zap size={12} className="text-teal-400 animate-pulse" />
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-teal-400">Sendo atendido no momento</span>
+                     </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-slate-200/30 rounded-[36px] opacity-20">
-                     <span className="text-[12px] font-black uppercase tracking-[0.4em]">LIVRE</span>
+                     <span className="text-[12px] font-black uppercase tracking-[0.4em]">DISPONÍVEL</span>
                   </div>
                 )}
               </div>
@@ -191,13 +193,11 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
           })}
         </div>
 
-        {/* LISTA DE ESPERA LATERAL (NOVIDADE) */}
         <div className={`w-80 rounded-[48px] p-8 border flex flex-col ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/40 border-white/5'}`}>
           <div className="flex items-center gap-3 mb-8">
             <Users className="text-teal-400" size={24} />
             <h2 className="text-lg font-black uppercase tracking-tighter">Próximos</h2>
           </div>
-          
           <div className="flex-1 space-y-4 overflow-y-auto scrollbar-none">
             {waitingList.length > 0 ? waitingList.map((item, idx) => (
               <div key={item.id} className={`p-5 rounded-[28px] border ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
@@ -211,19 +211,8 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
               <div className="h-full flex items-center justify-center opacity-20 italic text-xs uppercase font-black">Fila Vazia</div>
             )}
           </div>
-
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total na Fila: {queue.filter(i => i.status === 'waiting').length}</p>
-          </div>
         </div>
       </div>
-      
-      <footer className={`mt-6 pt-4 border-t flex justify-between items-center ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
-         <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fila Livre Smart TV Hub</p>
-         </div>
-      </footer>
     </div>
   );
 };

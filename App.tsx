@@ -276,9 +276,9 @@ const App: React.FC = () => {
 
   const handleNoShow = async (itemId: string) => {
     if (!currentEst) return;
-    if (confirm("Registrar falta?")) {
+    if (confirm("Remover da lista?")) {
       const item = queue.find(i => i.id === itemId);
-      if (item && item.professionalId !== 'any' && currentEst.autoStatusEnabled) {
+      if (item && item.status === 'serving' && item.professionalId !== 'any' && currentEst.autoStatusEnabled) {
         await updateDoc(doc(db, "establishments", currentEst.id, "professionals", item.professionalId), { status: 'available' });
       }
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", itemId));
@@ -286,7 +286,7 @@ const App: React.FC = () => {
   };
 
   const handleLeaveQueue = async (estId: string, queueId: string) => {
-    if(confirm("Sair do atendimento?")) { await deleteDoc(doc(db, "establishments", estId, "queue", queueId)); }
+    if(confirm("Tem certeza que deseja sair do atendimento?")) { await deleteDoc(doc(db, "establishments", estId, "queue", queueId)); }
   };
 
   const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -294,7 +294,7 @@ const App: React.FC = () => {
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} theme={theme} />;
   if (!isConfigured) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><Settings className="text-teal-500 animate-spin" /></div>;
-  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} />;
+  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} theme={theme} onToggleTheme={toggleTheme} />;
   if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={setCurrentEst} onLogout={() => auth.signOut()} />;
 
   return (
