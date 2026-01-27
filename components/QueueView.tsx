@@ -65,9 +65,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
   }, [autoStatusEnabled, estStatus, dailySchedules, now]);
 
   return (
-    <div className={`space-y-6 animate-in fade-in duration-500 pb-32 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+    <div className={`space-y-6 animate-in fade-in duration-500 pb-32 ${isLight ? 'bg-slate-50 min-h-screen -mx-4 px-4' : ''}`}>
       
-      <header className="text-center py-4 space-y-2">
+      <header className="text-center py-6 space-y-2">
          <h1 className={`text-3xl font-black font-orbitron uppercase tracking-tighter leading-none ${isLight ? 'text-slate-900' : 'text-white neon-text'}`}>
             {establishmentName}
          </h1>
@@ -78,21 +78,21 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </header>
       
       {/* STATUS CARD */}
-      <section className={`rounded-[32px] p-4 border-2 transition-all duration-700 shadow-xl ${
+      <section className={`rounded-[32px] p-5 border-2 transition-all duration-700 shadow-xl ${
         displayStatus === 'open' ? 'bg-emerald-500 border-emerald-400' : 
         displayStatus === 'lunch' ? 'bg-amber-500 border-amber-400' : 
         (isLight ? 'bg-white border-red-100 shadow-sm' : 'bg-slate-900 border-red-500/20')
       }`}>
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center bg-black/10 text-white">
-            {displayStatus === 'open' ? <Wifi size={20} className="animate-pulse" /> : displayStatus === 'lunch' ? <Coffee size={20} /> : <DoorClosed size={20} />}
+          <div className="w-12 h-12 rounded-[18px] flex items-center justify-center bg-black/10 text-white">
+            {displayStatus === 'open' ? <Wifi size={24} className="animate-pulse" /> : displayStatus === 'lunch' ? <Coffee size={24} /> : <DoorClosed size={24} />}
           </div>
           <div>
-            <h2 className={`text-sm font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
+            <h2 className={`text-base font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
               {displayStatus === 'open' ? 'ABERTO' : displayStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}
             </h2>
-            <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
-              {displayStatus === 'open' ? 'PODE ENTRAR NA LISTA' : 'VOLTAMOS EM BREVE'}
+            <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
+              {displayStatus === 'open' ? 'DISPONÍVEL AGORA' : 'FECHADO NO MOMENTO'}
             </p>
           </div>
         </div>
@@ -100,16 +100,16 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
       {/* FILTROS */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-         <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : (isLight ? 'bg-white text-slate-500 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800')}`}>Visão Geral</button>
+         <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : (isLight ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800')}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => (
-           <button key={pro.id} onClick={() => setFilterPro(pro.id)} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterPro === pro.id ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg' : (isLight ? 'bg-white text-slate-500 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800')}`}>{pro.name}</button>
+           <button key={pro.id} onClick={() => setFilterPro(pro.id)} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterPro === pro.id ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg' : (isLight ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800')}`}>{pro.name}</button>
          ))}
       </div>
 
       {/* EM ATENDIMENTO */}
       {servingList.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Em Atendimento</h2>
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Sendo Atendidos</h2>
           <div className="space-y-3">
             {servingList.map(item => (
               <div key={item.id} className="bg-indigo-600 rounded-[32px] p-6 shadow-2xl animate-in zoom-in border border-white/5">
@@ -127,9 +127,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </section>
       )}
 
-      {/* LISTA DE ESPERA - BRANCO TOTAL NO MODO CLARO */}
+      {/* LISTA DE ESPERA - BRANCO PURO NO MODO CLARO */}
       <section className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Próximos da Vez</h2>
+        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Aguardando</h2>
         <div className="space-y-3">
           {waitingList.map((item, index) => {
             const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
@@ -140,14 +140,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 key={item.id} 
                 className={`border rounded-[32px] p-6 flex items-center justify-between transition-all ${
                   isMe 
-                    ? 'border-teal-500 bg-teal-500/5' 
+                    ? 'border-teal-500 bg-teal-500/5 shadow-inner' 
                     : isLight 
-                      ? 'bg-white border-slate-300 shadow-sm' 
-                      : 'bg-slate-900 border-slate-800 shadow-xl'
+                      ? 'bg-white border-slate-200 shadow-sm' 
+                      : 'bg-slate-900 border-slate-800'
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-teal-400')}`}>{index + 1}</div>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>{index + 1}</div>
                   <div>
                     <h4 className={`font-black text-lg uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
                     <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
@@ -164,10 +164,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       </section>
 
-      {/* BOTÃO FLUTUANTE */}
+      {/* BOTÃO FLUTUANTE ADICIONAR */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
-          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10"><UserPlus size={22} /> Novo Cliente</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><UserPlus size={22} /> Novo Cliente</button>
         ) : (
           displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Lista</button>
         )}

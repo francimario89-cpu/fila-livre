@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
-import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2 } from 'lucide-react';
+import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2, Users } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
 interface TVViewProps {
@@ -58,7 +58,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         await audioContextRef.current.resume();
       }
       setAudioEnabled(true);
-      // Feedback sonoro de ativação
       const osc = audioContextRef.current.createOscillator();
       const gain = audioContextRef.current.createGain();
       gain.gain.value = 0.05;
@@ -66,21 +65,16 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       gain.connect(audioContextRef.current.destination);
       osc.start();
       osc.stop(audioContextRef.current.currentTime + 0.1);
-    } catch (e) { console.error("Erro ao ativar som:", e); }
+    } catch (e) { console.error(e); }
   };
 
   const announceCall = async () => {
     try {
       if (!process.env.API_KEY || !audioContextRef.current) return;
-      
-      // GARANTE QUE O CONTEXTO ESTÁ ATIVO
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
+      if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
       
       setIsAiProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Mensagem curta e clara para TVs
       const prompt = "Atenção! Próximo cliente, por favor, compareça ao atendimento.";
 
       const response = await ai.models.generateContent({
@@ -88,11 +82,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseModalities: [Modality.AUDIO],
-          speechConfig: { 
-            voiceConfig: { 
-              prebuiltVoiceConfig: { voiceName: 'Kore' } 
-            } 
-          },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
         },
       });
 
@@ -105,32 +95,25 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         source.connect(ctx.destination);
         source.start(0);
       }
-    } catch (error) {
-      console.error("Falha na voz:", error);
-    } finally {
-      setIsAiProcessing(false);
-    }
+    } catch (error) { console.error(error); } finally { setIsAiProcessing(false); }
   };
 
-  // LÓGICA DE MONITORAMENTO: QUEM ENTRA EM 'SERVING' É CHAMADO
   useEffect(() => {
     if (!audioEnabled) return;
-    
     const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
     if (serving.length > 0) {
       const topServing = serving[0];
-      // Se ainda não anunciamos este ID nesta sessão
       if (!announcedIds.current.has(topServing.id)) {
         setLastCalledId(topServing.id);
         announcedIds.current.add(topServing.id);
-        announceCall(); 
-        // Remove o destaque após 15 segundos
+        announceCall();
         setTimeout(() => setLastCalledId(null), 15000);
       }
     }
   }, [queue, audioEnabled]);
 
   const isLight = theme === 'light';
+  const waitingList = queue.filter(i => i.status === 'waiting').slice(0, 5);
 
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-6 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
@@ -138,17 +121,14 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       {!audioEnabled && (
         <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8 animate-in fade-in">
            <div className="w-24 h-24 mb-6">{LOGO_SVG}</div>
-           <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Painel de TV Ativo</h2>
-           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-10 max-w-xs leading-relaxed">
-             Para ouvir a voz de chamada automática, clique no botão abaixo para ativar o sistema de áudio.
-           </p>
-           <button onClick={handleStartWithAudio} className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm shadow-2xl flex items-center gap-4 transition-all active:scale-95 hover:bg-teal-400">
-             <PlayCircle size={24} /> Ativar Som e Iniciar
+           <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Ativar Som do Painel</h2>
+           <button onClick={handleStartWithAudio} className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm shadow-2xl flex items-center gap-4 active:scale-95 transition-all">
+             <PlayCircle size={24} /> Iniciar Monitor
            </button>
         </div>
       )}
 
-      <header className={`flex items-center justify-between mb-8 p-6 rounded-[32px] border ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/60 border-white/10 shadow-2xl'}`}>
+      <header className={`flex items-center justify-between mb-8 p-6 rounded-[32px] border ${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/60 border-white/10 shadow-2xl'}`}>
         <div className="flex items-center gap-6">
           <div className="w-14 h-14">{LOGO_SVG}</div>
           <div>
@@ -156,10 +136,10 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
             <div className="flex items-center gap-2 mt-1">
               {isAiProcessing ? (
                 <div className="text-teal-500 flex items-center gap-2 animate-pulse">
-                  <Mic2 size={12} /><span className="text-[10px] font-black uppercase tracking-widest">IA Gerando Chamada...</span>
+                  <Mic2 size={12} /><span className="text-[10px] font-black uppercase">IA Chamando...</span>
                 </div>
               ) : (
-                <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Monitor de Fila Digital</span>
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Painel Ativo</span>
               )}
             </div>
           </div>
@@ -167,57 +147,82 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
         <div className="flex items-center gap-8">
           <div className={`px-6 py-3 rounded-2xl border font-black text-[10px] uppercase flex items-center gap-3 ${audioEnabled ? 'text-teal-500 border-teal-500/20' : 'text-red-500 border-red-500/20'}`}>
-            {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />} {audioEnabled ? 'Som Ativado' : 'Som Mudo'}
+            {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />} {audioEnabled ? 'Voz Ativa' : 'Mudo'}
           </div>
           <div className={`text-5xl font-black font-mono px-8 py-3 rounded-2xl border ${isLight ? 'bg-slate-100 border-slate-200 text-slate-900' : 'bg-slate-950 border-white/5 text-indigo-400'}`}>
             {new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
-          <button onClick={onClose} className="p-4 bg-slate-800/10 text-slate-400 rounded-2xl hover:bg-red-500 hover:text-white transition-colors"><MonitorOff size={24} /></button>
+          <button onClick={onClose} className="p-4 bg-slate-800/10 text-slate-400 rounded-2xl"><MonitorOff size={24} /></button>
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-6 overflow-y-auto custom-scrollbar">
-        {professionals.filter(p => p.status !== 'absent').map(pro => {
-          const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
-          const isCalling = serving && serving.id === lastCalledId;
+      <div className="flex-1 flex gap-6 overflow-hidden">
+        {/* GRID DE PROFISSIONAIS (CHAMADOS ATUAIS) */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar pr-2">
+          {professionals.filter(p => p.status !== 'absent').map(pro => {
+            const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
+            const isCalling = serving && serving.id === lastCalledId;
 
-          return (
-            <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] p-6 transition-all duration-700 ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/20 border-slate-800'} ${serving ? 'border-teal-500/40' : ''}`}>
-              <div className="flex items-center justify-between mb-4 px-2">
-                 <div className="flex items-center gap-2">
-                    <User size={14} className="text-slate-500" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{pro.name}</span>
-                 </div>
-                 {isCalling && <BellRing size={20} className="text-amber-500 animate-bounce" />}
+            return (
+              <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] p-6 transition-all duration-700 ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/20 border-slate-800'} ${serving ? 'border-teal-500/40' : ''}`}>
+                <div className="flex items-center justify-between mb-4 px-2">
+                   <div className="flex items-center gap-2">
+                      <User size={14} className="text-slate-500" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{pro.name}</span>
+                   </div>
+                   {isCalling && <BellRing size={24} className="text-amber-500 animate-bounce" />}
+                </div>
+
+                {serving ? (
+                  <div className={`flex-1 flex flex-col justify-center text-center p-6 rounded-[36px] transition-all duration-500 shadow-xl ${isCalling ? 'bg-amber-400 text-slate-950 scale-105 shadow-amber-500/20' : 'bg-indigo-600 text-white'}`}>
+                     <p className={`text-[10px] font-black uppercase mb-3 ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>CHAMANDO AGORA:</p>
+                     <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
+                       {serving.name.split(' ')[0]}
+                     </h2>
+                     <p className={`text-[11px] font-bold uppercase mt-5 ${isCalling ? 'text-slate-900/80' : 'text-indigo-100 opacity-70'}`}>{serving.service}</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-slate-200/30 rounded-[36px] opacity-20">
+                     <span className="text-[12px] font-black uppercase tracking-[0.4em]">LIVRE</span>
+                  </div>
+                )}
               </div>
+            );
+          })}
+        </div>
 
-              {serving ? (
-                <div className={`flex-1 flex flex-col justify-center text-center p-6 rounded-[36px] transition-all duration-500 shadow-xl ${isCalling ? 'bg-amber-400 text-slate-950 shadow-2xl scale-105' : 'bg-indigo-600 text-white'}`}>
-                   <p className={`text-[10px] font-black uppercase mb-3 ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>PACIENTE:</p>
-                   <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
-                     {serving.name.split(' ')[0]}
-                     {serving.name.split(' ')[1] && <span className="block text-2xl mt-2 opacity-80">{serving.name.split(' ')[1]}</span>}
-                   </h2>
-                   <div className={`h-1 w-12 mx-auto mt-6 rounded-full ${isCalling ? 'bg-slate-950/20' : 'bg-white/20'}`} />
-                   <p className={`text-[11px] font-bold uppercase mt-5 ${isCalling ? 'text-slate-900/80' : 'text-indigo-100 opacity-70'}`}>{serving.service}</p>
+        {/* LISTA DE ESPERA LATERAL (NOVIDADE) */}
+        <div className={`w-80 rounded-[48px] p-8 border flex flex-col ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/40 border-white/5'}`}>
+          <div className="flex items-center gap-3 mb-8">
+            <Users className="text-teal-400" size={24} />
+            <h2 className="text-lg font-black uppercase tracking-tighter">Próximos</h2>
+          </div>
+          
+          <div className="flex-1 space-y-4 overflow-y-auto scrollbar-none">
+            {waitingList.length > 0 ? waitingList.map((item, idx) => (
+              <div key={item.id} className={`p-5 rounded-[28px] border ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-black text-teal-400">{idx + 1}º</span>
+                  <p className="text-sm font-black uppercase truncate">{item.name}</p>
                 </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-slate-200/50 rounded-[36px] opacity-20">
-                   <span className="text-[12px] font-black uppercase tracking-[0.4em] mb-2">DISPONÍVEL</span>
-                   <div className="w-8 h-1 bg-slate-400/50 rounded-full" />
-                </div>
-              )}
-            </div>
-          );
-        })}
+                <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 ml-6">{item.service}</p>
+              </div>
+            )) : (
+              <div className="h-full flex items-center justify-center opacity-20 italic text-xs uppercase font-black">Fila Vazia</div>
+            )}
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/5 text-center">
+             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total na Fila: {queue.filter(i => i.status === 'waiting').length}</p>
+          </div>
+        </div>
       </div>
       
-      <footer className={`mt-auto pt-6 border-t flex justify-between items-center ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
+      <footer className={`mt-6 pt-4 border-t flex justify-between items-center ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
          <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.5em]">Fila Livre <span className="text-teal-500">Smart TV System</span></p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fila Livre Smart TV Hub</p>
          </div>
-         <p className="text-[8px] font-black text-slate-400 uppercase">Sistema de Chamada por Voz Ativo</p>
       </footer>
     </div>
   );
