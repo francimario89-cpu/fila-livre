@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
 import { User, MonitorOff, BellRing, Volume2, VolumeX, Volume1, PlayCircle, Loader2, Mic2 } from 'lucide-react';
@@ -15,31 +15,21 @@ interface TVViewProps {
 
 function decode(base64: string) {
   const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
 }
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
-  // Garantimos o alinhamento de bytes para Int16Array
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
   const bufferCopy = new ArrayBuffer(data.byteLength);
   new Uint8Array(bufferCopy).set(data);
-  
   const dataInt16 = new Int16Array(bufferCopy);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
+  const buffer = ctx.createBuffer(numChannels, dataInt16.length / numChannels, sampleRate);
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
+    for (let i = 0; i < buffer.length; i++) {
       channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
     }
   }
@@ -54,27 +44,21 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   const announcedIds = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const activePros = professionals.filter(p => p.status !== 'absent');
-
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Inicialização obrigatória para desbloquear áudio no navegador (Gesto do Usuário)
   const handleStartWithAudio = async () => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       }
-      
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
-      
       setAudioEnabled(true);
-      
-      // Feedback sonoro para confirmar ativação
+      // Bip discreto de ativação
       const osc = audioContextRef.current.createOscillator();
       const gain = audioContextRef.current.createGain();
       gain.gain.value = 0.05;
@@ -82,62 +66,43 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       gain.connect(audioContextRef.current.destination);
       osc.start();
       osc.stop(audioContextRef.current.currentTime + 0.1);
-    } catch (e) {
-      console.error("Erro ao iniciar áudio:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const announcePatient = async (name: string) => {
+  const announceCall = async () => {
     try {
-      if (!process.env.API_KEY) return;
+      if (!process.env.API_KEY || !audioContextRef.current) return;
       
-      // Resumo crítico do áudio antes de cada fala para Smart TVs
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      // FORÇAR REINÍCIO DO ÁUDIO PARA TV NÃO DORMIR
+      if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
       
       setIsAiProcessing(true);
-
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const firstName = name.split(' ')[0];
-      const prompt = `Diga apenas: ${firstName}, por favor, compareça ao atendimento.`;
+      // Voz simplificada para garantir funcionamento em TVs
+      const prompt = "Atenção! Próximo cliente, por favor compareça ao atendimento.";
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
-            },
-          },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
         },
       });
 
-      // Procurar pela parte de áudio na resposta
-      let base64Audio = '';
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData?.data) {
-          base64Audio = part.inlineData.data;
-          break;
-        }
-      }
-
-      if (base64Audio) {
-        const ctx = audioContextRef.current!;
-        const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
+      const audioPart = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
+      if (audioPart) {
+        const ctx = audioContextRef.current;
+        const audioBuffer = await decodeAudioData(decode(audioPart), ctx, 24000, 1);
         const source = ctx.createBufferSource();
-        const gainNode = ctx.createGain();
-        
-        gainNode.gain.value = 1.0; 
         source.buffer = audioBuffer;
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        source.connect(ctx.destination);
         source.start(0);
       }
     } catch (error) {
-      console.error("Erro no TTS Gemini:", error);
+      console.error("Falha na chamada de voz:", error);
     } finally {
       setIsAiProcessing(false);
     }
@@ -145,19 +110,14 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
   useEffect(() => {
     if (!audioEnabled) return;
-
     const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
     if (serving.length > 0) {
       const topServing = serving[0];
-      
       if (!announcedIds.current.has(topServing.id)) {
         setLastCalledId(topServing.id);
         announcedIds.current.add(topServing.id);
-        
-        // Dispara a chamada sonora
-        announcePatient(topServing.name);
-        
-        setTimeout(() => setLastCalledId(null), 25000);
+        announceCall(); // Chama a voz genérica "Atenção"
+        setTimeout(() => setLastCalledId(null), 15000);
       }
     }
   }, [queue, audioEnabled]);
@@ -165,143 +125,84 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   const isLight = theme === 'light';
 
   return (
-    <div className={`fixed inset-0 z-[1000] flex flex-col p-6 animate-in fade-in duration-1000 overflow-hidden font-inter transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
+    <div className={`fixed inset-0 z-[1000] flex flex-col p-6 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-100 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
       {!audioEnabled && (
-        <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-           <div className="w-24 h-24 mb-8 animate-float">
-             {LOGO_SVG}
-           </div>
-           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Painel da TV</h2>
-           <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10 max-w-xs">
-             Para ouvir a chamada dos clientes, clique no botão abaixo para ativar o sistema de voz.
-           </p>
-           <button 
-             onClick={handleStartWithAudio}
-             className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-4"
-           >
-             <PlayCircle size={24} /> Ativar Voz e Iniciar
+        <div className="absolute inset-0 z-[2000] bg-slate-950/95 flex flex-col items-center justify-center text-center p-8 animate-in fade-in">
+           <div className="w-24 h-24 mb-6">{LOGO_SVG}</div>
+           <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Ativar Som do Painel</h2>
+           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-10">O som é necessário para ouvir a chamada de voz.</p>
+           <button onClick={handleStartWithAudio} className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm shadow-2xl flex items-center gap-4 transition-transform active:scale-95">
+             <PlayCircle size={24} /> Iniciar Agora
            </button>
         </div>
       )}
 
-      <header className={`flex items-center justify-between mb-6 p-6 rounded-[32px] border backdrop-blur-xl shadow-2xl transition-colors ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/10'}`}>
+      <header className={`flex items-center justify-between mb-8 p-6 rounded-[32px] border ${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/60 border-white/10 shadow-2xl'}`}>
         <div className="flex items-center gap-6">
-          <div className={`w-16 h-16 shadow-lg rounded-2xl p-2 ${isLight ? 'bg-slate-100 shadow-slate-200' : 'bg-slate-950 shadow-teal-500/20'}`}>
-            {LOGO_SVG}
-          </div>
+          <div className="w-14 h-14">{LOGO_SVG}</div>
           <div>
-            <h1 className={`text-4xl font-black font-orbitron tracking-tighter uppercase leading-none ${isLight ? 'text-slate-900' : 'neon-text text-white'}`}>
-              {establishmentName}
-            </h1>
-            <div className="flex items-center gap-2 mt-2">
+            <h1 className={`text-4xl font-black uppercase tracking-tighter font-orbitron ${isLight ? 'text-slate-900' : 'text-white neon-text'}`}>{establishmentName}</h1>
+            <div className="flex items-center gap-2 mt-1">
               {isAiProcessing ? (
-                <div className="flex items-center gap-2 text-teal-400 animate-pulse">
-                   <Loader2 size={12} className="animate-spin" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">IA Sincronizando Voz...</p>
+                <div className="text-teal-500 flex items-center gap-2 animate-pulse">
+                  <Mic2 size={12} /><span className="text-[10px] font-black uppercase">Voz Gerando Alerta...</span>
                 </div>
               ) : (
-                <>
-                  <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
-                  <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${isLight ? 'text-slate-500' : 'text-teal-400'}`}>Monitor em Tempo Real</p>
-                </>
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Painel de chamadas ativo</span>
               )}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-8">
-          <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border ${audioEnabled ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
-            {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Voz Ativada' : 'Mudo'}</span>
+          <div className={`px-6 py-3 rounded-2xl border font-black text-[10px] uppercase flex items-center gap-3 ${audioEnabled ? 'text-teal-500 border-teal-500/30' : 'text-red-500 border-red-500/30'}`}>
+            {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />} {audioEnabled ? 'Voz Ativa' : 'Som Mudo'}
           </div>
-
-          <div className={`text-5xl font-black font-mono tracking-tighter px-8 py-3 rounded-2xl border shadow-inner ${isLight ? 'bg-slate-100 border-slate-200 text-indigo-600' : 'bg-slate-950 border-white/10 text-indigo-400'}`}>
+          <div className={`text-5xl font-black font-mono px-8 py-3 rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-white/5 text-indigo-400'}`}>
             {new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
-
-          <button onClick={onClose} className={`p-4 rounded-2xl transition-colors ${isLight ? 'bg-slate-200 text-slate-400 hover:text-red-600' : 'bg-slate-800 text-slate-600 hover:text-red-500'}`}>
-            <MonitorOff size={24} />
-          </button>
+          <button onClick={onClose} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-colors"><MonitorOff size={24} /></button>
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-hidden pb-4">
-        {activePros.map(pro => {
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-6">
+        {professionals.filter(p => p.status !== 'absent').map(pro => {
           const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
-          const waiting = queue.filter(i => i.status === 'waiting' && (i.professionalId === pro.id || (i.professionalId === 'any' && !serving))).slice(0, 5);
-          const isBusy = !!serving;
-          const isLastCalled = serving && serving.id === lastCalledId;
+          const isCalling = serving && serving.id === lastCalledId;
 
           return (
-            <div key={pro.id} className={`flex flex-col h-full border-2 rounded-[40px] overflow-hidden transition-all duration-700 ${isLight ? 'bg-white shadow-sm' : 'bg-slate-900/20'} ${isBusy ? 'border-teal-500/30' : 'border-slate-800'}`}>
-               
-               <div className={`p-4 flex items-center justify-between ${isBusy ? (isLight ? 'bg-teal-50' : 'bg-teal-500/10') : (isLight ? 'bg-slate-50' : 'bg-slate-800/30')}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isBusy ? 'bg-teal-500 text-slate-950' : (isLight ? 'bg-slate-200 text-slate-500' : 'bg-slate-800 text-slate-500')}`}>
-                      <User size={18} />
-                    </div>
-                    <h3 className={`font-black text-sm uppercase tracking-tight truncate max-w-[150px] ${isLight ? 'text-slate-800' : 'text-white'}`}>{pro.name}</h3>
-                  </div>
-               </div>
+            <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] p-6 transition-all duration-700 ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/20 border-slate-800'} ${serving ? 'border-teal-500/40' : ''}`}>
+              <div className="flex items-center justify-between mb-4 px-2">
+                 <span className="text-[10px] font-black text-slate-500 uppercase">{pro.name}</span>
+                 {isCalling && <BellRing size={20} className="text-amber-500 animate-bounce" />}
+              </div>
 
-               <div className="p-4 flex-1 flex flex-col gap-4">
-                 <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">PACIENTE:</span>
-                    {isLastCalled && <Volume1 size={24} className="text-yellow-500 animate-ping" />}
-                 </div>
-                 
-                 {serving ? (
-                   <div className={`p-6 rounded-[32px] shadow-2xl relative overflow-hidden transition-all duration-500 flex flex-col justify-center min-h-[180px] ${
-                     isLastCalled 
-                     ? 'bg-yellow-400 text-slate-950 animate-pulse scale-[1.02] ring-8 ring-yellow-400/20' 
-                     : 'bg-indigo-600 text-white'
-                   }`}>
-                      <div className="relative z-10 space-y-2">
-                        <h4 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
-                          {serving.name.split(' ')[0]}
-                          {serving.name.split(' ')[1] && <span className="block text-2xl opacity-70 mt-1">{serving.name.split(' ')[1]}</span>}
-                        </h4>
-                        <div className={`h-[3px] w-16 mt-4 ${isLastCalled ? 'bg-slate-950/20' : 'bg-white/20'}`} />
-                        <p className={`text-xs font-black uppercase tracking-[0.2em] pt-2 ${isLastCalled ? 'text-slate-900/60' : 'text-indigo-200'}`}>
-                          {serving.service}
-                        </p>
-                      </div>
-                      {isLastCalled && (
-                        <div className="absolute -right-4 -bottom-4 opacity-10">
-                           <BellRing size={140} />
-                        </div>
-                      )}
-                   </div>
-                 ) : (
-                   <div className={`flex-1 flex flex-col items-center justify-center border-4 border-dashed rounded-[32px] min-h-[180px] ${isLight ? 'border-slate-200 text-slate-300' : 'border-slate-800/20 text-slate-800'}`}>
-                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">VAGO</span>
-                   </div>
-                 )}
-
-                 <div className="space-y-2 mt-2">
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-2">PRÓXIMOS:</span>
-                    {waiting.map((item, idx) => (
-                      <div key={item.id} className={`p-4 rounded-2xl flex items-center justify-between border animate-in slide-in-from-bottom-2 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/5'}`}>
-                        <div className="flex items-center gap-3">
-                           <span className={`text-xs font-black font-orbitron ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>{idx + 1}º</span>
-                           <span className={`text-sm font-bold uppercase truncate max-w-[120px] ${isLight ? 'text-slate-900' : 'text-white/80'}`}>{item.name}</span>
-                        </div>
-                        <span className={`text-[8px] px-2 py-1 rounded-lg font-black uppercase tracking-tighter border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-white/5 text-slate-500'}`}>{item.service.slice(0, 10)}</span>
-                      </div>
-                    ))}
-                 </div>
-               </div>
+              {serving ? (
+                <div className={`flex-1 flex flex-col justify-center text-center p-6 rounded-[36px] transition-all duration-500 ${isCalling ? 'bg-amber-400 text-slate-950 shadow-2xl scale-105' : 'bg-indigo-600 text-white shadow-xl'}`}>
+                   <p className="text-[10px] font-black uppercase opacity-60 mb-2">CLIENTE:</p>
+                   <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
+                     {serving.name.split(' ')[0]}
+                     {serving.name.split(' ')[1] && <span className="block text-2xl mt-2 opacity-80">{serving.name.split(' ')[1]}</span>}
+                   </h2>
+                   <div className={`h-1 w-12 mx-auto mt-6 rounded-full ${isCalling ? 'bg-slate-950/20' : 'bg-white/20'}`} />
+                   <p className="text-[10px] font-bold uppercase mt-4 opacity-70">{serving.service}</p>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center border-4 border-dashed border-slate-200/50 rounded-[36px] opacity-20">
+                   <span className="text-[12px] font-black uppercase tracking-[0.4em]">DISPONÍVEL</span>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-
-      <footer className={`mt-4 pt-4 border-t flex justify-between items-center ${isLight ? 'border-slate-200' : 'border-white/10'}`}>
-        <div className="flex items-center gap-3">
-           <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-           <p className={`text-xs font-black uppercase tracking-[0.5em] font-orbitron ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>FILA LIVRE <span className="text-teal-500">SMART SYSTEM</span></p>
-        </div>
+      
+      <footer className={`mt-auto pt-6 border-t flex justify-between items-center ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
+         <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.5em]">Fila Livre <span className="text-teal-500">Smart TV Hub</span></p>
+         </div>
       </footer>
     </div>
   );
