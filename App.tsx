@@ -36,11 +36,13 @@ const App: React.FC = () => {
   const [loyaltyCount, setLoyaltyCount] = useState(0);
   const [globalUserQueues, setGlobalUserQueues] = useState<QueueItem[]>([]);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  // Added to fix "Cannot find name 'myProId'" error: Identify the professional ID if user is staff
-  const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail?.toLowerCase())?.id;
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Check if app is already installed/standalone
+    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsStandalone(!!checkStandalone);
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -51,11 +53,21 @@ const App: React.FC = () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') setDeferredPrompt(null);
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsStandalone(true);
+      }
     } else {
-      alert("Para instalar:\n\nNo iPhone: Toque no botão de compartilhar (ícone do meio) e 'Adicionar à Tela de Início'.\n\nNo Android: Toque nos três pontinhos do Chrome e 'Instalar Aplicativo'.");
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      if (isIOS) {
+        alert("PARA INSTALAR NO IPHONE:\n\n1. Toque no ícone de 'Compartilhar' (quadrado com seta pra cima no centro da barra inferior).\n2. Role para baixo e toque em 'Adicionar à Tela de Início'.\n3. Toque em 'Adicionar' no canto superior direito.");
+      } else {
+        alert("PARA INSTALAR NO ANDROID:\n\n1. Toque nos 3 pontinhos no canto superior direito do Chrome.\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
+      }
     }
   };
+
+  const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail?.toLowerCase())?.id;
 
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -193,6 +205,8 @@ const App: React.FC = () => {
           onCallNext={(id) => {}} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={(id) => {}} 
           onTogglePriority={(id, status) => updateDoc(doc(db, "establishments", currentEst.id, "queue", id), { isPriority: !status })}
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
+          isStandalone={isStandalone}
+          onInstallRequest={handleInstallApp}
         />
       )}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
@@ -212,27 +226,29 @@ const App: React.FC = () => {
            </div>
 
            <div className="space-y-6">
-              {/* Seção de Instalação do Aplicativo */}
-              <section className={`p-8 rounded-[40px] border shadow-xl ${theme === 'dark' ? 'bg-slate-900 border-teal-500/20' : 'bg-white border-slate-200'}`}>
-                 <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center"><Smartphone size={24} /></div>
-                    <div>
-                       <h3 className="text-sm font-black uppercase tracking-tighter">App no seu Celular</h3>
-                       <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido sem usar o navegador</p>
-                    </div>
-                 </div>
-                 
-                 <div className="space-y-4">
-                    <button onClick={handleInstallApp} className="w-full bg-teal-500 text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
-                       <Download size={18} /> Instalar Agora
-                    </button>
-                    
-                    <div className="flex items-center justify-center gap-6 pt-2 opacity-50">
-                       <div className="flex items-center gap-2"><Apple size={14}/><span className="text-[7px] font-black uppercase">iOS</span></div>
-                       <div className="flex items-center gap-2"><Smartphone size={14}/><span className="text-[7px] font-black uppercase">Android</span></div>
-                    </div>
-                 </div>
-              </section>
+              {/* Seção de Instalação do Aplicativo (Oculta se já instalado) */}
+              {!isStandalone && (
+                <section className={`p-8 rounded-[40px] border shadow-xl ${theme === 'dark' ? 'bg-slate-900 border-teal-500/20' : 'bg-white border-slate-200'}`}>
+                   <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center"><Smartphone size={24} /></div>
+                      <div>
+                         <h3 className="text-sm font-black uppercase tracking-tighter">App no seu Celular</h3>
+                         <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido sem usar o navegador</p>
+                      </div>
+                   </div>
+                   
+                   <div className="space-y-4">
+                      <button onClick={handleInstallApp} className="w-full bg-teal-500 text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+                         <Download size={18} /> Instalar Agora
+                      </button>
+                      
+                      <div className="flex items-center justify-center gap-6 pt-2 opacity-50">
+                         <div className="flex items-center gap-2"><Apple size={14}/><span className="text-[7px] font-black uppercase">iOS</span></div>
+                         <div className="flex items-center gap-2"><Smartphone size={14}/><span className="text-[7px] font-black uppercase">Android</span></div>
+                      </div>
+                   </div>
+                </section>
+              )}
 
               <section className={`p-8 rounded-[40px] border shadow-lg ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                  <div className="space-y-4">

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert, Users2 } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert, Users2, Download, Smartphone } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -17,6 +17,7 @@ interface QueueViewProps {
   services: Service[];
   dailySchedules?: Record<number, DaySchedule>;
   theme?: 'dark' | 'light';
+  isStandalone?: boolean;
   onCallNext?: (id?: string) => void;
   onFinish?: (item: QueueItem) => void;
   onNoShow?: (id: string) => void;
@@ -25,10 +26,11 @@ interface QueueViewProps {
   onLeaveQueue?: (id: string) => void;
   onUpdateProfessional?: (itemId: string, proId: string) => void;
   onTogglePriority?: (itemId: string, currentStatus: boolean) => void;
+  onInstallRequest?: () => void;
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional, onTogglePriority
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', isStandalone, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional, onTogglePriority, onInstallRequest
 }) => {
   const [now, setNow] = useState(new Date());
 
@@ -70,6 +72,29 @@ export const QueueView: React.FC<QueueViewProps> = ({
             </span>
          </div>
       </header>
+
+      {/* BANNER DE INSTALAÇÃO (VISÍVEL APENAS NO NAVEGADOR) */}
+      {!isStandalone && (
+        <section onClick={onInstallRequest} className={`cursor-pointer group relative overflow-hidden rounded-[32px] p-5 border-2 transition-all duration-300 shadow-xl ${isLight ? 'bg-indigo-50 border-indigo-200' : 'bg-indigo-600/10 border-indigo-500/30'}`}>
+           <div className="flex items-center justify-between gap-4 relative z-10">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                    <Download size={24} />
+                 </div>
+                 <div>
+                    <h3 className={`text-xs font-black uppercase tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Instalar Aplicativo</h3>
+                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido na tela inicial</p>
+                 </div>
+              </div>
+              <div className="bg-indigo-600/20 p-2 rounded-xl text-indigo-400">
+                 <Smartphone size={16} className="animate-bounce" />
+              </div>
+           </div>
+           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+              <Download size={100} />
+           </div>
+        </section>
+      )}
       
       {/* STATUS CARD */}
       <section className={`rounded-[32px] p-5 border-2 transition-all duration-700 shadow-xl ${
@@ -142,7 +167,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 </div>
               ) : (
                 <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-20 ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">GUICHÊ LIVRE</p>
+                   <p className="text-xl font-black uppercase tracking-[0.3em]">LIVRE</p>
                 </div>
               )}
 
