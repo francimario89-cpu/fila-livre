@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, Megaphone } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -13,9 +13,6 @@ interface QueueViewProps {
   establishmentName: string;
   estStatus: EstStatus;
   autoStatusEnabled?: boolean;
-  openingHours?: string;
-  pixKey?: string;
-  bookingModel?: BookingModel;
   professionals: Professional[];
   services: Service[];
   dailySchedules?: Record<number, DaySchedule>;
@@ -80,28 +77,28 @@ export const QueueView: React.FC<QueueViewProps> = ({
          </div>
       </header>
       
-      {/* STATUS DA LOJA */}
+      {/* STATUS CARD */}
       <section className={`rounded-[32px] p-4 border-2 transition-all duration-700 shadow-xl ${
         displayStatus === 'open' ? 'bg-emerald-500 border-emerald-400' : 
         displayStatus === 'lunch' ? 'bg-amber-500 border-amber-400' : 
-        (isLight ? 'bg-white border-red-200' : 'bg-slate-900 border-red-500/30')
+        (isLight ? 'bg-white border-red-100 shadow-sm' : 'bg-slate-900 border-red-500/20')
       }`}>
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center bg-black/20 text-white">
+          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center bg-black/10 text-white">
             {displayStatus === 'open' ? <Wifi size={20} className="animate-pulse" /> : displayStatus === 'lunch' ? <Coffee size={20} /> : <DoorClosed size={20} />}
           </div>
           <div>
-            <h2 className="text-sm font-black uppercase font-orbitron tracking-tight leading-none text-white">
+            <h2 className={`text-sm font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
               {displayStatus === 'open' ? 'ABERTO' : displayStatus === 'lunch' ? 'ALMOÇO' : 'FECHADO'}
             </h2>
-            <p className="text-[8px] font-black uppercase tracking-widest mt-1 text-white/70">
+            <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
               {displayStatus === 'open' ? 'PODE ENTRAR NA LISTA' : 'VOLTAMOS EM BREVE'}
             </p>
           </div>
         </div>
       </section>
 
-      {/* FILTROS PROFISSIONAIS */}
+      {/* FILTROS */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
          <button onClick={() => setFilterPro('all')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${filterPro === 'all' ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : (isLight ? 'bg-white text-slate-500 border-slate-200' : 'bg-slate-900 text-slate-500 border-slate-800')}`}>Visão Geral</button>
          {professionals.filter(p => p.status !== 'absent').map(pro => (
@@ -112,10 +109,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* EM ATENDIMENTO */}
       {servingList.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Atendimento Agora</h2>
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Em Atendimento</h2>
           <div className="space-y-3">
             {servingList.map(item => (
-              <div key={item.id} className="bg-indigo-600 rounded-[32px] p-6 shadow-2xl animate-in zoom-in">
+              <div key={item.id} className="bg-indigo-600 rounded-[32px] p-6 shadow-2xl animate-in zoom-in border border-white/5">
                 <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{item.name}</h3>
                 <p className="text-[10px] font-bold text-indigo-100 uppercase mt-1">{item.service} • {professionals.find(p => p.id === item.professionalId)?.name}</p>
                 {(isAdmin || (isStaff && item.professionalId === myProId)) && (
@@ -130,9 +127,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </section>
       )}
 
-      {/* LISTA DE ESPERA */}
+      {/* LISTA DE ESPERA - BRANCO TOTAL NO MODO CLARO */}
       <section className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Aguardando na Vez</h2>
+        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Próximos da Vez</h2>
         <div className="space-y-3">
           {waitingList.map((item, index) => {
             const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
@@ -141,12 +138,12 @@ export const QueueView: React.FC<QueueViewProps> = ({
             return (
               <div 
                 key={item.id} 
-                className={`border rounded-[32px] p-6 flex items-center justify-between transition-all shadow-sm ${
+                className={`border rounded-[32px] p-6 flex items-center justify-between transition-all ${
                   isMe 
                     ? 'border-teal-500 bg-teal-500/5' 
                     : isLight 
-                      ? 'bg-white border-slate-200' 
-                      : 'bg-slate-900 border-slate-800'
+                      ? 'bg-white border-slate-300 shadow-sm' 
+                      : 'bg-slate-900 border-slate-800 shadow-xl'
                 }`}
               >
                 <div className="flex items-center gap-4">
@@ -167,10 +164,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
         </div>
       </section>
 
-      {/* BOTÃO FLUTUANTE ADICIONAR */}
+      {/* BOTÃO FLUTUANTE */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
-          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><UserPlus size={22} /> Novo Cliente</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10"><UserPlus size={22} /> Novo Cliente</button>
         ) : (
           displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Lista</button>
         )}
