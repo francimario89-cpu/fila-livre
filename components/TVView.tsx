@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
-import { User, MonitorOff, BellRing, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { User, MonitorOff, BellRing, Volume2, VolumeX, Volume1, PlayCircle, Loader2 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
 interface TVViewProps {
@@ -46,6 +46,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   const [now, setNow] = useState(Date.now());
   const [lastCalledId, setLastCalledId] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const announcedIds = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -56,34 +57,38 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
     return () => clearInterval(timer);
   }, []);
 
-  // Inicializa ou retoma o contexto de áudio
-  const initAudio = async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+  // Inicialização obrigatória para desbloquear áudio no navegador
+  const handleStartWithAudio = async () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      setAudioEnabled(true);
+      
+      // Feedback sonoro de teste (bip curto)
+      const osc = audioContextRef.current.createOscillator();
+      const gain = audioContextRef.current.createGain();
+      gain.gain.value = 0.05;
+      osc.connect(gain);
+      gain.connect(audioContextRef.current.destination);
+      osc.start();
+      osc.stop(audioContextRef.current.currentTime + 0.1);
+    } catch (e) {
+      console.error("Erro ao iniciar áudio:", e);
     }
-    if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-    }
-    setAudioEnabled(true);
-    
-    // Teste de som silencioso para garantir ativação
-    const osc = audioContextRef.current.createOscillator();
-    const gain = audioContextRef.current.createGain();
-    gain.gain.value = 0.001;
-    osc.connect(gain);
-    gain.connect(audioContextRef.current.destination);
-    osc.start();
-    osc.stop(audioContextRef.current.currentTime + 0.1);
   };
 
   const announcePatient = async (name: string) => {
     try {
-      if (!process.env.API_KEY) return;
-      
-      // Tenta retomar se estiver suspenso
-      if (audioContextRef.current?.state === 'suspended') {
-        await audioContextRef.current.resume();
+      if (!process.env.API_KEY) {
+         console.warn("API_KEY não configurada para áudio.");
+         return;
       }
+      
+      setIsAiProcessing(true);
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const firstName = name.split(' ')[0];
@@ -104,14 +109,14 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
-        const ctx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        if (!audioContextRef.current) audioContextRef.current = ctx;
+        const ctx = audioContextRef.current!;
+        if (ctx.state === 'suspended') await ctx.resume();
 
         const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
         const source = ctx.createBufferSource();
         const gainNode = ctx.createGain();
         
-        gainNode.gain.value = 1.0; // Volume total
+        gainNode.gain.value = 1.0; 
         source.buffer = audioBuffer;
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
@@ -119,11 +124,14 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       }
     } catch (error) {
       console.error("Erro no TTS Gemini:", error);
+    } finally {
+      setIsAiProcessing(false);
     }
   };
 
   useEffect(() => {
-    // Monitora quem está em atendimento ("serving")
+    if (!audioEnabled) return;
+
     const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
     if (serving.length > 0) {
       const topServing = serving[0];
@@ -132,12 +140,9 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         setLastCalledId(topServing.id);
         announcedIds.current.add(topServing.id);
         
-        // Chamada de voz
-        if (audioEnabled) {
-          announcePatient(topServing.name);
-        }
+        // Chamada sonora
+        announcePatient(topServing.name);
         
-        // Limpa destaque visual após 15 segundos
         setTimeout(() => setLastCalledId(null), 15000);
       }
     }
@@ -148,15 +153,22 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-6 animate-in fade-in duration-1000 overflow-hidden font-inter transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
-      {/* ALERTA DE SOM DESATIVADO - CRÍTICO PARA NAVEGADORES */}
+      {/* OVERLAY DE INICIALIZAÇÃO OBRIGATÓRIO PARA ÁUDIO */}
       {!audioEnabled && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
-          <button 
-            onClick={initAudio}
-            className="flex items-center gap-3 bg-red-600 text-white px-8 py-4 rounded-full shadow-2xl font-black uppercase text-sm tracking-widest ring-4 ring-red-600/20"
-          >
-            <VolumeX size={24} /> Ativar Som da TV
-          </button>
+        <div className="absolute inset-0 z-[2000] bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+           <div className="w-32 h-32 mb-8 animate-float">
+             {LOGO_SVG}
+           </div>
+           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Painel da TV</h2>
+           <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10 max-w-sm">
+             O monitor precisa da sua permissão para emitir os avisos sonoros de voz.
+           </p>
+           <button 
+             onClick={handleStartWithAudio}
+             className="bg-teal-500 text-slate-950 px-12 py-6 rounded-3xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-4"
+           >
+             <PlayCircle size={24} /> Iniciar Monitor com Som
+           </button>
         </div>
       )}
 
@@ -171,8 +183,17 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
               {establishmentName}
             </h1>
             <div className="flex items-center gap-2 mt-2">
-              <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
-              <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${isLight ? 'text-slate-500' : 'text-teal-400'}`}>Monitor de Chamadas</p>
+              {isAiProcessing ? (
+                <div className="flex items-center gap-2 text-teal-400">
+                   <Loader2 size={12} className="animate-spin" />
+                   <p className="text-[10px] font-black uppercase tracking-widest">IA Processando Voz...</p>
+                </div>
+              ) : (
+                <>
+                  <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                  <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${isLight ? 'text-slate-500' : 'text-teal-400'}`}>Monitor em Tempo Real</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -180,7 +201,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         <div className="flex items-center gap-8">
           <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border ${audioEnabled ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
             {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Áudio Ativo' : 'Áudio Mudo'}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Áudio Operante' : 'Mudo'}</span>
           </div>
 
           <div className={`text-5xl font-black font-mono tracking-tighter px-8 py-3 rounded-2xl border shadow-inner ${isLight ? 'bg-slate-100 border-slate-200 text-indigo-600' : 'bg-slate-950 border-white/10 text-indigo-400'}`}>
@@ -215,8 +236,8 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
                <div className="p-4 flex-1 flex flex-col gap-4">
                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">EM ATENDIMENTO:</span>
-                    {isLastCalled && <Volume1 size={20} className="text-yellow-500 animate-ping" />}
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">PACIENTE:</span>
+                    {isLastCalled && <Volume1 size={24} className="text-yellow-500 animate-ping" />}
                  </div>
                  
                  {serving ? (
@@ -243,7 +264,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                    </div>
                  ) : (
                    <div className={`flex-1 flex flex-col items-center justify-center border-4 border-dashed rounded-[32px] min-h-[180px] ${isLight ? 'border-slate-200 text-slate-300' : 'border-slate-800/20 text-slate-800'}`}>
-                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">LIVRE</span>
+                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">VAGO</span>
                    </div>
                  )}
 
@@ -269,9 +290,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         <div className="flex items-center gap-3">
            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
            <p className={`text-xs font-black uppercase tracking-[0.5em] font-orbitron ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>FILA LIVRE <span className="text-teal-500">SMART SYSTEM</span></p>
-        </div>
-        <div className={`flex items-center gap-4 px-6 py-2 rounded-full border ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-900/50 border-white/5'}`}>
-           <p className={`text-[10px] font-bold uppercase tracking-widest ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Monitoramento de Chamadas por IA</p>
         </div>
       </footer>
     </div>
