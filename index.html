@@ -14,19 +14,16 @@
       }
       body {
         font-family: 'Inter', sans-serif;
-        background-color: var(--dark-bg);
-        color: #f8fafc;
         margin: 0;
         padding: 0;
         overflow-x: hidden;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
       .font-orbitron { font-family: 'Orbitron', sans-serif; }
       
       .glass-card {
-        background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(16px);
         border: 1px solid rgba(45, 212, 191, 0.15);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
       }
       
       .neon-border {
@@ -39,7 +36,7 @@
 
       /* Scrollbar Customizada */
       ::-webkit-scrollbar { width: 4px; }
-      ::-webkit-scrollbar-track { background: #050810; }
+      ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #2dd4bf; border-radius: 10px; }
       
       .animate-float {
@@ -48,6 +45,26 @@
       @keyframes float {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-8px); }
+      }
+
+      /* Classes de Tema */
+      .theme-dark {
+        background-color: #050810;
+        color: #f8fafc;
+      }
+      .theme-light {
+        background-color: #f1f5f9;
+        color: #0f172a;
+      }
+      .theme-light .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      }
+      .theme-dark .glass-card {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(45, 212, 191, 0.15);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
       }
     </style>
   <script type="importmap">
@@ -67,9 +84,8 @@
 }
 </script>
 </head>
-  <body>
+  <body class="theme-dark">
     <div id="root"></div>
-    <!-- Script de entrada vital para o Vercel -->
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
