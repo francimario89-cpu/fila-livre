@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
-import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2, Users, Zap } from 'lucide-react';
+import { User, MonitorOff, BellRing, Volume2, VolumeX, PlayCircle, Loader2, Mic2, Users, Zap, AlertCircle } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
 interface TVViewProps {
@@ -73,7 +73,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       if (!process.env.API_KEY || !audioContextRef.current) return;
       setIsAiProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = "Atenção! Próximo cliente, por favor, compareça ao atendimento.";
+      const prompt = "Atenção! Próximo cliente, por favor, compareça ao guichê de atendimento.";
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: prompt }] }],
@@ -109,7 +109,12 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   }, [queue, audioEnabled]);
 
   const isLight = theme === 'light';
-  const waitingList = queue.filter(i => i.status === 'waiting').slice(0, 8);
+  // Ordenar lista de espera global na TV por prioridade e tempo
+  const waitingList = queue.filter(i => i.status === 'waiting').sort((a,b) => {
+    if (a.isPriority && !b.isPriority) return -1;
+    if (!a.isPriority && b.isPriority) return 1;
+    return a.timestamp - b.timestamp;
+  }).slice(0, 8);
 
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-8 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
@@ -117,9 +122,9 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       {!audioEnabled && (
         <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8 animate-in fade-in">
            <div className="w-24 h-24 mb-6">{LOGO_SVG}</div>
-           <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Ativar Som do Painel</h2>
+           <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Painel de Voz</h2>
            <button onClick={handleStartWithAudio} className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm shadow-2xl flex items-center gap-4 active:scale-95 transition-all">
-             <PlayCircle size={24} /> Iniciar Painel
+             <PlayCircle size={24} /> Ativar Voz IA
            </button>
         </div>
       )}
@@ -140,33 +145,38 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       </header>
 
       <div className="flex-1 flex gap-8 overflow-hidden">
-        {/* GRID DE FILAS INDIVIDUAIS */}
+        {/* GRID DE FILAS INDIVIDUAIS - COLUNAS VERTICAIS */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 overflow-y-auto custom-scrollbar pr-2">
           {professionals.filter(p => p.status !== 'absent').map(pro => {
             const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
             const isCalling = serving && serving.id === lastCalledId;
 
             return (
-              <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] p-8 transition-all duration-700 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/20 border-slate-800'} ${serving ? 'border-indigo-500/50' : 'border-slate-800'}`}>
+              <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] p-8 transition-all duration-700 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/20 border-slate-800'} ${serving ? (serving.isPriority ? 'border-red-500/50' : 'border-indigo-500/50') : 'border-slate-800'}`}>
                 <div className="flex items-center justify-between mb-6">
                    <h3 className="text-xl font-black text-slate-500 uppercase tracking-widest">{pro.name}</h3>
-                   {isCalling && <BellRing size={28} className="text-amber-500 animate-bounce" />}
+                   {(isCalling || (serving && serving.isPriority)) && <BellRing size={28} className={`${serving?.isPriority ? 'text-red-500' : 'text-amber-500'} animate-bounce`} />}
                 </div>
 
                 {serving ? (
-                  <div className={`flex-1 flex flex-col justify-center text-center p-8 rounded-[40px] transition-all duration-500 shadow-2xl ${isCalling ? 'bg-amber-400 text-slate-950 scale-105' : 'bg-indigo-600 text-white'}`}>
-                     <p className={`text-[12px] font-black uppercase mb-4 tracking-widest ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>SENDO ATENDIDO:</p>
+                  <div className={`flex-1 flex flex-col justify-center text-center p-8 rounded-[40px] transition-all duration-500 shadow-2xl relative overflow-hidden ${isCalling ? 'bg-amber-400 text-slate-950 scale-105' : serving.isPriority ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                     {serving.isPriority && (
+                        <div className="absolute top-4 left-0 w-full flex justify-center">
+                           <span className="bg-white text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">Prioritário</span>
+                        </div>
+                     )}
+                     <p className={`text-[12px] font-black uppercase mb-4 tracking-widest ${isCalling ? 'text-slate-900/60' : 'text-indigo-200'}`}>ATENDIMENTO:</p>
                      <h2 className="text-6xl font-black uppercase tracking-tighter leading-none break-words">
                        {serving.name.split(' ')[0]}
                      </h2>
                      <div className="mt-6 flex items-center justify-center gap-2">
                         <Zap size={14} className="text-teal-400 animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-400">Sendo atendido agora</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-400">Em consulta agora</span>
                      </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-slate-200/20 rounded-[40px] opacity-20">
-                     <span className="text-2xl font-black uppercase tracking-[0.4em]">LIVRE</span>
+                     <span className="text-2xl font-black uppercase tracking-[0.4em]">GUICHÊ LIVRE</span>
                   </div>
                 )}
               </div>
@@ -178,15 +188,20 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         <div className={`w-96 rounded-[48px] p-10 border flex flex-col ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/40 border-white/5'}`}>
           <div className="flex items-center gap-4 mb-10">
             <Users className="text-teal-400" size={32} />
-            <h2 className="text-2xl font-black uppercase tracking-tighter">Próximos</h2>
+            <h2 className="text-2xl font-black uppercase tracking-tighter">Espera Global</h2>
           </div>
           <div className="flex-1 space-y-6 overflow-y-auto scrollbar-none">
             {waitingList.length > 0 ? waitingList.map((item, idx) => (
-              <div key={item.id} className={`p-6 rounded-[32px] border flex items-center justify-between ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+              <div key={item.id} className={`p-6 rounded-[32px] border-2 flex items-center justify-between ${item.isPriority ? 'border-red-500 bg-red-500/10' : isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                 <div className="flex items-center gap-4">
-                  <span className="text-lg font-black text-teal-400">{idx + 1}º</span>
+                  <span className={`text-lg font-black ${item.isPriority ? 'text-red-500' : 'text-teal-400'}`}>
+                    {item.isPriority ? '!' : `${idx + 1}º`}
+                  </span>
                   <div>
-                    <p className="text-lg font-black uppercase truncate max-w-[150px]">{item.name}</p>
+                    <div className="flex items-center gap-2">
+                       <p className="text-lg font-black uppercase truncate max-w-[150px]">{item.name}</p>
+                       {item.isPriority && <AlertCircle size={14} className="text-red-500" />}
+                    </div>
                     <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
                   </div>
                 </div>

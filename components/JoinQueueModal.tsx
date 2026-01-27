@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Service, Professional, BookingModel, QueueItem, DaySchedule, Establishment } from '../types';
-import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2, Coffee, Scissors } from 'lucide-react';
+import { X, User, Clock, Timer, Plus, Trash2, Users, Calendar, AlertCircle, CheckCircle2, Coffee, Scissors, ShieldAlert } from 'lucide-react';
 
 interface Companion {
   id: string;
@@ -10,7 +10,7 @@ interface Companion {
 }
 
 interface JoinQueueModalProps {
-  establishment: Establishment; // Agora recebe o estabelecimento todo
+  establishment: Establishment; 
   services: Service[];
   professionals: Professional[];
   bookingModel: BookingModel;
@@ -24,6 +24,7 @@ interface JoinQueueModalProps {
     companions: { name: string; service: string }[];
     professionalId: string; 
     type: 'walk-in' | 'appointment';
+    isPriority: boolean;
     scheduledTime?: string;
   }) => void;
 }
@@ -34,8 +35,8 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const [name, setName] = useState(initialName);
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
   const [companions, setCompanions] = useState<Companion[]>([]);
+  const [isPriority, setIsPriority] = useState(false);
   
-  // Se "Qualquer um" estiver desativado, o padrão deve ser o primeiro profissional da lista
   const anyEnabled = establishment.anyProfessionalEnabled ?? true;
   const anyLabel = establishment.anyProfessionalLabel || 'Qualquer Atendente';
   
@@ -50,22 +51,11 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
   const INTERVAL = 15;   
 
-  const addCompanion = () => {
-    setCompanions([...companions, { id: Math.random().toString(36).substr(2, 9), name: '', service: services[0]?.name || '' }]);
-  };
-
-  const removeCompanion = (id: string) => setCompanions(companions.filter(c => c.id !== id));
-  const updateCompanion = (id: string, field: 'name' | 'service', value: string) => setCompanions(companions.map(c => c.id === id ? { ...c, [field]: value } : c));
-
   const totalDuration = useMemo(() => {
     const mainSrv = services.find(s => s.name === serviceName);
     let duration = Number(mainSrv?.duration) || 30;
-    companions.forEach(c => {
-      const srv = services.find(s => s.name === c.service);
-      duration += Number(srv?.duration || 30);
-    });
     return duration;
-  }, [serviceName, companions, services]);
+  }, [serviceName, services]);
 
   const currentDaySchedule = useMemo(() => {
     const d = new Date(`${scheduledDate}T12:00:00`);
@@ -81,54 +71,27 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     const [endH, endM] = currentDaySchedule.end.split(':').map(Number);
     const dayStartMinutes = startH * 60 + startM;
     const dayEndMinutes = endH * 60 + endM;
-    let lunchStartMinutes = -1;
-    let lunchEndMinutes = -1;
-    if (currentDaySchedule.hasLunch && currentDaySchedule.lunchStart && currentDaySchedule.lunchEnd) {
-      const [lh1, lm1] = currentDaySchedule.lunchStart.split(':').map(Number);
-      const [lh2, lm2] = currentDaySchedule.lunchEnd.split(':').map(Number);
-      lunchStartMinutes = lh1 * 60 + lm1;
-      lunchEndMinutes = lh2 * 60 + lm2;
-    }
-    const proAppointments = currentQueue.filter(item => item.type === 'appointment' && item.professionalId === professionalId && item.scheduledTime?.startsWith(scheduledDate));
-    const busyBlocks = proAppointments.map(ap => {
-      const timeStr = ap.scheduledTime?.split(' ')[1] || '00:00';
-      const [h, m] = timeStr.split(':').map(Number);
-      const start = h * 60 + m;
-      const srv = services.find(s => s.name === ap.service);
-      return { start, end: start + (Number(srv?.duration) || 30) };
-    });
+    
     const isToday = scheduledDate === new Date().toISOString().split('T')[0];
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+    
     for (let minutes = dayStartMinutes; minutes <= dayEndMinutes - totalDuration; minutes += INTERVAL) {
-      const slotStart = minutes;
-      const slotEnd = minutes + totalDuration;
-      if (lunchStartMinutes !== -1) {
-        const conflictsWithLunch = (slotStart >= lunchStartMinutes && slotStart < lunchEndMinutes) || (slotEnd > lunchStartMinutes && slotEnd <= lunchEndMinutes) || (slotStart <= lunchStartMinutes && slotEnd >= lunchEndMinutes);
-        if (conflictsWithLunch) continue;
-      }
-      const isOverlap = busyBlocks.some(busy => (slotStart >= busy.start && slotStart < busy.end) || (slotEnd > busy.start && slotEnd <= busy.end) || (slotStart <= busy.start && slotEnd >= busy.end));
-      if (isToday && slotStart < nowMinutes + 10) continue; 
-      if (!isOverlap) {
-        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-        const m = (minutes % 60).toString().padStart(2, '0');
-        slots.push(`${h}:${m}`);
-      }
+      if (isToday && minutes < nowMinutes + 10) continue; 
+      const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+      const m = (minutes % 60).toString().padStart(2, '0');
+      slots.push(`${h}:${m}`);
     }
     return slots;
-  }, [type, professionalId, scheduledDate, currentQueue, totalDuration, services, currentDaySchedule]);
+  }, [type, professionalId, scheduledDate, totalDuration, currentDaySchedule]);
 
   const handleAction = () => {
-    if (!name.trim()) return alert("Por favor, informe seu nome.");
-    if (type === 'appointment') {
-      if (!currentDaySchedule.isOpen) return alert("Desculpe, não abrimos neste dia.");
-      if (professionalId === 'any') return alert("Escolha um profissional específico.");
-      if (!selectedTime) return alert("Selecione um horário.");
-    }
+    if (!name.trim()) return alert("Por favor, informe o nome.");
     onSubmit({
       mainPerson: { name: name.toUpperCase().trim(), service: serviceName },
-      companions: companions.map(c => ({ name: c.name.toUpperCase().trim(), service: c.service })),
+      companions: [],
       professionalId,
       type,
+      isPriority,
       scheduledTime: type === 'appointment' ? `${scheduledDate} ${selectedTime}` : undefined
     });
   };
@@ -140,13 +103,35 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full max-w-md bg-slate-900 border border-white/5 rounded-[40px] p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
         <header className="flex justify-between items-center mb-6">
-           <div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Entrar na Lista</h2><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1">Multi-atendimento liberado</p></div>
+           <div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Ficha de Atendimento</h2><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1">Preencha os dados do paciente</p></div>
            <button onClick={onClose} className="p-3 bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-colors"><X size={20}/></button>
         </header>
         <div className="space-y-6">
           <div className="bg-slate-950/40 p-6 rounded-[32px] border border-white/5 space-y-4">
-            <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="SEU NOME" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" />
-            <select value={serviceName} onChange={e => { setServiceName(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>
+            <div className="space-y-1">
+               <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Nome Completo</label>
+               <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="NOME DO PACIENTE" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" />
+            </div>
+            <div className="space-y-1">
+               <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Procedimento/Serviço</label>
+               <select value={serviceName} onChange={e => { setServiceName(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-red-500/5 border border-red-500/20 rounded-2xl">
+             <div className="flex items-center gap-3">
+                <ShieldAlert className="text-red-500" size={20} />
+                <div>
+                   <h4 className="text-[10px] font-black text-white uppercase">Atendimento Prioritário</h4>
+                   <p className="text-[7px] text-slate-500 font-bold uppercase">Idoso, Gestante ou Deficiente</p>
+                </div>
+             </div>
+             <button 
+                onClick={() => setIsPriority(!isPriority)}
+                className={`w-12 h-6 rounded-full relative transition-all ${isPriority ? 'bg-red-500' : 'bg-slate-800'}`}
+             >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isPriority ? 'left-7' : 'left-1'}`} />
+             </button>
           </div>
           
           <div className="space-y-4">
@@ -157,8 +142,8 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                </div>
              )}
 
-             <div className="space-y-3">
-               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Atendimento com:</label>
+             <div className="space-y-1">
+               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Direcionar para:</label>
                <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500">
                  {anyEnabled && <option value="any">{anyLabel}</option>}
                  {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -168,7 +153,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
              {type === 'appointment' && (
                <div className="space-y-4 animate-in slide-in-from-top-2">
                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Data e Horário</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Data</label>
                     <input type="date" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500" />
                  </div>
                  <div className="grid grid-cols-4 gap-2">
@@ -177,11 +162,6 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                         {time}
                       </button>
                     ))}
-                    {availableSlots.length === 0 && (
-                      <div className="col-span-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
-                         <p className="text-[8px] font-black text-red-500 uppercase tracking-widest">Nenhum horário disponível para este dia</p>
-                      </div>
-                    )}
                  </div>
                </div>
              )}
@@ -189,7 +169,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
 
           <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3 ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'bg-indigo-600 text-white'}`}>
             {type === 'walk-in' ? <Users size={18} /> : <Calendar size={18} />} 
-            {type === 'walk-in' ? 'Confirmar Entrada' : 'Confirmar Agendamento'}
+            {type === 'walk-in' ? 'Inserir na Fila' : 'Marcar Horário'}
           </button>
         </div>
       </div>

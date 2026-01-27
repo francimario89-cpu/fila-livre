@@ -31,8 +31,8 @@ export interface Establishment {
   loyaltyEnabled: boolean;
   loyaltyReward?: string;
   autoStatusEnabled?: boolean;
-  anyProfessionalEnabled?: boolean; // Novo: Habilita/Desabilita "Qualquer um"
-  anyProfessionalLabel?: string;    // Novo: Nome customizado para "Qualquer um"
+  anyProfessionalEnabled?: boolean;
+  anyProfessionalLabel?: string;
 }
 
 export interface Professional {
@@ -70,6 +70,7 @@ export interface QueueItem {
   status: 'waiting' | 'serving' | 'completed';
   timestamp: number;
   type: 'walk-in' | 'appointment';
+  isPriority?: boolean; // Novo: Identificador de prioridade
   scheduledTime?: string; 
   userEmail?: string;
   missedCount?: number; 

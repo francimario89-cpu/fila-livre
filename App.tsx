@@ -241,6 +241,7 @@ const App: React.FC = () => {
       const person = data.mainPerson;
       const payload: any = {
         name: person.name, professionalId: data.professionalId, service: person.service, type: data.type,
+        isPriority: data.isPriority || false, // Inclusão de prioridade
         userEmail: userRole === 'client' ? userEmail : null, establishmentId: currentEst.id,
         establishmentName: currentEst.name, status: 'waiting', timestamp: baseTime, missedCount: 0
       };
@@ -264,7 +265,19 @@ const App: React.FC = () => {
       await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
       return;
     }
-    let nextItem = userRole === 'staff' && myProId ? queue.find(i => i.status === 'waiting' && (i.professionalId === myProId || i.professionalId === 'any')) : queue.find(i => i.status === 'waiting');
+    // Lógica para chamar o próximo priorizando isPriority
+    let nextItem = userRole === 'staff' && myProId 
+      ? queue.filter(i => i.status === 'waiting' && (i.professionalId === myProId || i.professionalId === 'any')).sort((a,b) => {
+          if (a.isPriority && !b.isPriority) return -1;
+          if (!a.isPriority && b.isPriority) return 1;
+          return a.timestamp - b.timestamp;
+        })[0]
+      : queue.filter(i => i.status === 'waiting').sort((a,b) => {
+          if (a.isPriority && !b.isPriority) return -1;
+          if (!a.isPriority && b.isPriority) return 1;
+          return a.timestamp - b.timestamp;
+        })[0];
+
     if (nextItem) {
       const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id || 'any');
       if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
@@ -324,7 +337,7 @@ const App: React.FC = () => {
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
           onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={handleNoShow} 
-          onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdatePros} onManualJoin={(d) => handleJoinQueue({ mainPerson: { name: d.name, service: d.service }, professionalId: d.professionalId, type: d.type })} onToggleTVMode={() => setIsTVMode(true)}
+          onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdatePros} onManualJoin={(d) => handleJoinQueue({ name: d.name, service: d.service, professionalId: d.professionalId, type: d.type, isPriority: d.isPriority })} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
       {activeTab === 'config' && (

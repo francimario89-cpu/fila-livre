@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -48,6 +48,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
     return 'open' as EstStatus;
   }, [autoStatusEnabled, estStatus, dailySchedules, now]);
 
+  // Se for staff, filtrar para mostrar apenas a sua fila. Se for admin/client, mostrar todos.
+  const filteredProfessionals = useMemo(() => {
+    if (userRole === 'staff' && myProId) {
+      return professionals.filter(p => p.id === myProId);
+    }
+    return professionals.filter(p => p.status !== 'absent');
+  }, [professionals, userRole, myProId]);
+
   return (
     <div className={`space-y-8 animate-in fade-in duration-500 pb-32 ${isLight ? 'bg-slate-50 min-h-screen -mx-4 px-4' : ''}`}>
       
@@ -57,7 +65,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
          </h1>
          <div className="flex items-center justify-center gap-1.5 text-slate-500">
             <MapPin size={10} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">Atendimento Profissional</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest">
+              {userRole === 'staff' ? 'Meu Guichê de Atendimento' : 'Painel Geral de Filas'}
+            </span>
          </div>
       </header>
       
@@ -73,37 +83,52 @@ export const QueueView: React.FC<QueueViewProps> = ({
           </div>
           <div>
             <h2 className={`text-base font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
-              {displayStatus === 'open' ? 'ESTAMOS ABERTOS' : displayStatus === 'lunch' ? 'PAUSA ALMOÇO' : 'FECHADO'}
+              {displayStatus === 'open' ? 'ATENDIMENTO ATIVO' : displayStatus === 'lunch' ? 'INTERVALO' : 'SISTEMA INDISPONÍVEL'}
             </h2>
             <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
-              {displayStatus === 'open' ? 'PODE ENTRAR' : 'VOLTAMOS EM BREVE'}
+              {displayStatus === 'open' ? 'Unidade em operação' : 'Consulte os horários de funcionamento'}
             </p>
           </div>
         </div>
       </section>
 
-      {/* FILAS INDIVIDUAIS POR PROFISSIONAL */}
+      {/* FILAS VERTICAIS POR PROFISSIONAL */}
       <div className="space-y-12">
-        {professionals.filter(p => p.status !== 'absent').map(pro => {
-          const proQueue = queue.filter(item => item.professionalId === pro.id || item.professionalId === 'any');
+        {filteredProfessionals.map(pro => {
+          const proQueue = queue.filter(item => item.professionalId === pro.id || (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id)));
           const serving = proQueue.find(item => item.status === 'serving');
-          const waiting = proQueue.filter(item => item.status === 'waiting').sort((a,b) => a.timestamp - b.timestamp);
+          const waiting = proQueue.filter(item => item.status === 'waiting').sort((a,b) => {
+            // Regra: Prioridade vem antes, depois timestamp
+            if (a.isPriority && !b.isPriority) return -1;
+            if (!a.isPriority && b.isPriority) return 1;
+            return a.timestamp - b.timestamp;
+          });
           const canActionPro = isAdmin || (isStaff && myProId === pro.id);
 
           return (
-            <div key={pro.id} className="space-y-4">
+            <div key={pro.id} className="space-y-4 animate-in slide-in-from-bottom-4">
               <div className="flex items-center justify-between border-b border-slate-500/20 pb-2 px-2">
                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-teal-400" />
-                    <h3 className={`text-sm font-black uppercase tracking-widest ${isLight ? 'text-slate-900' : 'text-white'}`}>{pro.name}</h3>
+                    <div className={`w-3 h-3 rounded-full ${serving ? 'bg-teal-400 animate-pulse' : 'bg-slate-700'}`} />
+                    <h3 className={`text-sm font-black uppercase tracking-widest ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {userRole === 'staff' ? 'Minha Lista' : pro.name}
+                    </h3>
                  </div>
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
+                 <div className="flex items-center gap-2">
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
+                 </div>
               </div>
 
               {/* SENDO ATENDIDO (TOPO) */}
               {serving ? (
-                <div className="bg-indigo-600 rounded-[32px] p-6 shadow-2xl border border-white/5 relative overflow-hidden animate-in zoom-in">
-                  <div className="absolute top-0 right-0 p-4 opacity-10"><Zap size={40} className="text-white" /></div>
+                <div className={`bg-indigo-600 rounded-[32px] p-6 shadow-2xl border-2 relative overflow-hidden animate-in zoom-in ${serving.isPriority ? 'border-red-500' : 'border-white/5'}`}>
+                  {serving.isPriority && (
+                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg z-20">
+                       <AlertCircle size={12} className="fill-current" />
+                       <span className="text-[8px] font-black uppercase">Prioridade</span>
+                    </div>
+                  )}
+                  <div className="absolute top-0 left-0 p-4 opacity-10"><Zap size={40} className="text-white" /></div>
                   <div className="flex items-center gap-2 mb-3">
                      <span className="text-[10px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido no momento</span>
                   </div>
@@ -119,7 +144,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 </div>
               ) : (
                 <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-30 ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">LIVRE PARA ATENDIMENTO</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">GUICHÊ LIVRE</p>
                 </div>
               )}
 
@@ -132,22 +157,25 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   return (
                     <div 
                       key={item.id} 
-                      className={`border rounded-[32px] p-5 flex items-center justify-between transition-all ${
-                        isMe 
-                          ? 'border-teal-500 bg-teal-500/10 shadow-lg' 
-                          : isLight 
-                            ? 'bg-white border-slate-200 shadow-sm' 
-                            : 'bg-slate-900 border-slate-800'
+                      className={`border-2 rounded-[32px] p-5 flex items-center justify-between transition-all ${
+                        item.isPriority 
+                          ? 'border-red-500/40 bg-red-500/5' 
+                          : isMe 
+                            ? 'border-teal-500 bg-teal-500/10 shadow-lg' 
+                            : isLight 
+                              ? 'bg-white border-slate-200 shadow-sm' 
+                              : 'bg-slate-900 border-slate-800'
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
-                           {index + 1}º
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
+                           {item.isPriority ? '!' : `${index + 1}º`}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                              <h4 className={`font-black text-base uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
                              {isMe && <span className="text-[7px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
+                             {item.isPriority && <span className="text-[7px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
                           </div>
                           <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
                         </div>
@@ -182,7 +210,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* BOTÃO FLUTUANTE ADICIONAR */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
-          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><UserPlus size={22} /> Adicionar Cliente</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><UserPlus size={22} /> Adicionar Paciente</button>
         ) : (
           displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Lista</button>
         )}
