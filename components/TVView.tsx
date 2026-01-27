@@ -73,7 +73,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       if (!process.env.API_KEY || !audioContextRef.current) return;
       setIsAiProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = "Atenção! Próximo cliente, por favor, compareça ao guichê de atendimento.";
+      const prompt = "Atenção! Próximo paciente, por favor, compareça ao seu guichê.";
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: prompt }] }],
@@ -111,35 +111,35 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   const isLight = theme === 'light';
 
   return (
-    <div className={`fixed inset-0 z-[1000] flex flex-col p-8 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-100 text-slate-900' : 'bg-[#020408] text-white'}`}>
+    <div className={`fixed inset-0 z-[1000] flex flex-col p-8 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
       {!audioEnabled && (
         <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8 animate-in fade-in">
            <div className="w-24 h-24 mb-6">{LOGO_SVG}</div>
            <h2 className="text-3xl font-black text-white uppercase font-orbitron mb-4">Painel de Voz Ativo</h2>
            <button onClick={handleStartWithAudio} className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm shadow-2xl flex items-center gap-4 active:scale-95 transition-all">
-             <PlayCircle size={24} /> Iniciar Chamadas de Voz
+             <PlayCircle size={24} /> Iniciar Voz IA
            </button>
         </div>
       )}
 
-      <header className={`flex items-center justify-between mb-8 p-6 rounded-[32px] border ${isLight ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/60 border-white/10 shadow-2xl'}`}>
+      <header className={`flex items-center justify-between mb-8 p-6 rounded-[32px] border ${isLight ? 'bg-white border-slate-200 shadow-lg' : 'bg-slate-900/60 border-white/10 shadow-2xl'}`}>
         <div className="flex items-center gap-6">
           <div className="w-14 h-14">{LOGO_SVG}</div>
           <div>
             <h1 className={`text-5xl font-black uppercase tracking-tighter font-orbitron ${isLight ? 'text-slate-900' : 'text-white neon-text'}`}>{establishmentName}</h1>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mt-1">Acompanhe sua posição na fila</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mt-1">Siga a sua vez na coluna do seu profissional</p>
           </div>
         </div>
         <div className="flex items-center gap-8">
           <div className={`text-6xl font-black font-mono px-8 py-3 rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-white/5 text-indigo-400'}`}>
             {new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
-          <button onClick={onClose} className={`p-4 rounded-2xl ${isLight ? 'bg-slate-200 text-slate-600' : 'bg-slate-800/10 text-slate-400'}`}><MonitorOff size={24} /></button>
+          <button onClick={onClose} className={`p-4 rounded-2xl ${isLight ? 'bg-slate-100 text-slate-400 border border-slate-200' : 'bg-slate-800/10 text-slate-400 border border-white/5'}`}><MonitorOff size={24} /></button>
         </div>
       </header>
 
-      {/* GRID DE COLUNAS POR PROFISSIONAL NA TV */}
+      {/* GRID DE FILAS INDIVIDUAIS NA TV */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 overflow-hidden">
         {professionals.filter(p => p.status !== 'absent').map(pro => {
           const proQueue = queue.filter(item => item.professionalId === pro.id || item.professionalId === 'any');
@@ -148,28 +148,28 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
             if (a.isPriority && !b.isPriority) return -1;
             if (!a.isPriority && b.isPriority) return 1;
             return a.timestamp - b.timestamp;
-          }).slice(0, 5); // Mostra até os 5 próximos na TV
+          }).slice(0, 5); 
 
           const isCalling = serving && serving.id === lastCalledId;
 
           return (
-            <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] overflow-hidden transition-all duration-700 ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/20 border-slate-800'}`}>
+            <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] overflow-hidden transition-all duration-700 shadow-xl ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/20 border-slate-800'}`}>
               
-              {/* Cabeçalho do Profissional */}
-              <div className={`p-6 border-b text-center ${isLight ? 'bg-slate-50/50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+              {/* Título do Profissional */}
+              <div className={`p-6 border-b text-center ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                  <h3 className={`text-xl font-black uppercase tracking-widest ${isLight ? 'text-slate-900' : 'text-slate-400'}`}>{pro.name}</h3>
               </div>
 
-              <div className="p-6 flex-1 flex flex-col space-y-6">
+              <div className="p-6 flex-1 flex flex-col space-y-8">
                 
-                {/* STATUS: ATENDENDO AGORA */}
-                <div className="space-y-3">
+                {/* ATENDIMENTO AGORA */}
+                <div className="space-y-4">
                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Atendendo agora:</p>
                    {serving ? (
-                    <div className={`flex flex-col justify-center text-center p-8 rounded-[40px] transition-all duration-500 shadow-2xl relative overflow-hidden ${isCalling ? 'bg-amber-400 text-slate-950 scale-[1.02]' : serving.isPriority ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                    <div className={`flex flex-col justify-center text-center p-8 rounded-[40px] transition-all duration-500 shadow-2xl relative overflow-hidden ${isCalling ? 'bg-amber-400 text-slate-950 scale-[1.05]' : serving.isPriority ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}>
                        {serving.isPriority && (
                           <div className="absolute top-4 left-0 w-full flex justify-center">
-                             <span className="bg-white text-red-600 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-lg">Prioridade</span>
+                             <span className="bg-white text-red-600 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-lg">Prioritário</span>
                           </div>
                        )}
                        <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
@@ -179,33 +179,31 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                        {isCalling && <BellRing size={24} className="mx-auto mt-4 animate-bounce" />}
                     </div>
                   ) : (
-                    <div className={`p-8 border-4 border-dashed rounded-[40px] text-center opacity-20 ${isLight ? 'border-slate-300' : 'border-slate-700'}`}>
-                       <p className="text-xl font-black uppercase tracking-[0.2em]">LIVRE</p>
+                    <div className={`p-10 border-4 border-dashed rounded-[40px] text-center opacity-20 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+                       <p className="text-xl font-black uppercase tracking-[0.3em]">LIVRE</p>
                     </div>
                   )}
                 </div>
 
-                {/* STATUS: LISTA DE ESPERA ESPECÍFICA */}
-                <div className="flex-1 flex flex-col space-y-3">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Em espera ({proQueue.filter(i => i.status === 'waiting').length}):</p>
-                   <div className="flex-1 space-y-3">
+                {/* EM ESPERA */}
+                <div className="flex-1 flex flex-col space-y-4">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Próximos da Vez:</p>
+                   <div className="flex-1 space-y-4">
                       {waiting.map((item, idx) => (
-                        <div key={item.id} className={`p-4 rounded-[28px] border-2 flex items-center justify-between animate-in slide-in-from-bottom-2 ${item.isPriority ? 'border-red-500 bg-red-500/5' : isLight ? 'bg-slate-50 border-slate-100' : 'bg-slate-900 border-slate-800'}`}>
-                           <div className="flex items-center gap-3">
-                              <span className={`text-sm font-black ${item.isPriority ? 'text-red-500' : 'text-teal-400'}`}>
+                        <div key={item.id} className={`p-5 rounded-[32px] border-2 flex items-center justify-between animate-in slide-in-from-bottom-2 ${item.isPriority ? 'border-red-500 bg-red-500/5 shadow-red-500/5 shadow-lg' : isLight ? 'bg-slate-50 border-slate-100' : 'bg-slate-900 border-slate-800'}`}>
+                           <div className="flex items-center gap-4">
+                              <span className={`text-lg font-black ${item.isPriority ? 'text-red-500' : 'text-teal-400'}`}>
                                 {item.isPriority ? '!' : `${idx + 1}º`}
                               </span>
-                              <div>
-                                 <p className={`text-base font-black uppercase truncate max-w-[120px] ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name.split(' ')[0]}</p>
-                              </div>
+                              <p className={`text-lg font-black uppercase truncate max-w-[150px] ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name.split(' ')[0]}</p>
                            </div>
-                           {item.isPriority && <AlertCircle size={14} className="text-red-500" />}
+                           {item.isPriority && <AlertCircle size={18} className="text-red-500" />}
                         </div>
                       ))}
                       {waiting.length === 0 && !serving && (
                         <div className="h-full flex items-center justify-center opacity-10 flex-col gap-2">
-                           <Clock size={32} />
-                           <span className="text-[10px] font-black uppercase">Fila Vazia</span>
+                           <Clock size={40} />
+                           <span className="text-[10px] font-black uppercase tracking-widest">Sem fila</span>
                         </div>
                       )}
                    </div>
@@ -217,18 +215,18 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         })}
       </div>
 
-      <footer className="mt-8 flex items-center justify-center gap-6 p-4 opacity-50">
-         <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Atendimento Prioritário</span>
+      <footer className="mt-8 flex items-center justify-center gap-10 p-4 opacity-50">
+         <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/20" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Prioritário</span>
          </div>
-         <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-indigo-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Atendimento Normal</span>
+         <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/20" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Normal</span>
          </div>
-         <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Painel Conectado</span>
+         <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-teal-500 animate-pulse shadow-lg shadow-teal-500/20" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Sincronizado</span>
          </div>
       </footer>
     </div>

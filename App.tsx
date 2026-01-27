@@ -251,6 +251,17 @@ const App: React.FC = () => {
     } catch (e: any) { alert(`Erro: ${e.message}`); }
   };
 
+  const handleTogglePriority = async (itemId: string, currentStatus: boolean) => {
+    if (!currentEst) return;
+    try {
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { 
+        isPriority: !currentStatus 
+      });
+    } catch (e) {
+      console.error("Erro ao alternar prioridade:", e);
+    }
+  };
+
   const handleCallNext = async (specificId?: string) => {
     if (!currentEst) return;
     const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
@@ -329,6 +340,7 @@ const App: React.FC = () => {
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
           onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} onLeaveQueue={(id) => handleLeaveQueue(currentEst.id, id)}
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
+          onTogglePriority={handleTogglePriority}
         />
       )}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -24,10 +24,11 @@ interface QueueViewProps {
   onOpenJoinModal?: () => void;
   onLeaveQueue?: (id: string) => void;
   onUpdateProfessional?: (itemId: string, proId: string) => void;
+  onTogglePriority?: (itemId: string, currentStatus: boolean) => void;
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional, onTogglePriority
 }) => {
   const [now, setNow] = useState(new Date());
 
@@ -105,15 +106,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
           return (
             <div key={pro.id} className="space-y-4 animate-in slide-in-from-bottom-4">
-              {/* Título da Coluna mais discreto */}
-              <div className="flex items-center justify-between opacity-60 px-4">
+              {/* Título da Coluna discreto */}
+              <div className="flex items-center justify-between opacity-50 px-4">
                  <div className="flex items-center gap-2">
                     <div className={`w-1.5 h-1.5 rounded-full ${serving ? 'bg-teal-400 animate-pulse' : 'bg-slate-400'}`} />
-                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-slate-400'}`}>
+                    <h3 className={`text-[8px] font-black uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-slate-400'}`}>
                       {userRole === 'staff' ? 'Minha Lista' : pro.name}
                     </h3>
                  </div>
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
+                 <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
               </div>
 
               {/* SENDO ATENDIDO (TOPO) */}
@@ -186,6 +187,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
                          )}
                          {canActionItem && (
                            <div className="flex gap-2">
+                              {/* Botão de Toggle Priority exclusivo para Gestão */}
+                              <button 
+                                onClick={() => onTogglePriority?.(item.id, !!item.isPriority)} 
+                                className={`p-2.5 rounded-xl border transition-all ${item.isPriority ? 'bg-red-500 text-white border-red-400' : 'bg-slate-800/10 text-slate-500 border-transparent hover:border-red-500/30'}`}
+                                title={item.isPriority ? "Remover Prioridade" : "Tornar Prioritário"}
+                              >
+                                <ShieldAlert size={16} />
+                              </button>
+                              
                               <button onClick={() => onNoShow?.(item.id)} className="p-2.5 bg-slate-800/10 text-slate-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Excluir da Lista">
                                 <Trash2 size={16} />
                               </button>
@@ -207,9 +217,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* BOTÃO FLUTUANTE ADICIONAR */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
-          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><UserPlus size={22} /> Adicionar Paciente</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><Zap size={22} /> Entrar na Fila</button>
         ) : (
-          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Lista</button>
+          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Fila</button>
         )}
       </div>
     </div>
