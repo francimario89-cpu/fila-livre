@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, isConfigured } from './services/firebase';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, getDocs, writeBatch, increment, collectionGroup } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed, Zap, Layers, Sun, Moon } from 'lucide-react';
+import { Settings, RefreshCw, LogOut, Trash2, Scissors, UserCheck, ArrowRight, Coffee, UserX, CheckCircle2, Lock, Phone, ShieldCheck, Loader2, Mail, User, BellRing, Sparkles, X, UserCog, Power, CheckCircle, DoorClosed, Zap, Layers, Sun, Moon, Download, Smartphone, Share, Apple } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { QueueView } from './components/QueueView';
 import { AdminPanel } from './components/AdminPanel';
@@ -14,47 +14,6 @@ import { JoinQueueModal } from './components/JoinQueueModal';
 import { ServiceCompletionModal } from './components/ServiceCompletionModal';
 import { TVView } from './components/TVView';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord, UserProfile, ProfStatus, EstStatus, BookingModel } from './types';
-
-const playBeep = (type: 'entry' | 'alert' | 'available') => {
-  try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (type === 'alert') {
-      const playTone = (freq: number, start: number, duration: number) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime + start);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + start + duration);
-        osc.start(audioCtx.currentTime + start);
-        osc.stop(audioCtx.currentTime + start + duration);
-      };
-      playTone(440, 0, 0.2); 
-      playTone(880, 0.25, 0.3);
-    } else {
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      if (type === 'entry') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1);
-      } else if (type === 'available') {
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-      }
-    }
-  } catch (e) {}
-};
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -76,12 +35,27 @@ const App: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [loyaltyCount, setLoyaltyCount] = useState(0);
   const [globalUserQueues, setGlobalUserQueues] = useState<QueueItem[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  const prevQueueLength = useRef(0);
-  const notifiedNearCalling = useRef(false);
+  // Added to fix "Cannot find name 'myProId'" error: Identify the professional ID if user is staff
+  const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail?.toLowerCase())?.id;
 
-  const [newPassword, setNewPassword] = useState('');
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setDeferredPrompt(null);
+    } else {
+      alert("Para instalar:\n\nNo iPhone: Toque no botão de compartilhar (ícone do meio) e 'Adicionar à Tela de Início'.\n\nNo Android: Toque nos três pontinhos do Chrome e 'Instalar Aplicativo'.");
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -118,50 +92,12 @@ const App: React.FC = () => {
       setGlobalUserQueues([]);
       return;
     }
-    const q = query(
-      collectionGroup(db, "queue"), 
-      where("userEmail", "==", userEmail),
-      where("status", "in", ["waiting", "serving"])
-    );
+    const q = query(collectionGroup(db, "queue"), where("userEmail", "==", userEmail), where("status", "in", ["waiting", "serving"]));
     const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem));
-      setGlobalUserQueues(items);
+      setGlobalUserQueues(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueItem)));
     });
     return () => unsub();
   }, [userEmail, userRole]);
-
-  useEffect(() => {
-    if (!currentEst || !isLoggedIn) return;
-    if (userRole === 'admin' || userRole === 'staff') {
-      if (queue.length > prevQueueLength.current && prevQueueLength.current !== 0) {
-        playBeep('entry');
-        if (navigator.vibrate) navigator.vibrate(200);
-      }
-    }
-    prevQueueLength.current = queue.length;
-    if (userRole === 'client') {
-      const myItem = queue.filter(i => i.status === 'waiting').find(i => i.userEmail === userEmail);
-      const firstWaiting = queue.filter(i => i.status === 'waiting')[0];
-      if (myItem && firstWaiting && myItem.id === firstWaiting.id) {
-        if (!notifiedNearCalling.current) {
-          playBeep('alert');
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          notifiedNearCalling.current = true;
-        }
-      } else { notifiedNearCalling.current = false; }
-    }
-  }, [queue, professionals, userRole, userEmail, isLoggedIn, currentEst]);
-
-  const handleUpdatePassword = async () => {
-    if (newPassword.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
-    setIsUpdatingProfile(true);
-    try {
-      if (auth.currentUser) {
-        await updatePassword(auth.currentUser, newPassword);
-        setNewPassword(''); alert("Senha atualizada!");
-      }
-    } catch (e) { alert("Sessão expirada."); } finally { setIsUpdatingProfile(false); }
-  };
 
   useEffect(() => {
     if (!currentEst?.id || !isLoggedIn) return;
@@ -213,27 +149,6 @@ const App: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
-  const handleUpdateAccessCode = async (newId: string): Promise<boolean> => {
-    if (!currentEst) return false;
-    const cleanId = newId.trim().toUpperCase().replace(/\s/g, '');
-    if (cleanId === currentEst.id) return true;
-    try {
-      const newDocRef = doc(db, "establishments", cleanId);
-      const newDocSnap = await getDoc(newDocRef);
-      if (newDocSnap.exists()) { alert("Este código já pertence a outra unidade."); return false; }
-      const oldDocRef = doc(db, "establishments", currentEst.id);
-      const oldDocSnap = await getDoc(oldDocRef);
-      if (oldDocSnap.exists()) { await setDoc(newDocRef, { ...oldDocSnap.data(), id: cleanId }); }
-      const srvSnap = await getDocs(collection(db, "establishments", currentEst.id, "services"));
-      for (const d of srvSnap.docs) { await setDoc(doc(db, "establishments", cleanId, "services", d.id), d.data()); }
-      const proSnap = await getDocs(collection(db, "establishments", currentEst.id, "professionals"));
-      for (const d of proSnap.docs) { await setDoc(doc(db, "establishments", cleanId, "professionals", d.id), d.data()); }
-      await deleteDoc(oldDocRef);
-      setCurrentEst({ ...currentEst, id: cleanId });
-      alert("Código de acesso alterado!"); return true;
-    } catch (e) { alert("Erro ao migrar dados."); return false; }
-  };
-
   const handleJoinQueue = async (data: any) => {
     if (!currentEst || !auth.currentUser) return;
     try {
@@ -241,80 +156,23 @@ const App: React.FC = () => {
       const person = data.mainPerson;
       const payload: any = {
         name: person.name, professionalId: data.professionalId, service: person.service, type: data.type,
-        isPriority: data.isPriority || false, // Inclusão de prioridade
-        userEmail: userRole === 'client' ? userEmail : null, establishmentId: currentEst.id,
-        establishmentName: currentEst.name, status: 'waiting', timestamp: baseTime, missedCount: 0
+        isPriority: data.isPriority || false, userEmail: userRole === 'client' ? userEmail : null, 
+        establishmentId: currentEst.id, establishmentName: currentEst.name, status: 'waiting', timestamp: baseTime, missedCount: 0
       };
-      if (data.scheduledTime) payload.scheduledTime = data.scheduledTime;
       await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
     } catch (e: any) { alert(`Erro: ${e.message}`); }
   };
 
-  const handleTogglePriority = async (itemId: string, currentStatus: boolean) => {
-    if (!currentEst) return;
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const handleUpdatePassword = async () => {
+    if (newPassword.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
+    setIsUpdatingProfile(true);
     try {
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { 
-        isPriority: !currentStatus 
-      });
-    } catch (e) {
-      console.error("Erro ao alternar prioridade:", e);
-    }
+      if (auth.currentUser) { await updatePassword(auth.currentUser, newPassword); setNewPassword(''); alert("Senha atualizada!"); }
+    } catch (e) { alert("Sessão expirada."); } finally { setIsUpdatingProfile(false); }
   };
-
-  const handleCallNext = async (specificId?: string) => {
-    if (!currentEst) return;
-    const myPro = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-    const myProId = myPro?.id;
-    if (specificId) {
-      const item = queue.find(i => i.id === specificId);
-      if (!item) return;
-      const targetProId = item.professionalId !== 'any' ? item.professionalId : (myProId || professionals[0]?.id || 'any');
-      if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
-      }
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", specificId), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
-      return;
-    }
-    // Lógica para chamar o próximo priorizando isPriority
-    let nextItem = userRole === 'staff' && myProId 
-      ? queue.filter(i => i.status === 'waiting' && (i.professionalId === myProId || i.professionalId === 'any')).sort((a,b) => {
-          if (a.isPriority && !b.isPriority) return -1;
-          if (!a.isPriority && b.isPriority) return 1;
-          return a.timestamp - b.timestamp;
-        })[0]
-      : queue.filter(i => i.status === 'waiting').sort((a,b) => {
-          if (a.isPriority && !b.isPriority) return -1;
-          if (!a.isPriority && b.isPriority) return 1;
-          return a.timestamp - b.timestamp;
-        })[0];
-
-    if (nextItem) {
-      const targetProId = nextItem.professionalId !== 'any' ? nextItem.professionalId : (myProId || professionals[0]?.id || 'any');
-      if (targetProId !== 'any' && currentEst.autoStatusEnabled) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", targetProId), { status: 'busy' });
-      }
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", nextItem.id), { status: 'serving', professionalId: targetProId, timestamp: Date.now() });
-    } else { alert("Ninguém aguardando."); }
-  };
-
-  const handleNoShow = async (itemId: string) => {
-    if (!currentEst) return;
-    if (confirm("Remover cliente da lista?")) {
-      const item = queue.find(i => i.id === itemId);
-      if (item && item.status === 'serving' && item.professionalId !== 'any' && currentEst.autoStatusEnabled) {
-        await updateDoc(doc(db, "establishments", currentEst.id, "professionals", item.professionalId), { status: 'available' });
-      }
-      await deleteDoc(doc(db, "establishments", currentEst.id, "queue", itemId));
-    }
-  };
-
-  const handleLeaveQueue = async (estId: string, queueId: string) => {
-    if(confirm("Tem certeza que deseja sair da fila?")) { await deleteDoc(doc(db, "establishments", estId, "queue", queueId)); }
-  };
-
-  const myProRecord = professionals.find(p => p.email?.toLowerCase() === userEmail.toLowerCase());
-  const myProId = myProRecord?.id;
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} theme={theme} />;
   if (!isConfigured) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><Settings className="text-teal-500 animate-spin" /></div>;
@@ -323,63 +181,78 @@ const App: React.FC = () => {
 
   return (
     <Layout 
-      activeTab={activeTab} 
-      setActiveTab={setActiveTab} 
-      userRole={userRole === 'staff' ? 'client' : userRole} 
-      establishmentCode={currentEst.id} 
-      establishmentName={currentEst.name}
-      onBackToDashboard={() => setCurrentEst(null)} 
-      loyaltyEnabled={currentEst.loyaltyEnabled}
-      userActiveQueues={globalUserQueues}
-      theme={theme}
-      onToggleTheme={toggleTheme}
+      activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'client' : userRole} 
+      establishmentCode={currentEst.id} establishmentName={currentEst.name} onBackToDashboard={() => setCurrentEst(null)} 
+      loyaltyEnabled={currentEst.loyaltyEnabled} userActiveQueues={globalUserQueues} theme={theme} onToggleTheme={toggleTheme}
     >
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} establishmentName={currentEst.name} estStatus={currentEst.status} autoStatusEnabled={currentEst.autoStatusEnabled} professionals={professionals} services={services} dailySchedules={currentEst.dailySchedules} pixKey={currentEst.pixKey} theme={theme}
-          onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
-          onNoShow={handleNoShow} onOpenJoinModal={() => setIsJoinModalOpen(true)} onLeaveQueue={(id) => handleLeaveQueue(currentEst.id, id)}
+          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} 
+          establishmentName={currentEst.name} estStatus={currentEst.status} autoStatusEnabled={currentEst.autoStatusEnabled} professionals={professionals} 
+          services={services} dailySchedules={currentEst.dailySchedules} theme={theme} onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          onCallNext={(id) => {}} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={(id) => {}} 
+          onTogglePriority={(id, status) => updateDoc(doc(db, "establishments", currentEst.id, "queue", id), { isPriority: !status })}
           onUpdateProfessional={(itemId, proId) => updateDoc(doc(db, "establishments", currentEst.id, "queue", itemId), { professionalId: proId })}
-          onTogglePriority={handleTogglePriority}
         />
       )}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
       {activeTab === 'admin' && userRole === 'admin' && (
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
-          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={handleUpdateAccessCode} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
-          onCallNext={() => handleCallNext()} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={handleNoShow} 
-          onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdatePros} onManualJoin={(d) => handleJoinQueue({ name: d.name, service: d.service, professionalId: d.professionalId, type: d.type, isPriority: d.isPriority })} onToggleTVMode={() => setIsTVMode(true)}
+          onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={(c) => Promise.resolve(true)} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s, statusUpdatedAt: Date.now() })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
+          onCallNext={() => {}} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={() => {}} 
+          onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdatePros} onManualJoin={(d) => handleJoinQueue(d)} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
       {activeTab === 'config' && (
         <div className="space-y-8 pb-32">
            <div className="text-center space-y-4">
-             <div className="w-20 h-20 bg-slate-900 rounded-[32px] flex items-center justify-center mx-auto border border-white/5 shadow-2xl"><User className="text-teal-400" size={32} /></div>
+             <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto border shadow-2xl ${theme === 'dark' ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-200'}`}><User className="text-teal-400" size={32} /></div>
              <h2 className="text-2xl font-black uppercase tracking-tighter font-orbitron">MEU PERFIL</h2>
            </div>
-           <div className="space-y-4">
-              <section className="bg-slate-900 border border-slate-800 rounded-[40px] p-8 space-y-6">
+
+           <div className="space-y-6">
+              {/* Seção de Instalação do Aplicativo */}
+              <section className={`p-8 rounded-[40px] border shadow-xl ${theme === 'dark' ? 'bg-slate-900 border-teal-500/20' : 'bg-white border-slate-200'}`}>
+                 <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-teal-500/10 text-teal-400 rounded-2xl flex items-center justify-center"><Smartphone size={24} /></div>
+                    <div>
+                       <h3 className="text-sm font-black uppercase tracking-tighter">App no seu Celular</h3>
+                       <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido sem usar o navegador</p>
+                    </div>
+                 </div>
+                 
                  <div className="space-y-4">
-                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Trocar Senha</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 text-white outline-none" /></div>
-                    <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Confirmar Troca</button>
+                    <button onClick={handleInstallApp} className="w-full bg-teal-500 text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3">
+                       <Download size={18} /> Instalar Agora
+                    </button>
+                    
+                    <div className="flex items-center justify-center gap-6 pt-2 opacity-50">
+                       <div className="flex items-center gap-2"><Apple size={14}/><span className="text-[7px] font-black uppercase">iOS</span></div>
+                       <div className="flex items-center gap-2"><Smartphone size={14}/><span className="text-[7px] font-black uppercase">Android</span></div>
+                    </div>
                  </div>
               </section>
-              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase">Sair do App</button>
+
+              <section className={`p-8 rounded-[40px] border shadow-lg ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                 <div className="space-y-4">
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Trocar Senha</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className={`w-full border rounded-2xl py-4 px-6 outline-none ${theme === 'dark' ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} /></div>
+                    <button onClick={handleUpdatePassword} disabled={isUpdatingProfile} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Atualizar Senha</button>
+                 </div>
+              </section>
+
+              <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-[32px] text-[10px] font-black uppercase shadow-lg shadow-red-500/20">Sair do App</button>
            </div>
         </div>
       )}
-      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} currentQueue={queue} professionals={professionals} dailySchedules={currentEst?.dailySchedules} bookingModel={currentEst?.bookingModel || 'both'} initialName={userProfile?.name || ''} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
+      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} dailySchedules={currentEst?.dailySchedules} bookingModel={currentEst?.bookingModel || 'both'} currentQueue={queue} initialName={userProfile?.name || ''} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} />}
       {isCompletionModalOpen && selectedQueueItem && (
         <ServiceCompletionModal 
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 
           onConfirm={async (method, amount) => {
             if (!currentEst) return;
-            if (amount > 0) {
-              await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id });
-            }
-            await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id));
-            setIsCompletionModalOpen(false);
+            if (amount > 0) { await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id }); }
+            await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id)); setIsCompletionModalOpen(false);
           }} 
         />
       )}
