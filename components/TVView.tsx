@@ -29,7 +29,11 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
+  // Garantimos o alinhamento de bytes para Int16Array
+  const bufferCopy = new ArrayBuffer(data.byteLength);
+  new Uint8Array(bufferCopy).set(data);
+  
+  const dataInt16 = new Int16Array(bufferCopy);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
@@ -57,18 +61,20 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
     return () => clearInterval(timer);
   }, []);
 
-  // Inicialização obrigatória para desbloquear áudio no navegador (Gesture)
+  // Inicialização obrigatória para desbloquear áudio no navegador (Gesto do Usuário)
   const handleStartWithAudio = async () => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       }
+      
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
+      
       setAudioEnabled(true);
       
-      // Feedback sonoro de teste (bip curto) para confirmar que o áudio está funcionando
+      // Feedback sonoro para confirmar ativação
       const osc = audioContextRef.current.createOscillator();
       const gain = audioContextRef.current.createGain();
       gain.gain.value = 0.05;
@@ -83,12 +89,9 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
   const announcePatient = async (name: string) => {
     try {
-      if (!process.env.API_KEY) {
-         console.warn("API_KEY não configurada para áudio.");
-         return;
-      }
-
-      // SEMPRE tenta retomar o contexto de áudio antes de falar (Crítico para Android TV)
+      if (!process.env.API_KEY) return;
+      
+      // Resumo crítico do áudio antes de cada fala para Smart TVs
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
@@ -97,8 +100,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const firstName = name.split(' ')[0];
-      // Prompt simplificado para resposta rápida
-      const prompt = `Diga apenas: ${firstName}, por favor, venha para o atendimento.`;
+      const prompt = `Diga apenas: ${firstName}, por favor, compareça ao atendimento.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -107,13 +109,21 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore é uma voz clara e feminina
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
             },
           },
         },
       });
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      // Procurar pela parte de áudio na resposta
+      let base64Audio = '';
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData?.data) {
+          base64Audio = part.inlineData.data;
+          break;
+        }
+      }
+
       if (base64Audio) {
         const ctx = audioContextRef.current!;
         const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
@@ -124,7 +134,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         source.buffer = audioBuffer;
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
-        source.start();
+        source.start(0);
       }
     } catch (error) {
       console.error("Erro no TTS Gemini:", error);
@@ -136,7 +146,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   useEffect(() => {
     if (!audioEnabled) return;
 
-    // Monitora quem está em atendimento ("serving")
     const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
     if (serving.length > 0) {
       const topServing = serving[0];
@@ -145,11 +154,10 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         setLastCalledId(topServing.id);
         announcedIds.current.add(topServing.id);
         
-        // Dispara a chamada sonora imediatamente
+        // Dispara a chamada sonora
         announcePatient(topServing.name);
         
-        // Remove o destaque visual após 20 segundos
-        setTimeout(() => setLastCalledId(null), 20000);
+        setTimeout(() => setLastCalledId(null), 25000);
       }
     }
   }, [queue, audioEnabled]);
@@ -159,26 +167,24 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-6 animate-in fade-in duration-1000 overflow-hidden font-inter transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
-      {/* OVERLAY DE INICIALIZAÇÃO - OBRIGATÓRIO PARA ÁUDIO EM TVs */}
       {!audioEnabled && (
-        <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-           <div className="w-32 h-32 mb-8 animate-float">
+        <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+           <div className="w-24 h-24 mb-8 animate-float">
              {LOGO_SVG}
            </div>
-           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Modo Painel TV</h2>
-           <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10 max-w-sm">
-             Clique no botão abaixo para ativar a chamada por voz dos clientes.
+           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Painel da TV</h2>
+           <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10 max-w-xs">
+             Para ouvir a chamada dos clientes, clique no botão abaixo para ativar o sistema de voz.
            </p>
            <button 
              onClick={handleStartWithAudio}
-             className="bg-teal-500 text-slate-950 px-12 py-6 rounded-3xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-4"
+             className="bg-teal-500 text-slate-950 px-12 py-6 rounded-[32px] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-4"
            >
-             <PlayCircle size={24} /> Ativar Som e Iniciar
+             <PlayCircle size={24} /> Ativar Voz e Iniciar
            </button>
         </div>
       )}
 
-      {/* HEADER TV */}
       <header className={`flex items-center justify-between mb-6 p-6 rounded-[32px] border backdrop-blur-xl shadow-2xl transition-colors ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/10'}`}>
         <div className="flex items-center gap-6">
           <div className={`w-16 h-16 shadow-lg rounded-2xl p-2 ${isLight ? 'bg-slate-100 shadow-slate-200' : 'bg-slate-950 shadow-teal-500/20'}`}>
@@ -191,8 +197,8 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
             <div className="flex items-center gap-2 mt-2">
               {isAiProcessing ? (
                 <div className="flex items-center gap-2 text-teal-400 animate-pulse">
-                   <Mic2 size={12} />
-                   <p className="text-[10px] font-black uppercase tracking-widest">Chamando Cliente...</p>
+                   <Loader2 size={12} className="animate-spin" />
+                   <p className="text-[10px] font-black uppercase tracking-widest">IA Sincronizando Voz...</p>
                 </div>
               ) : (
                 <>
@@ -207,7 +213,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         <div className="flex items-center gap-8">
           <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border ${audioEnabled ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
             {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Voz Ativa' : 'Sem Áudio'}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Voz Ativada' : 'Mudo'}</span>
           </div>
 
           <div className={`text-5xl font-black font-mono tracking-tighter px-8 py-3 rounded-2xl border shadow-inner ${isLight ? 'bg-slate-100 border-slate-200 text-indigo-600' : 'bg-slate-950 border-white/10 text-indigo-400'}`}>
@@ -220,7 +226,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         </div>
       </header>
 
-      {/* GRADE DE CHAMADAS */}
       <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-hidden pb-4">
         {activePros.map(pro => {
           const serving = queue.find(i => i.status === 'serving' && i.professionalId === pro.id);
@@ -242,7 +247,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
                <div className="p-4 flex-1 flex flex-col gap-4">
                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">EM ATENDIMENTO:</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">PACIENTE:</span>
                     {isLastCalled && <Volume1 size={24} className="text-yellow-500 animate-ping" />}
                  </div>
                  
@@ -270,12 +275,12 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                    </div>
                  ) : (
                    <div className={`flex-1 flex flex-col items-center justify-center border-4 border-dashed rounded-[32px] min-h-[180px] ${isLight ? 'border-slate-200 text-slate-300' : 'border-slate-800/20 text-slate-800'}`}>
-                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">DISPONÍVEL</span>
+                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">VAGO</span>
                    </div>
                  )}
 
                  <div className="space-y-2 mt-2">
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-2">EM ESPERA:</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-2">PRÓXIMOS:</span>
                     {waiting.map((item, idx) => (
                       <div key={item.id} className={`p-4 rounded-2xl flex items-center justify-between border animate-in slide-in-from-bottom-2 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/5'}`}>
                         <div className="flex items-center gap-3">

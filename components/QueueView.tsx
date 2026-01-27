@@ -233,8 +233,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   isMe 
                     ? 'border-teal-500 bg-teal-500/5 shadow-lg' 
                     : isLight 
-                      ? 'bg-white border-slate-300 shadow-sm' 
-                      : 'bg-slate-900 border-slate-800'
+                      ? 'bg-transparent border-slate-300 shadow-sm' 
+                      : 'bg-slate-900 border-slate-800 shadow-xl'
                 }`}
               >
                 <div className="flex items-center justify-between">
