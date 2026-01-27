@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert, Users2, Download, Smartphone } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert, Users2, Download, Smartphone, SmartphoneNfc } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -73,26 +73,30 @@ export const QueueView: React.FC<QueueViewProps> = ({
          </div>
       </header>
 
-      {/* BANNER DE INSTALAÇÃO (VISÍVEL APENAS NO NAVEGADOR) */}
+      {/* BANNER DE INSTALAÇÃO - DESTAQUE MÁXIMO */}
       {!isStandalone && (
-        <section onClick={onInstallRequest} className={`cursor-pointer group relative overflow-hidden rounded-[32px] p-5 border-2 transition-all duration-300 shadow-xl ${isLight ? 'bg-indigo-50 border-indigo-200' : 'bg-indigo-600/10 border-indigo-500/30'}`}>
+        <section 
+          onClick={onInstallRequest} 
+          className={`cursor-pointer group relative overflow-hidden rounded-[40px] p-6 border-2 transition-all duration-500 shadow-2xl animate-bounce-short ${
+            isLight ? 'bg-indigo-600 border-indigo-400' : 'bg-indigo-600 border-indigo-500'
+          }`}
+        >
            <div className="flex items-center justify-between gap-4 relative z-10">
               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                    <Download size={24} />
+                 <div className="w-14 h-14 bg-white text-indigo-600 rounded-[20px] flex items-center justify-center shadow-2xl">
+                    <SmartphoneNfc size={28} className="animate-pulse" />
                  </div>
-                 <div>
-                    <h3 className={`text-xs font-black uppercase tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Instalar Aplicativo</h3>
-                    <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Acesso rápido na tela inicial</p>
+                 <div className="text-white">
+                    <h3 className="text-sm font-black uppercase tracking-tight">Instalar Aplicativo</h3>
+                    <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest mt-0.5">Use como se fosse um app real</p>
                  </div>
               </div>
-              <div className="bg-indigo-600/20 p-2 rounded-xl text-indigo-400">
-                 <Smartphone size={16} className="animate-bounce" />
+              <div className="bg-white/20 p-2.5 rounded-2xl text-white">
+                 <Download size={20} />
               </div>
            </div>
-           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
-              <Download size={100} />
-           </div>
+           {/* Efeito de brilho de fundo */}
+           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -translate-y-1/2 translate-x-1/2" />
         </section>
       )}
       
@@ -236,14 +240,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       {isAdmin && (
                         <div className="pt-2 border-t border-slate-500/10 flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                            <Users2 size={10} /> Mover para:
+                            <Users2 size={10} /> Mover p/ Profissional:
                           </div>
                           <select 
                             value={item.professionalId}
                             onChange={(e) => onUpdateProfessional?.(item.id, e.target.value)}
-                            className={`bg-transparent border-none text-[9px] font-black uppercase outline-none cursor-pointer hover:text-teal-400 transition-colors ${isLight ? 'text-slate-900' : 'text-white'}`}
+                            className={`bg-transparent border p-2 rounded-lg text-[9px] font-black uppercase outline-none cursor-pointer hover:border-teal-400 transition-all ${isLight ? 'text-slate-900 border-slate-200' : 'text-white border-white/5 bg-slate-950'}`}
                           >
-                             <option value="any">QUALQUER UM</option>
+                             <option value="any">{establishmentName === 'TRIAGEM' ? 'TRIAGEM' : 'QUALQUER UM'}</option>
                              {professionals.map(p => (
                                <option key={p.id} value={p.id}>{p.name}</option>
                              ))}

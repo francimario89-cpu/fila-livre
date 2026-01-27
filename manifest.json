@@ -1,0 +1,18 @@
+
+{
+  "name": "Fila Livre",
+  "short_name": "Fila Livre",
+  "description": "Smart Booking. Fast Service.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#050810",
+  "theme_color": "#2dd4bf",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzA1MDgxMCIvPjxnIGZpbHRlcj0idXJsKCNnbG93KSI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzJkZDRiZiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PHBhdGggZD0iTSA0MCA0NSBMIDYwIDQ1IE0gNDAgNjUgTCA2MCA2NSBNIDQ1IDQ1IEwgNDUgNjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzJkZDRiZiIgc3Ryb2tlLXdpZHRoPSI2Ii8+PC9nPjxkZWZzPjxmaWx0ZXIgaWQ9Imdsb3ciPjxmZUd1YXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjEuNSIgcmVzdWx0PSJjb2xvcmVkQmx1ciIvPjxmZU1lcmdlPjxmZU1lcmdlTm9kZSBpbj0iY29sb3JlZEJsdXIiLz48ZmVNZXJnZU5vZGUgaW49IlNvdXJjZUdyYXBoaWMiLz48L2ZlTWVyZ2U+PC9maWx0ZXI+PC9kZWZzPjwvc3ZnPg==",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
