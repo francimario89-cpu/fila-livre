@@ -48,7 +48,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
     return 'open' as EstStatus;
   }, [autoStatusEnabled, estStatus, dailySchedules, now]);
 
-  // Se for staff, filtrar para mostrar apenas a sua fila. Se for admin/client, mostrar todos.
   const filteredProfessionals = useMemo(() => {
     if (userRole === 'staff' && myProId) {
       return professionals.filter(p => p.id === myProId);
@@ -98,7 +97,6 @@ export const QueueView: React.FC<QueueViewProps> = ({
           const proQueue = queue.filter(item => item.professionalId === pro.id || (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id)));
           const serving = proQueue.find(item => item.status === 'serving');
           const waiting = proQueue.filter(item => item.status === 'waiting').sort((a,b) => {
-            // Regra: Prioridade vem antes, depois timestamp
             if (a.isPriority && !b.isPriority) return -1;
             if (!a.isPriority && b.isPriority) return 1;
             return a.timestamp - b.timestamp;
@@ -107,16 +105,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
           return (
             <div key={pro.id} className="space-y-4 animate-in slide-in-from-bottom-4">
-              <div className="flex items-center justify-between border-b border-slate-500/20 pb-2 px-2">
-                 <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${serving ? 'bg-teal-400 animate-pulse' : 'bg-slate-700'}`} />
-                    <h3 className={`text-sm font-black uppercase tracking-widest ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              {/* Título da Coluna mais discreto */}
+              <div className="flex items-center justify-between opacity-60 px-4">
+                 <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${serving ? 'bg-teal-400 animate-pulse' : 'bg-slate-400'}`} />
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isLight ? 'text-slate-900' : 'text-slate-400'}`}>
                       {userRole === 'staff' ? 'Minha Lista' : pro.name}
                     </h3>
                  </div>
-                 <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
-                 </div>
+                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{waiting.length} EM ESPERA</span>
               </div>
 
               {/* SENDO ATENDIDO (TOPO) */}
@@ -130,7 +127,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   )}
                   <div className="absolute top-0 left-0 p-4 opacity-10"><Zap size={40} className="text-white" /></div>
                   <div className="flex items-center gap-2 mb-3">
-                     <span className="text-[10px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido no momento</span>
+                     <span className="text-[10px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
                   </div>
                   <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{serving.name}</h3>
                   <p className="text-[10px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
@@ -143,7 +140,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   )}
                 </div>
               ) : (
-                <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-30 ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
+                <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-20 ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
                    <p className="text-[10px] font-black uppercase tracking-[0.3em]">GUICHÊ LIVRE</p>
                 </div>
               )}
