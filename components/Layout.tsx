@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { NAVIGATION_ITEMS } from '../constants';
-import { Bell, Building2, User, MapPin, LayoutGrid, Wifi, Zap, ListOrdered, ChevronUp, Sun, Moon } from 'lucide-react';
-import { QueueItem } from '../types';
+import React from 'react';
+import { NAVIGATION_ITEMS } from '../constants.tsx';
+import { Building2, User, LayoutGrid, Wifi, Zap, ListOrdered, Sun, Moon } from 'lucide-react';
+import { QueueItem } from '../types.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,7 +21,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, establishmentName, loyaltyEnabled, onBackToDashboard, onClearNotifications, userActiveQueues = [], theme = 'dark', onToggleTheme
+  children, activeTab, setActiveTab, userRole, establishmentCode, establishmentName, loyaltyEnabled, onBackToDashboard, userActiveQueues = [], theme = 'dark', onToggleTheme
 }) => {
   const filteredNav = NAVIGATION_ITEMS.filter(item => {
     if (item.id === 'fidelidade' && !loyaltyEnabled) return false;
@@ -53,16 +53,10 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
-            onClick={onToggleTheme} 
-            className={`p-2 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-800 text-amber-400' : 'bg-slate-200 text-slate-600'}`}
-          >
+          <button onClick={onToggleTheme} className={`p-2 rounded-xl transition-all ${theme === 'dark' ? 'bg-slate-800 text-amber-400' : 'bg-slate-200 text-slate-600'}`}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-
-          <div className={`w-9 h-9 rounded-xl p-[1.5px] shadow-lg ${
-            userRole === 'admin' ? 'bg-indigo-600' : 'bg-teal-600'
-          }`}>
+          <div className={`w-9 h-9 rounded-xl p-[1.5px] shadow-lg ${userRole === 'admin' ? 'bg-indigo-600' : 'bg-teal-600'}`}>
             <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-slate-950' : 'bg-white'}`}>
               {userRole === 'admin' ? <Building2 size={14} className="text-indigo-400" /> : <User size={14} className="text-teal-400" />}
             </div>
@@ -74,7 +68,6 @@ export const Layout: React.FC<LayoutProps> = ({
         {children}
       </main>
 
-      {/* INDICADOR FLUTUANTE DE STATUS */}
       {mainActiveQueue && userRole === 'client' && (
         <div className="fixed bottom-24 right-4 z-[60] flex flex-col items-end gap-3 pointer-events-none">
           <div className={`pointer-events-auto backdrop-blur-md p-4 rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-3 border ${theme === 'dark' ? 'bg-slate-900/90 border-teal-500/30 text-white' : 'bg-white/90 border-teal-500/30 text-slate-900'}`}>
