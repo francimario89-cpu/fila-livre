@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { LOGO_SVG } from '../constants';
 import { QueueItem, Professional } from '../types';
-import { User, MonitorOff, BellRing, Volume2, VolumeX, Volume1, PlayCircle, Loader2 } from 'lucide-react';
+import { User, MonitorOff, BellRing, Volume2, VolumeX, Volume1, PlayCircle, Loader2, Mic2 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
 
 interface TVViewProps {
@@ -57,7 +57,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
     return () => clearInterval(timer);
   }, []);
 
-  // Inicialização obrigatória para desbloquear áudio no navegador
+  // Inicialização obrigatória para desbloquear áudio no navegador (Gesture)
   const handleStartWithAudio = async () => {
     try {
       if (!audioContextRef.current) {
@@ -68,7 +68,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       }
       setAudioEnabled(true);
       
-      // Feedback sonoro de teste (bip curto)
+      // Feedback sonoro de teste (bip curto) para confirmar que o áudio está funcionando
       const osc = audioContextRef.current.createOscillator();
       const gain = audioContextRef.current.createGain();
       gain.gain.value = 0.05;
@@ -87,12 +87,18 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
          console.warn("API_KEY não configurada para áudio.");
          return;
       }
+
+      // SEMPRE tenta retomar o contexto de áudio antes de falar (Crítico para Android TV)
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
       
       setIsAiProcessing(true);
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const firstName = name.split(' ')[0];
-      const prompt = `Diga com voz calma, clara e feminina: Atenção, ${firstName}, por favor, dirija-se ao atendimento.`;
+      // Prompt simplificado para resposta rápida
+      const prompt = `Diga apenas: ${firstName}, por favor, venha para o atendimento.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -101,7 +107,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
+              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore é uma voz clara e feminina
             },
           },
         },
@@ -110,8 +116,6 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         const ctx = audioContextRef.current!;
-        if (ctx.state === 'suspended') await ctx.resume();
-
         const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
         const source = ctx.createBufferSource();
         const gainNode = ctx.createGain();
@@ -132,6 +136,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   useEffect(() => {
     if (!audioEnabled) return;
 
+    // Monitora quem está em atendimento ("serving")
     const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
     if (serving.length > 0) {
       const topServing = serving[0];
@@ -140,10 +145,11 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         setLastCalledId(topServing.id);
         announcedIds.current.add(topServing.id);
         
-        // Chamada sonora
+        // Dispara a chamada sonora imediatamente
         announcePatient(topServing.name);
         
-        setTimeout(() => setLastCalledId(null), 15000);
+        // Remove o destaque visual após 20 segundos
+        setTimeout(() => setLastCalledId(null), 20000);
       }
     }
   }, [queue, audioEnabled]);
@@ -153,21 +159,21 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-6 animate-in fade-in duration-1000 overflow-hidden font-inter transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
-      {/* OVERLAY DE INICIALIZAÇÃO OBRIGATÓRIO PARA ÁUDIO */}
+      {/* OVERLAY DE INICIALIZAÇÃO - OBRIGATÓRIO PARA ÁUDIO EM TVs */}
       {!audioEnabled && (
-        <div className="absolute inset-0 z-[2000] bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+        <div className="absolute inset-0 z-[2000] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
            <div className="w-32 h-32 mb-8 animate-float">
              {LOGO_SVG}
            </div>
-           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Painel da TV</h2>
+           <h2 className="text-3xl font-black text-white font-orbitron uppercase tracking-tighter mb-4">Modo Painel TV</h2>
            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-10 max-w-sm">
-             O monitor precisa da sua permissão para emitir os avisos sonoros de voz.
+             Clique no botão abaixo para ativar a chamada por voz dos clientes.
            </p>
            <button 
              onClick={handleStartWithAudio}
              className="bg-teal-500 text-slate-950 px-12 py-6 rounded-3xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-teal-500/20 active:scale-95 transition-all flex items-center gap-4"
            >
-             <PlayCircle size={24} /> Iniciar Monitor com Som
+             <PlayCircle size={24} /> Ativar Som e Iniciar
            </button>
         </div>
       )}
@@ -184,9 +190,9 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
             </h1>
             <div className="flex items-center gap-2 mt-2">
               {isAiProcessing ? (
-                <div className="flex items-center gap-2 text-teal-400">
-                   <Loader2 size={12} className="animate-spin" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">IA Processando Voz...</p>
+                <div className="flex items-center gap-2 text-teal-400 animate-pulse">
+                   <Mic2 size={12} />
+                   <p className="text-[10px] font-black uppercase tracking-widest">Chamando Cliente...</p>
                 </div>
               ) : (
                 <>
@@ -201,7 +207,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
         <div className="flex items-center gap-8">
           <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border ${audioEnabled ? 'bg-teal-500/10 border-teal-500/30 text-teal-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
             {audioEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Áudio Operante' : 'Mudo'}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{audioEnabled ? 'Voz Ativa' : 'Sem Áudio'}</span>
           </div>
 
           <div className={`text-5xl font-black font-mono tracking-tighter px-8 py-3 rounded-2xl border shadow-inner ${isLight ? 'bg-slate-100 border-slate-200 text-indigo-600' : 'bg-slate-950 border-white/10 text-indigo-400'}`}>
@@ -223,11 +229,11 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
           const isLastCalled = serving && serving.id === lastCalledId;
 
           return (
-            <div key={pro.id} className={`flex flex-col h-full border-2 rounded-[40px] overflow-hidden transition-all duration-700 ${isLight ? 'bg-white' : 'bg-slate-900/20'} ${isBusy ? 'border-teal-500/30' : 'border-slate-800'}`}>
+            <div key={pro.id} className={`flex flex-col h-full border-2 rounded-[40px] overflow-hidden transition-all duration-700 ${isLight ? 'bg-white shadow-sm' : 'bg-slate-900/20'} ${isBusy ? 'border-teal-500/30' : 'border-slate-800'}`}>
                
-               <div className={`p-4 flex items-center justify-between ${isBusy ? (isLight ? 'bg-teal-50/50' : 'bg-teal-500/10') : (isLight ? 'bg-slate-50' : 'bg-slate-800/30')}`}>
+               <div className={`p-4 flex items-center justify-between ${isBusy ? (isLight ? 'bg-teal-50' : 'bg-teal-500/10') : (isLight ? 'bg-slate-50' : 'bg-slate-800/30')}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isBusy ? 'bg-teal-500 text-slate-950' : (isLight ? 'bg-slate-200 text-slate-400' : 'bg-slate-800 text-slate-500')}`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isBusy ? 'bg-teal-500 text-slate-950' : (isLight ? 'bg-slate-200 text-slate-500' : 'bg-slate-800 text-slate-500')}`}>
                       <User size={18} />
                     </div>
                     <h3 className={`font-black text-sm uppercase tracking-tight truncate max-w-[150px] ${isLight ? 'text-slate-800' : 'text-white'}`}>{pro.name}</h3>
@@ -236,7 +242,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
                <div className="p-4 flex-1 flex flex-col gap-4">
                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">PACIENTE:</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">EM ATENDIMENTO:</span>
                     {isLastCalled && <Volume1 size={24} className="text-yellow-500 animate-ping" />}
                  </div>
                  
@@ -264,19 +270,19 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                    </div>
                  ) : (
                    <div className={`flex-1 flex flex-col items-center justify-center border-4 border-dashed rounded-[32px] min-h-[180px] ${isLight ? 'border-slate-200 text-slate-300' : 'border-slate-800/20 text-slate-800'}`}>
-                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">VAGO</span>
+                      <span className="text-[12px] font-black uppercase tracking-[0.4em] opacity-20">DISPONÍVEL</span>
                    </div>
                  )}
 
                  <div className="space-y-2 mt-2">
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-2">PRÓXIMOS:</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-2">EM ESPERA:</span>
                     {waiting.map((item, idx) => (
-                      <div key={item.id} className={`p-4 rounded-2xl flex items-center justify-between border animate-in slide-in-from-bottom-2 ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-slate-900/60 border-white/5'}`}>
+                      <div key={item.id} className={`p-4 rounded-2xl flex items-center justify-between border animate-in slide-in-from-bottom-2 ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/5'}`}>
                         <div className="flex items-center gap-3">
                            <span className={`text-xs font-black font-orbitron ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>{idx + 1}º</span>
-                           <span className={`text-sm font-bold uppercase truncate max-w-[120px] ${isLight ? 'text-slate-700' : 'text-white/80'}`}>{item.name}</span>
+                           <span className={`text-sm font-bold uppercase truncate max-w-[120px] ${isLight ? 'text-slate-900' : 'text-white/80'}`}>{item.name}</span>
                         </div>
-                        <span className={`text-[8px] px-2 py-1 rounded-lg font-black uppercase tracking-tighter border ${isLight ? 'bg-white border-slate-200 text-slate-500' : 'bg-slate-950 border-white/5 text-slate-500'}`}>{item.service.slice(0, 10)}</span>
+                        <span className={`text-[8px] px-2 py-1 rounded-lg font-black uppercase tracking-tighter border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-slate-950 border-white/5 text-slate-500'}`}>{item.service.slice(0, 10)}</span>
                       </div>
                     ))}
                  </div>

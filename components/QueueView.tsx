@@ -231,23 +231,23 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 key={item.id} 
                 className={`border rounded-[32px] p-6 flex flex-col gap-4 transition-all ${
                   isMe 
-                    ? 'border-teal-500/50 bg-teal-500/5 shadow-lg' 
+                    ? 'border-teal-500 bg-teal-500/5 shadow-lg' 
                     : isLight 
-                      ? 'bg-transparent border-slate-300' 
+                      ? 'bg-white border-slate-300 shadow-sm' 
                       : 'bg-slate-900 border-slate-800'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${
-                      item.type === 'appointment' ? 'bg-indigo-600 text-white' : index === 0 ? 'bg-amber-500 text-slate-950' : (isLight ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-teal-400')
+                      item.type === 'appointment' ? 'bg-indigo-600 text-white' : index === 0 ? 'bg-amber-500 text-slate-950' : (isLight ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-teal-400')
                     }`}>{index + 1}</div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className={`font-black text-lg uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
                         {isMe && <span className="text-[8px] bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full font-black">VOCÊ</span>}
                       </div>
-                      <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">
+                      <p className={`text-[9px] font-bold uppercase mt-1 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                         {item.service} • {item.professionalId === 'any' ? 'Livre' : professionals.find(p => p.id === item.professionalId)?.name}
                       </p>
                     </div>
