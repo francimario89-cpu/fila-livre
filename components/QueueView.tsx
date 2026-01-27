@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { QueueItem, EstStatus, Professional, Service, BookingModel, DaySchedule } from '../types';
-import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Coffee, DoorClosed, Zap, UserPlus, Trash2, BellRing, CheckCircle2, UserX, MapPin, Wifi, LogOut, AlertCircle, ShieldAlert, Users2 } from 'lucide-react';
 
 interface QueueViewProps {
   queue: QueueItem[];
@@ -155,7 +155,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   return (
                     <div 
                       key={item.id} 
-                      className={`border-2 rounded-[32px] p-5 flex items-center justify-between transition-all ${
+                      className={`border-2 rounded-[32px] p-5 flex flex-col gap-4 transition-all ${
                         item.isPriority 
                           ? 'border-red-500/40 bg-red-500/5' 
                           : isMe 
@@ -165,46 +165,66 @@ export const QueueView: React.FC<QueueViewProps> = ({
                               : 'bg-slate-900 border-slate-800'
                       }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
-                           {item.isPriority ? '!' : `${index + 1}º`}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                             <h4 className={`font-black text-base uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
-                             {isMe && <span className="text-[7px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
-                             {item.isPriority && <span className="text-[7px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
+                             {item.isPriority ? '!' : `${index + 1}º`}
                           </div>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
+                          <div>
+                            <div className="flex items-center gap-2">
+                               <h4 className={`font-black text-base uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
+                               {isMe && <span className="text-[7px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
+                               {item.isPriority && <span className="text-[7px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
+                            </div>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                           {isMe && (
+                             <button onClick={() => onLeaveQueue?.(item.id)} className="p-2.5 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Sair da Fila">
+                               <LogOut size={16} />
+                             </button>
+                           )}
+                           {canActionItem && (
+                             <div className="flex gap-2">
+                                <button 
+                                  onClick={() => onTogglePriority?.(item.id, !!item.isPriority)} 
+                                  className={`p-2.5 rounded-xl border transition-all ${item.isPriority ? 'bg-red-500 text-white border-red-400' : 'bg-slate-800/10 text-slate-500 border-transparent hover:border-red-500/30'}`}
+                                  title={item.isPriority ? "Remover Prioridade" : "Tornar Prioritário"}
+                                >
+                                  <ShieldAlert size={16} />
+                                </button>
+                                
+                                <button onClick={() => onNoShow?.(item.id)} className="p-2.5 bg-slate-800/10 text-slate-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Excluir da Lista">
+                                  <Trash2 size={16} />
+                                </button>
+                                <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-2.5 rounded-xl shadow-lg active:scale-90 transition-all hover:bg-teal-400" title="Chamar Próximo">
+                                  <Zap size={16} />
+                                </button>
+                             </div>
+                           )}
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-2">
-                         {isMe && (
-                           <button onClick={() => onLeaveQueue?.(item.id)} className="p-2.5 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Sair da Fila">
-                             <LogOut size={16} />
-                           </button>
-                         )}
-                         {canActionItem && (
-                           <div className="flex gap-2">
-                              {/* Botão de Toggle Priority exclusivo para Gestão */}
-                              <button 
-                                onClick={() => onTogglePriority?.(item.id, !!item.isPriority)} 
-                                className={`p-2.5 rounded-xl border transition-all ${item.isPriority ? 'bg-red-500 text-white border-red-400' : 'bg-slate-800/10 text-slate-500 border-transparent hover:border-red-500/30'}`}
-                                title={item.isPriority ? "Remover Prioridade" : "Tornar Prioritário"}
-                              >
-                                <ShieldAlert size={16} />
-                              </button>
-                              
-                              <button onClick={() => onNoShow?.(item.id)} className="p-2.5 bg-slate-800/10 text-slate-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Excluir da Lista">
-                                <Trash2 size={16} />
-                              </button>
-                              <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-2.5 rounded-xl shadow-lg active:scale-90 transition-all hover:bg-teal-400" title="Chamar Próximo">
-                                <Zap size={16} />
-                              </button>
-                           </div>
-                         )}
-                      </div>
+
+                      {/* Seletor de mudança de profissional (Gestor apenas) */}
+                      {isAdmin && (
+                        <div className="pt-2 border-t border-slate-500/10 flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                            <Users2 size={10} /> Mover para:
+                          </div>
+                          <select 
+                            value={item.professionalId}
+                            onChange={(e) => onUpdateProfessional?.(item.id, e.target.value)}
+                            className={`bg-transparent border-none text-[9px] font-black uppercase outline-none cursor-pointer hover:text-teal-400 transition-colors ${isLight ? 'text-slate-900' : 'text-white'}`}
+                          >
+                             <option value="any">QUALQUER UM</option>
+                             {professionals.map(p => (
+                               <option key={p.id} value={p.id}>{p.name}</option>
+                             ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
