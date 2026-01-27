@@ -80,10 +80,26 @@ const App: React.FC = () => {
           setUserRole(data.role || 'client');
         }
       } else {
-        setIsLoggedIn(false); setCurrentEst(null); setUserEmail('');
+        setIsLoggedIn(false); setCurrentEst(null); setUserEmail(''); setUserRole('client');
       }
     });
   }, []);
+
+  // SINCRONIZAÇÃO DE PERMISSÕES AO SELECIONAR UNIDADE
+  useEffect(() => {
+    if (!currentEst?.id || !isLoggedIn || !userEmail) return;
+    const unsubEst = onSnapshot(doc(db, "establishments", currentEst.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() } as Establishment;
+        setCurrentEst(data);
+        // Se o e-mail logado for o dono, sobe para Admin
+        if (userEmail.toLowerCase() === data.ownerEmail.toLowerCase()) {
+          setUserRole('admin');
+        }
+      }
+    });
+    return () => unsubEst();
+  }, [currentEst?.id, isLoggedIn, userEmail]);
 
   useEffect(() => {
     if (!currentEst?.id || !isConfigured || !isLoggedIn) return;
@@ -102,7 +118,6 @@ const App: React.FC = () => {
     return () => { unsubQueue(); unsubServices(); unsubPros(); unsubRevenue(); };
   }, [currentEst?.id, isLoggedIn]);
 
-  // FUNÇÃO DA LIXEIRA (REMOVER DA FILA)
   const handleRemoveFromQueue = async (id: string) => {
     if (!currentEst) return;
     const confirmMsg = userRole === 'client' ? "Deseja sair da fila?" : "Remover este cliente da lista?";
@@ -112,6 +127,35 @@ const App: React.FC = () => {
     } catch (e) {
       alert("Erro ao remover: " + e);
     }
+  };
+
+  const handleUpdateServices = async (newServices: Service[]) => {
+    if (!currentEst) return;
+    try {
+      // Deletar os que sumiram da lista
+      const oldServices = services;
+      const removed = oldServices.filter(s => !newServices.find(ns => ns.id === s.id));
+      for (const s of removed) {
+        await deleteDoc(doc(db, "establishments", currentEst.id, "services", s.id));
+      }
+      // Adicionar ou atualizar novos
+      for (const s of newServices) {
+        await setDoc(doc(db, "establishments", currentEst.id, "services", s.id), s);
+      }
+    } catch (e) { alert("Erro ao salvar serviços"); }
+  };
+
+  const handleUpdateProfessionals = async (newPros: Professional[]) => {
+    if (!currentEst) return;
+    try {
+      const removed = professionals.filter(p => !newPros.find(np => np.id === p.id));
+      for (const p of removed) {
+        await deleteDoc(doc(db, "establishments", currentEst.id, "professionals", p.id));
+      }
+      for (const p of newPros) {
+        await setDoc(doc(db, "establishments", currentEst.id, "professionals", p.id), p);
+      }
+    } catch (e) { alert("Erro ao salvar equipe"); }
   };
 
   const handleJoinQueue = async (data: any) => {
@@ -165,13 +209,14 @@ const App: React.FC = () => {
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={(c) => Promise.resolve(true)} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}
           onCallNext={handleCallNext} onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} onNoShow={handleRemoveFromQueue} 
-          onUpdateServices={(s) => {}} onUpdatePros={(p) => {}} onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}
+          onUpdateServices={handleUpdateServices} onUpdatePros={handleUpdateProfessionals} onManualJoin={handleJoinQueue} onToggleTVMode={() => setIsTVMode(true)}
         />
       )}
       {activeTab === 'config' && (
         <div className="text-center space-y-8">
            <User className="text-teal-400 mx-auto" size={48} />
            <h2 className="text-2xl font-black font-orbitron">MEU PERFIL</h2>
+           <p className="text-xs text-slate-500">{userEmail}</p>
            <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase">Sair</button>
         </div>
       )}
