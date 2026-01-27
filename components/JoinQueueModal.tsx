@@ -127,10 +127,12 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
     });
   };
 
+  const showAppointmentToggle = bookingModel === 'both';
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-slate-900 rounded-[40px] p-8 border border-white/5 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-md bg-slate-900 border border-white/5 rounded-[40px] p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
         <header className="flex justify-between items-center mb-6">
            <div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Entrar na Lista</h2><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1">Multi-atendimento liberado</p></div>
            <button onClick={onClose} className="p-3 bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-colors"><X size={20}/></button>
@@ -140,14 +142,49 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="SEU NOME" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" />
             <select value={serviceName} onChange={e => { setServiceName(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>
           </div>
+          
           <div className="space-y-4">
-             <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-               <button onClick={() => setType('walk-in')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}>Agora</button>
-               <button onClick={() => setType('appointment')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'appointment' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>Agendar</button>
-            </div>
-            <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500"><option value="any">Qualquer Atendente</option>{professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+             {showAppointmentToggle && (
+               <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                 <button onClick={() => setType('walk-in')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}>Agora</button>
+                 <button onClick={() => setType('appointment')} className={`py-3 rounded-xl text-[9px] font-black uppercase transition-all ${type === 'appointment' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>Agendar</button>
+               </div>
+             )}
+
+             <div className="space-y-3">
+               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Atendimento com:</label>
+               <select value={professionalId} onChange={e => { setProfessionalId(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500">
+                 <option value="any">Qualquer Atendente</option>
+                 {professionals.filter(p => p.status !== 'absent').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+               </select>
+             </div>
+
+             {type === 'appointment' && (
+               <div className="space-y-4 animate-in slide-in-from-top-2">
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Data e Horário</label>
+                    <input type="date" value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setSelectedTime(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-indigo-500" />
+                 </div>
+                 <div className="grid grid-cols-4 gap-2">
+                    {availableSlots.map(time => (
+                      <button key={time} onClick={() => setSelectedTime(time)} className={`py-3 rounded-xl text-[10px] font-black transition-all ${selectedTime === time ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-950 border border-slate-800 text-slate-400'} border`}>
+                        {time}
+                      </button>
+                    ))}
+                    {availableSlots.length === 0 && (
+                      <div className="col-span-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
+                         <p className="text-[8px] font-black text-red-500 uppercase tracking-widest">Nenhum horário disponível para este dia</p>
+                      </div>
+                    )}
+                 </div>
+               </div>
+             )}
           </div>
-          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3 ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'bg-indigo-600 text-white'}`}><Users size={18} /> Confirmar Entrada</button>
+
+          <button onClick={handleAction} className={`w-full py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3 ${type === 'walk-in' ? 'bg-teal-500 text-slate-950' : 'bg-indigo-600 text-white'}`}>
+            {type === 'walk-in' ? <Users size={18} /> : <Calendar size={18} />} 
+            {type === 'walk-in' ? 'Confirmar Entrada' : 'Confirmar Agendamento'}
+          </button>
         </div>
       </div>
     </div>
