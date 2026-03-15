@@ -27,7 +27,6 @@ interface JoinQueueModalProps {
 export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({ 
   establishment, services, professionals, bookingModel, currentQueue, userProfile, workingDays = [1,2,3,4,5,6], dailySchedules, initialName = '', onClose, onSubmit 
 }) => {
-  const [isAddingDependent, setIsAddingDependent] = useState(false);
   const [name, setName] = useState(initialName || userProfile?.name || '');
   const [serviceName, setServiceName] = useState(services[0]?.name || '');
   const [isPriority, setIsPriority] = useState(false);
@@ -41,28 +40,20 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState('');
 
-  useEffect(() => {
-    if (!isAddingDependent && userProfile?.name) {
-      setName(userProfile.name);
-    }
-  }, [isAddingDependent, userProfile]);
-
   const selectedProfessionalName = useMemo(() => {
     if (professionalId === 'any') return anyLabel;
     return professionals.find(p => p.id === professionalId)?.name || 'Profissional';
   }, [professionalId, professionals, anyLabel]);
 
   const handleAction = () => {
-    const finalName = isAddingDependent ? name : (userProfile?.name || name);
-    if (!finalName.trim()) return alert("Por favor, informe o nome.");
+    if (!name.trim()) return alert("Por favor, informe o nome.");
     if (type === 'appointment' && !selectedTime) return alert("Selecione um horário.");
     setShowConfirmation(true);
   };
 
   const handleFinalSubmit = () => {
-    const finalName = isAddingDependent ? name : (userProfile?.name || name);
     onSubmit({
-      mainPerson: { name: finalName.toUpperCase().trim(), service: serviceName },
+      mainPerson: { name: name.toUpperCase().trim(), service: serviceName },
       companions: [],
       professionalId,
       type,
@@ -149,7 +140,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                 <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
                    <div>
                      <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Paciente</p>
-                     <p className="text-xs font-bold text-white uppercase truncate">{isAddingDependent ? name : (userProfile?.name || name)}</p>
+                     <p className="text-xs font-bold text-white uppercase truncate">{name}</p>
                    </div>
                    <div>
                      <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Serviço</p>
@@ -195,33 +186,25 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             )}
 
             <div className="bg-slate-950/40 p-6 rounded-[32px] border border-white/5 space-y-4">
-              {userProfile?.name && !isAddingDependent ? (
-                <div className="flex items-center justify-between p-4 bg-teal-500/10 border border-teal-500/20 rounded-2xl">
-                  <div className="flex items-center gap-3">
-                    <User className="text-teal-500" size={20} />
-                    <div>
-                      <h4 className="text-[10px] font-black text-white uppercase">{userProfile.name}</h4>
-                      <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Você entrará na fila</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsAddingDependent(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 rounded-lg text-[8px] font-black text-teal-400 uppercase tracking-widest hover:bg-slate-700 transition-all"
-                  >
-                    <Plus size={12} /> Dependente
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                   <div className="flex justify-between items-center mb-1">
-                     <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Nome do Paciente</label>
-                     {userProfile?.name && (
-                       <button onClick={() => setIsAddingDependent(false)} className="text-[8px] font-black text-teal-500 uppercase tracking-widest">Usar meu nome</button>
-                     )}
-                   </div>
-                   <input value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="NOME DO PACIENTE" className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" />
-                </div>
-              )}
+              <div className="space-y-1">
+                 <div className="flex justify-between items-center mb-1">
+                   <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Nome do Paciente</label>
+                   {userProfile?.name && name !== userProfile.name && (
+                     <button 
+                       onClick={() => setName(userProfile.name)} 
+                       className="text-[8px] font-black text-teal-500 uppercase tracking-widest flex items-center gap-1"
+                     >
+                       <User size={10} /> Usar meu nome
+                     </button>
+                   )}
+                 </div>
+                 <input 
+                   value={name} 
+                   onChange={e => setName(e.target.value.toUpperCase())} 
+                   placeholder="NOME DO PACIENTE" 
+                   className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" 
+                 />
+              </div>
               <div className="space-y-1">
                  <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Procedimento/Serviço</label>
                  <select value={serviceName} onChange={e => { setServiceName(e.target.value); }} className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none appearance-none">{services.map(s => <option key={s.id} value={s.name}>{s.name} - R$ {s.price}</option>)}</select>

@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff", "client"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt"]
+    },
+    "Establishment": {
+      "title": "Establishment",
+      "description": "Business establishment details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "status": { "type": "string" },
+        "loyaltyEnabled": { "type": "boolean" },
+        "loyaltyReward": { "type": "string" },
+        "pixKey": { "type": "string" }
+      }
+    },
+    "QueueItem": {
+      "title": "Queue Item",
+      "description": "A person in the queue",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "service": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "userEmail": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "establishments/{estId}": {
+      "schema": "Establishment",
+      "description": "Establishments"
+    },
+    "establishments/{estId}/queue/{itemId}": {
+      "schema": "QueueItem",
+      "description": "Queue items for an establishment"
+    }
+  }
+}

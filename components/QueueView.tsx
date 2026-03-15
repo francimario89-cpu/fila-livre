@@ -62,7 +62,17 @@ export const QueueView: React.FC<QueueViewProps> = ({
         item.status !== 'completed'
       );
       if (myItem) {
-        return professionals.filter(p => p.id === myItem.professionalId || myItem.professionalId === 'any');
+        if (myItem.professionalId === 'any') {
+          // Retorna um profissional virtual para a fila geral
+          return [{
+            id: 'any',
+            name: 'Fila Geral',
+            email: '',
+            status: 'available',
+            establishmentId: myItem.establishmentId
+          } as Professional];
+        }
+        return professionals.filter(p => p.id === myItem.professionalId);
       }
     }
     return professionals.filter(p => p.status !== 'absent');
@@ -107,14 +117,21 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* FILAS VERTICAIS POR PROFISSIONAL */}
       <div className="space-y-8">
         {filteredProfessionals.map(pro => {
-          const proQueue = queue.filter(item => item.professionalId === pro.id || (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id)));
+          const proQueue = queue.filter(item => 
+            item.professionalId === pro.id || 
+            (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id || (userRole === 'client' && pro.id === 'any')))
+          );
           const serving = proQueue.find(item => item.status === 'serving');
+          const isServingMe = serving && serving.userEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
+          
           const waiting = proQueue.filter(item => item.status === 'waiting').sort((a,b) => {
             if (a.isPriority && !b.isPriority) return -1;
             if (!a.isPriority && b.isPriority) return 1;
             return a.timestamp - b.timestamp;
           });
+          
           const canActionPro = isAdmin || (isStaff && myProId === pro.id);
+          const isClient = userRole === 'client' && !isAdmin && !isStaff;
 
           return (
             <div key={pro.id} className="space-y-4 animate-in slide-in-from-bottom-4">
@@ -131,27 +148,34 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
               {/* SENDO ATENDIDO (TOPO) */}
               {serving ? (
-                <div className={`bg-indigo-600 rounded-[24px] p-5 shadow-2xl border-2 relative overflow-hidden animate-in zoom-in ${serving.isPriority ? 'border-red-500' : 'border-white/5'}`}>
-                  {serving.isPriority && (
-                    <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg z-20">
-                       <AlertCircle size={10} className="fill-current" />
-                       <span className="text-[7px] font-black uppercase">Prioridade</span>
-                    </div>
-                  )}
-                  <div className="absolute top-0 left-0 p-3 opacity-10"><Zap size={32} className="text-white" /></div>
-                  <div className="flex items-center gap-2 mb-2">
-                     <span className="text-[8px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
+                (isClient && !isServingMe) ? (
+                  <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-40 ${isLight ? 'border-amber-200 bg-amber-50/30' : 'border-amber-500/20 bg-amber-500/5'}`}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">PROFISSIONAL OCUPADO</p>
+                    <p className="text-[7px] font-bold text-slate-500 uppercase mt-1">Aguarde sua vez</p>
                   </div>
-                  <h3 className="text-lg font-black text-white uppercase tracking-tighter">{serving.name}</h3>
-                  <p className="text-[9px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
-                  
-                  {canActionPro && (
-                    <div className="flex gap-2 pt-4 relative z-10">
-                      <button onClick={() => onNoShow?.(serving.id)} className="p-3 bg-red-500 text-white rounded-xl active:scale-95 shadow-lg" title="Excluir"><Trash2 size={18} /></button>
-                      <button onClick={() => onFinish?.(serving)} className="flex-1 bg-white text-indigo-600 font-black py-3 rounded-xl uppercase text-[9px] tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95"><CheckCircle2 size={16} /> Finalizar</button>
+                ) : (
+                  <div className={`bg-indigo-600 rounded-[24px] p-5 shadow-2xl border-2 relative overflow-hidden animate-in zoom-in ${serving.isPriority ? 'border-red-500' : 'border-white/5'}`}>
+                    {serving.isPriority && (
+                      <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg z-20">
+                         <AlertCircle size={10} className="fill-current" />
+                         <span className="text-[7px] font-black uppercase">Prioridade</span>
+                      </div>
+                    )}
+                    <div className="absolute top-0 left-0 p-3 opacity-10"><Zap size={32} className="text-white" /></div>
+                    <div className="flex items-center gap-2 mb-2">
+                       <span className="text-[8px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
                     </div>
-                  )}
-                </div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tighter">{serving.name}</h3>
+                    <p className="text-[9px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
+                    
+                    {canActionPro && (
+                      <div className="flex gap-2 pt-4 relative z-10">
+                        <button onClick={() => onNoShow?.(serving.id)} className="p-3 bg-red-500 text-white rounded-xl active:scale-95 shadow-lg" title="Excluir"><Trash2 size={18} /></button>
+                        <button onClick={() => onFinish?.(serving)} className="flex-1 bg-white text-indigo-600 font-black py-3 rounded-xl uppercase text-[9px] tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95"><CheckCircle2 size={16} /> Finalizar</button>
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-20 ${isLight ? 'border-slate-300' : 'border-slate-800'}`}>
                    <p className="text-xl font-black uppercase tracking-[0.3em]">LIVRE</p>
