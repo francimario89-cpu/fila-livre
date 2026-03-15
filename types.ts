@@ -58,6 +58,7 @@ export interface RevenueRecord {
   method: PaymentMethod;
   serviceName: string;
   clientName?: string;
+  clientCode?: string;
   establishmentId: string;
 }
 

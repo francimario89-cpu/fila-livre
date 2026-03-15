@@ -169,7 +169,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                        {serving.code && <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{serving.code}</span>}
                     </div>
                     <h3 className="text-lg font-black text-white uppercase tracking-tighter">
-                      {serving.name} {serving.code && <span className="text-xs opacity-50 ml-2">#{serving.code}</span>}
+                      {serving.name} {serving.code && <span className="text-xs ml-2 font-mono text-indigo-300">#{serving.code}</span>}
                     </h3>
                     <p className="text-[9px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
                     
@@ -244,7 +244,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                           <div>
                             <div className="flex items-center gap-2">
                                <h4 className={`font-black text-sm uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                 {item.name} {item.code && <span className="text-[10px] opacity-40 ml-1">#{item.code}</span>}
+                                 {item.name} {item.code && <span className={`text-[10px] ml-1 font-mono ${isLight ? 'text-indigo-600' : 'text-indigo-400'}`}>#{item.code}</span>}
                                </h4>
                                {isMe && <span className="text-[6px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
                                {item.isPriority && <span className="text-[6px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}

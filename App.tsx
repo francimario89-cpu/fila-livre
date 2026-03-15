@@ -194,8 +194,8 @@ const App: React.FC = () => {
   };
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} theme={theme} />;
-  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); }} theme={theme} onToggleTheme={toggleTheme} />;
-  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={setCurrentEst} onLogout={() => auth.signOut()} theme={theme} />;
+  if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} theme={theme} onToggleTheme={toggleTheme} />;
+  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={(est) => { setCurrentEst(est); setActiveTab('fila'); }} onLogout={() => auth.signOut()} theme={theme} />;
 
   return (
     <Layout 
@@ -291,7 +291,7 @@ const App: React.FC = () => {
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 
           onConfirm={async (method, amount) => {
             if (!currentEst) return;
-            if (amount > 0) { await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, date: new Date().toISOString(), establishmentId: currentEst.id }); }
+            if (amount > 0) { await addDoc(collection(db, "establishments", currentEst.id, "revenue"), { amount, method, serviceName: selectedQueueItem.service, clientName: selectedQueueItem.name, clientCode: selectedQueueItem.code || null, date: new Date().toISOString(), establishmentId: currentEst.id }); }
             await deleteDoc(doc(db, "establishments", currentEst.id, "queue", selectedQueueItem.id)); setIsCompletionModalOpen(false);
           }} 
         />

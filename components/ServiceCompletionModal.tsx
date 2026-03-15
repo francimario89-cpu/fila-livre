@@ -46,7 +46,7 @@ export const ServiceCompletionModal: React.FC<ServiceCompletionModalProps> = ({
             {isFreeService ? 'Concluir Atendimento' : 'Finalizar Atendimento'}
           </h2>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-            {isFreeService ? 'Registrar término de consulta/procedimento' : `Registrar recebimento de ${item.name}`}
+            {isFreeService ? 'Registrar término de consulta/procedimento' : `Registrar recebimento de ${item.name} ${item.code ? `(#${item.code})` : ''}`}
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export const ServiceCompletionModal: React.FC<ServiceCompletionModalProps> = ({
                   <HeartPulse size={32} />
                </div>
                <div>
-                  <h4 className="text-white font-black text-sm uppercase">{item.name}</h4>
+                  <h4 className="text-white font-black text-sm uppercase">{item.name} {item.code && <span className="text-xs opacity-40 ml-1">#{item.code}</span>}</h4>
                   <p className="text-[10px] text-teal-400 font-bold uppercase mt-1">Serviço Público / Gratuito</p>
                </div>
             </div>

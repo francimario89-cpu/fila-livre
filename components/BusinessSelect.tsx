@@ -212,7 +212,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                                   <span className="text-[9px] font-black uppercase tracking-tighter">VOCÊ ESTÁ NESTA FILA</span>
                                 </div>
                                 <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest ml-1">
-                                  Como: {userInQueue.name}
+                                  Como: {userInQueue.name} {userInQueue.code && <span className="opacity-50 ml-1">#{userInQueue.code}</span>}
                                 </p>
                               </div>
                             )}
