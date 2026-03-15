@@ -33,6 +33,8 @@ export interface Establishment {
   autoStatusEnabled?: boolean;
   anyProfessionalEnabled?: boolean;
   anyProfessionalLabel?: string;
+  nextCodeNumber?: number; // Contador para códigos sequenciais
+  codePrefix?: string; // Prefixo para códigos sequenciais (ex: A, B, P)
 }
 
 export interface Professional {

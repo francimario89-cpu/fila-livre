@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase.ts';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, collectionGroup } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, collectionGroup, runTransaction } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword } from 'firebase/auth';
 import { Settings, User, Zap, Download, Smartphone, Apple, Moon, Sun, Building2, Plus, RefreshCw } from 'lucide-react';
 import { Layout } from './components/Layout.tsx';
@@ -162,11 +162,23 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
-      // Gerar código de privacidade aleatório (ex: AB1234)
-      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      const randomLetters = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-      const randomNumbers = Math.floor(1000 + Math.random() * 9000).toString();
-      const queueCode = `${randomLetters}${randomNumbers}`;
+      const estRef = doc(db, "establishments", currentEst.id);
+      
+      // Gerar código sequencial via Transação
+      const queueCode = await runTransaction(db, async (transaction) => {
+        const estDoc = await transaction.get(estRef);
+        if (!estDoc.exists()) throw "Unidade não encontrada";
+        
+        const estData = estDoc.data();
+        const nextNum = estData.nextCodeNumber || 1;
+        const prefix = estData.codePrefix || 'A';
+        
+        // Formato: A001, A002...
+        const formattedCode = `${prefix}${nextNum.toString().padStart(3, '0')}`;
+        
+        transaction.update(estRef, { nextCodeNumber: nextNum + 1 });
+        return formattedCode;
+      });
 
       const payload: any = {
         name: data.mainPerson.name, 

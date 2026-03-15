@@ -63,6 +63,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isChangingId, setIsChangingId] = useState(false);
   const [tempReward, setTempReward] = useState(establishment.loyaltyReward || 'Corte Grátis');
   const [tempAnyLabel, setTempAnyLabel] = useState(establishment.anyProfessionalLabel || 'Qualquer Atendente');
+  const [tempPrefix, setTempPrefix] = useState(establishment.codePrefix || 'A');
+  const [tempNextNum, setTempNextNum] = useState(establishment.nextCodeNumber?.toString() || '1');
   
   const [dailySchedules, setDailySchedules] = useState<Record<number, DaySchedule>>(
     establishment.dailySchedules || {
@@ -94,6 +96,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (establishment.loyaltyReward) setTempReward(establishment.loyaltyReward);
     if (establishment.dailySchedules) setDailySchedules(establishment.dailySchedules);
     if (establishment.anyProfessionalLabel) setTempAnyLabel(establishment.anyProfessionalLabel);
+    if (establishment.codePrefix) setTempPrefix(establishment.codePrefix);
+    if (establishment.nextCodeNumber) setTempNextNum(establishment.nextCodeNumber.toString());
   }, [establishment]);
 
   const updateDaySchedule = (dayId: number, field: keyof DaySchedule, value: any) => {
@@ -109,7 +113,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       name: tempName, 
       dailySchedules, 
       loyaltyReward: tempReward,
-      anyProfessionalLabel: tempAnyLabel 
+      anyProfessionalLabel: tempAnyLabel,
+      codePrefix: tempPrefix,
+      nextCodeNumber: parseInt(tempNextNum) || 1
     });
     setTimeout(() => {
       setIsSavingProfile(false);
@@ -232,6 +238,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <button onClick={handleSaveProfile} disabled={isSavingProfile} className="px-6 bg-teal-500 text-slate-950 rounded-2xl text-[9px] font-black uppercase flex items-center gap-2 transition-all shadow-lg active:scale-95">
                     {isSavingProfile ? <Loader2 size={14} className="animate-spin"/> : <Save size={14} />} Salvar
                   </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-500/10">
+                <div className="space-y-2">
+                   <label className={labelClass}>Prefixo das Senhas</label>
+                   <input value={tempPrefix} onChange={(e) => setTempPrefix(e.target.value.toUpperCase().slice(0, 2))} placeholder="EX: A, P, B" className={inputClass} />
+                </div>
+                <div className="space-y-2">
+                   <label className={labelClass}>Próximo Número</label>
+                   <input type="number" value={tempNextNum} onChange={(e) => setTempNextNum(e.target.value)} className={inputClass} />
                 </div>
               </div>
 
