@@ -139,7 +139,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                 
                 <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
                    <div>
-                     <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Paciente</p>
+                     <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Cliente</p>
                      <p className="text-xs font-bold text-white uppercase truncate">{name}</p>
                    </div>
                    <div>
@@ -188,7 +188,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
             <div className="bg-slate-950/40 p-6 rounded-[32px] border border-white/5 space-y-4">
               <div className="space-y-1">
                  <div className="flex justify-between items-center mb-1">
-                   <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Nome do Paciente</label>
+                   <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Nome do Cliente</label>
                    {userProfile?.name && name !== userProfile.name && (
                      <button 
                        onClick={() => setName(userProfile.name)} 
@@ -201,7 +201,7 @@ export const JoinQueueModal: React.FC<JoinQueueModalProps> = ({
                  <input 
                    value={name} 
                    onChange={e => setName(e.target.value.toUpperCase())} 
-                   placeholder="NOME DO PACIENTE" 
+                   placeholder="NOME DO CLIENTE" 
                    className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-bold text-white uppercase outline-none focus:border-teal-500" 
                  />
               </div>

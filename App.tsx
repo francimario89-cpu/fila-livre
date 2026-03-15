@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth, isConfigured } from './services/firebase.ts';
 import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, orderBy, setDoc, getDoc, where, collectionGroup } from 'firebase/firestore';
 import { onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { Settings, User, Zap, Download, Smartphone, Apple, Moon, Sun } from 'lucide-react';
+import { Settings, User, Zap, Download, Smartphone, Apple, Moon, Sun, Building2, Plus, RefreshCw } from 'lucide-react';
 import { Layout } from './components/Layout.tsx';
 import { QueueView } from './components/QueueView.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
@@ -162,10 +162,24 @@ const App: React.FC = () => {
   const handleJoinQueue = async (data: any) => {
     if (!currentEst) return;
     try {
+      // Gerar código de privacidade aleatório (ex: AB1234)
+      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const randomLetters = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
+      const randomNumbers = Math.floor(1000 + Math.random() * 9000).toString();
+      const queueCode = `${randomLetters}${randomNumbers}`;
+
       const payload: any = {
-        name: data.mainPerson.name, professionalId: data.professionalId, service: data.mainPerson.service,
-        type: data.type, isPriority: data.isPriority || false, userEmail: userEmail,
-        establishmentId: currentEst.id, establishmentName: currentEst.name, status: 'waiting', timestamp: Date.now()
+        name: data.mainPerson.name, 
+        professionalId: data.professionalId, 
+        service: data.mainPerson.service,
+        type: data.type, 
+        isPriority: data.isPriority || false, 
+        userEmail: userEmail,
+        code: queueCode,
+        establishmentId: currentEst.id, 
+        establishmentName: currentEst.name, 
+        status: 'waiting', 
+        timestamp: Date.now()
       };
       await addDoc(collection(db, "establishments", currentEst.id, "queue"), payload);
       setIsJoinModalOpen(false);
@@ -214,11 +228,61 @@ const App: React.FC = () => {
         />
       )}
       {activeTab === 'config' && (
-        <div className="text-center space-y-8">
-           <User className="text-teal-400 mx-auto" size={48} />
-           <h2 className="text-2xl font-black font-orbitron">MEU PERFIL</h2>
-           <p className="text-xs text-slate-500">{userEmail}</p>
-           <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase">Sair</button>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+           <div className="text-center space-y-4">
+             <div className="w-20 h-20 bg-teal-500/10 rounded-[32px] flex items-center justify-center mx-auto border border-teal-500/20">
+                <User className="text-teal-400" size={40} />
+             </div>
+             <div>
+               <h2 className="text-2xl font-black font-orbitron uppercase tracking-tighter">Meu Perfil</h2>
+               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{userEmail}</p>
+             </div>
+           </div>
+           
+           <div className="space-y-4">
+             <div className="flex items-center gap-2 ml-4">
+                <Building2 size={12} className="text-slate-500" />
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Unidade Atual</p>
+             </div>
+             <div className={`p-6 rounded-[32px] flex items-center justify-between border ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div>
+                  <h3 className={`font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{currentEst.name}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold">ID: {currentEst.id}</p>
+                </div>
+                <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-1.5">
+                   <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                   <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Ativo</span>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setCurrentEst(null)} 
+                  className={`flex items-center justify-center gap-2 p-5 rounded-[24px] border font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 ${theme === 'dark' ? 'bg-slate-900/50 border-white/5 text-slate-300 hover:text-white' : 'bg-white border-slate-100 text-slate-600 shadow-sm'}`}
+                >
+                  <RefreshCw size={14} /> Trocar Unidade
+                </button>
+                <button 
+                  onClick={() => setCurrentEst(null)} 
+                  className="flex items-center justify-center gap-2 p-5 bg-teal-500 text-slate-950 rounded-[24px] font-black text-[9px] uppercase tracking-widest shadow-lg shadow-teal-500/20 active:scale-95 transition-all"
+                >
+                  <Plus size={14} /> Nova Unidade
+                </button>
+             </div>
+           </div>
+
+           <div className="pt-4">
+             <button 
+               onClick={() => auth.signOut()} 
+               className={`w-full py-5 rounded-[32px] font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 border ${
+                 theme === 'dark' 
+                   ? 'bg-red-500/10 border-red-500/20 text-red-500' 
+                   : 'bg-red-50 bg-red-100 text-red-600'
+               }`}
+             >
+               Sair da Conta
+             </button>
+           </div>
         </div>
       )}
       {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} currentQueue={queue} userProfile={userProfile} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} bookingModel={currentEst.bookingModel} />}

@@ -73,6 +73,7 @@ export interface QueueItem {
   isPriority?: boolean; // Novo: Identificador de prioridade
   scheduledTime?: string; 
   userEmail?: string;
+  code?: string; // Novo: Código de privacidade (ex: AB0002)
   missedCount?: number; 
   establishmentName?: string; 
 }

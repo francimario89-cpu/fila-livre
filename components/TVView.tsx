@@ -71,9 +71,15 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
   const announceCall = async () => {
     try {
       if (!process.env.API_KEY || !audioContextRef.current) return;
+      
+      const serving = queue.filter(i => i.status === 'serving').sort((a,b) => b.timestamp - a.timestamp);
+      if (serving.length === 0) return;
+      const topServing = serving[0];
+      
       setIsAiProcessing(true);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = "Atenção! Próximo paciente, por favor, compareça ao seu guichê.";
+      const prompt = `Atenção! Próximo cliente com código ${topServing.code || topServing.name}, por favor, compareça ao seu guichê.`;
+      
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: prompt }] }],
@@ -173,7 +179,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                           </div>
                        )}
                        <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
-                         {serving.name.split(' ')[0]}
+                         {serving.code || serving.name.split(' ')[0]}
                        </h2>
                        <p className={`text-[10px] font-bold uppercase mt-3 ${isCalling ? 'text-slate-800' : 'text-white/60'}`}>{serving.service}</p>
                        {isCalling && <BellRing size={24} className="mx-auto mt-4 animate-bounce" />}
@@ -195,7 +201,9 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                               <span className={`text-lg font-black ${item.isPriority ? 'text-red-500' : 'text-teal-400'}`}>
                                 {item.isPriority ? '!' : `${idx + 1}º`}
                               </span>
-                              <p className={`text-lg font-black uppercase truncate max-w-[150px] ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name.split(' ')[0]}</p>
+                              <p className={`text-lg font-black uppercase truncate max-w-[150px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                {item.code || item.name.split(' ')[0]}
+                              </p>
                            </div>
                            {item.isPriority && <AlertCircle size={18} className="text-red-500" />}
                         </div>

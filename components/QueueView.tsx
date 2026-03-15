@@ -150,7 +150,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
               {serving ? (
                 (isClient && !isServingMe) ? (
                   <div className={`border-2 border-dashed rounded-[32px] p-8 text-center opacity-40 ${isLight ? 'border-amber-200 bg-amber-50/30' : 'border-amber-500/20 bg-amber-500/5'}`}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">PROFISSIONAL OCUPADO</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">
+                      {serving.code ? `ATENDENDO: ${serving.code}` : "PROFISSIONAL OCUPADO"}
+                    </p>
                     <p className="text-[7px] font-bold text-slate-500 uppercase mt-1">Aguarde sua vez</p>
                   </div>
                 ) : (
@@ -162,10 +164,13 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       </div>
                     )}
                     <div className="absolute top-0 left-0 p-3 opacity-10"><Zap size={32} className="text-white" /></div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center justify-between mb-2">
                        <span className="text-[8px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
+                       {serving.code && <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{serving.code}</span>}
                     </div>
-                    <h3 className="text-lg font-black text-white uppercase tracking-tighter">{serving.name}</h3>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tighter">
+                      {serving.name} {serving.code && <span className="text-xs opacity-50 ml-2">#{serving.code}</span>}
+                    </h3>
                     <p className="text-[9px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
                     
                     {canActionPro && (
@@ -207,7 +212,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
                                {item.isPriority ? '!' : `${index + 1}º`}
                             </div>
                             <div>
-                              <h4 className={`font-black text-[10px] uppercase leading-none ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>Paciente em espera</h4>
+                              <h4 className={`font-black text-[10px] uppercase leading-none ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>
+                                {item.code || 'Cliente em espera'}
+                              </h4>
                               <p className="text-[7px] font-bold text-slate-500/50 uppercase mt-1">{item.service}</p>
                             </div>
                           </div>
@@ -236,7 +243,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                               <h4 className={`font-black text-sm uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
+                               <h4 className={`font-black text-sm uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                 {item.name} {item.code && <span className="text-[10px] opacity-40 ml-1">#{item.code}</span>}
+                               </h4>
                                {isMe && <span className="text-[6px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
                                {item.isPriority && <span className="text-[6px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
                             </div>
