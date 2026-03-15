@@ -15,6 +15,7 @@ import { ServiceCompletionModal } from './components/ServiceCompletionModal.tsx'
 import { TVView } from './components/TVView.tsx';
 import { QueueItem, Service, Professional, Establishment, RevenueRecord } from './types.ts';
 
+// Main App Component - Sync Trigger
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('app-theme') as 'dark' | 'light') || 'dark';
@@ -220,7 +221,7 @@ const App: React.FC = () => {
            <button onClick={() => auth.signOut()} className="w-full py-5 bg-red-500 text-white rounded-3xl font-black uppercase">Sair</button>
         </div>
       )}
-      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} currentQueue={queue} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} bookingModel={currentEst.bookingModel} />}
+      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} currentQueue={queue} userProfile={userProfile} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} bookingModel={currentEst.bookingModel} />}
       {isCompletionModalOpen && selectedQueueItem && (
         <ServiceCompletionModal 
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 

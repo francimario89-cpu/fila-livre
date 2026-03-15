@@ -8,7 +8,7 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } fr
 
 interface BusinessSelectProps {
   userEmail: string;
-  userRole: 'admin' | 'client';
+  userRole: 'admin' | 'staff' | 'client';
   userQueues: QueueItem[];
   onSelect: (est: Establishment) => void;
   onLogout: () => void;
@@ -154,11 +154,11 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         </button>
       </header>
 
-      <div className="space-y-3 mb-10 text-center sm:text-left">
-        <h1 className={`text-3xl font-black font-orbitron uppercase tracking-tighter ${isLight ? 'text-slate-900' : 'text-white'}`}>
+      <div className="space-y-2 mb-8 text-center sm:text-left">
+        <h1 className={`text-xl font-black font-orbitron uppercase tracking-tighter ${isLight ? 'text-slate-900' : 'text-white'}`}>
           {userRole === 'admin' ? 'Painel de Gestão' : 'Unidades Disponíveis'}
         </h1>
-        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{userEmail}</p>
+        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{userEmail}</p>
       </div>
 
       <div className="space-y-6 flex-1">
@@ -180,7 +180,7 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                     <div key={est.id} className="relative group">
                       <button 
                         onClick={() => onSelect(est)} 
-                        className={`w-full border-2 p-6 rounded-[40px] flex items-center justify-between transition-all shadow-xl relative overflow-hidden ${
+                        className={`w-full border-2 p-5 rounded-[24px] flex items-center justify-between transition-all shadow-xl relative overflow-hidden ${
                           isInQueue 
                             ? 'border-teal-500 bg-teal-500/10 shadow-teal-500/20' 
                             : isLight 
@@ -188,9 +188,9 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
                               : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
                         }`}
                       >
-                        <div className="text-left space-y-3 relative z-10">
-                          <div className="flex flex-wrap items-center gap-3">
-                             <span className={`font-black uppercase font-orbitron text-lg block leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{est.name}</span>
+                        <div className="text-left space-y-2 relative z-10">
+                          <div className="flex flex-wrap items-center gap-2">
+                             <span className={`font-black uppercase font-orbitron text-base block leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{est.name}</span>
                              {renderStatusBadge(est.id)}
                           </div>
                           

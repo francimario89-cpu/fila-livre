@@ -15,18 +15,37 @@ interface AuthViewProps {
 type AuthScreen = 'selection' | 'email' | 'forgot_password';
 
 export const AuthView: React.FC<AuthViewProps> = ({ onLogin, theme = 'dark', onToggleTheme }) => {
-  const [screen, setScreen] = useState<AuthScreen>('selection');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<'admin' | 'staff' | 'client' | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [role, setRole] = useState<'admin' | 'staff' | 'client'>('client');
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   const isLight = theme === 'light';
+
+  const handleForgotPassword = async () => {
+    if (!identifier) {
+      setError('Informe seu e-mail ou celular para recuperar a senha.');
+      return;
+    }
+    setError('');
+    setSuccessMessage('');
+    setIsLoading(true);
+    try {
+      const email = await findEmailByIdentifier(identifier);
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+    } catch (err: any) {
+      console.error(err);
+      setError('Erro ao enviar e-mail: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const isPhoneFormat = (input: string) => {
     const digitsOnly = input.replace(/\D/g, '');
@@ -45,15 +64,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin, theme = 'dark', onT
     return clean;
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role) return;
     setError('');
     setIsLoading(true);
     try {
       const finalIdentifier = await findEmailByIdentifier(identifier);
       if (isRegistering) {
-        if (!name) throw new Error('name-required');
+        if (!name) throw new Error('Nome é obrigatório');
         const result = await createUserWithEmailAndPassword(auth, finalIdentifier, password);
         await updateProfile(result.user, { displayName: name });
         const userRef = doc(db, "users", result.user.uid);
@@ -71,12 +89,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin, theme = 'dark', onT
         const result = await signInWithEmailAndPassword(auth, finalIdentifier, password);
         const userRef = doc(db, "users", result.user.uid);
         const userSnap = await getDoc(userRef);
-        const userRoleResult = userSnap.exists() ? userSnap.data().role : role;
+        const userRoleResult = userSnap.exists() ? userSnap.data().role : 'client';
         onLogin(result.user.email!, userRoleResult);
       }
     } catch (err: any) {
+      console.error(err);
       if (err.code === 'auth/invalid-credential') setError('Dados incorretos.');
-      else setError('Erro ao autenticar.');
+      else if (err.code === 'auth/email-already-in-use') setError('Este e-mail já está em uso.');
+      else setError('Erro ao autenticar: ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +105,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin, theme = 'dark', onT
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-6 relative transition-colors duration-500 ${isLight ? 'bg-slate-50' : 'bg-[#050810]'}`}>
       
-      {/* Botão de Tema no Início */}
       <div className="absolute top-6 right-6 z-50">
         <button 
           onClick={onToggleTheme} 
@@ -95,53 +114,125 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin, theme = 'dark', onT
         </button>
       </div>
 
-      <div className="w-full max-w-sm relative z-10 space-y-12">
-        <div className="text-center space-y-4">
-          <div className="w-24 h-24 mx-auto drop-shadow-2xl">{LOGO_SVG}</div>
-          <h1 className={`text-4xl font-black font-orbitron tracking-tighter uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>FILA LIVRE</h1>
-          <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.4em]">GERENCIAMENTO INTELIGENTE</p>
+      <div className="w-full max-w-sm relative z-10 space-y-8">
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 mx-auto drop-shadow-2xl">{LOGO_SVG}</div>
+          <h1 className={`text-xl font-black font-orbitron tracking-tighter uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>FILA LIVRE</h1>
+          <p className="text-slate-500 text-[7px] font-black uppercase tracking-[0.4em]">GERENCIAMENTO INTELIGENTE</p>
         </div>
 
-        {screen === 'selection' ? (
-          <div className="grid grid-cols-1 gap-4">
-             <button onClick={() => { setRole('client'); setScreen('email'); }} className={`group border-2 p-6 rounded-[32px] transition-all duration-300 shadow-xl text-left flex items-center gap-4 ${isLight ? 'bg-white border-slate-100 hover:border-teal-500' : 'bg-slate-900/40 border-slate-800 hover:border-teal-500'}`}>
-                <div className="w-12 h-12 bg-teal-500/10 text-teal-500 rounded-xl flex items-center justify-center"><User size={24} /></div>
-                <div><h3 className={`font-black text-lg uppercase tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Sou Cliente</h3><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Entrar na fila</p></div>
-             </button>
-             <button onClick={() => { setRole('staff'); setScreen('email'); }} className={`group border-2 p-6 rounded-[32px] transition-all duration-300 shadow-xl text-left flex items-center gap-4 ${isLight ? 'bg-white border-slate-100 hover:border-amber-500' : 'bg-slate-900/40 border-slate-800 hover:border-amber-500'}`}>
-                <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center"><Scissors size={24} /></div>
-                <div><h3 className={`font-black text-lg uppercase tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Colaborador</h3><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Painel Profissional</p></div>
-             </button>
-             <button onClick={() => { setRole('admin'); setScreen('email'); }} className={`group border-2 p-6 rounded-[32px] transition-all duration-300 shadow-xl text-left flex items-center gap-4 ${isLight ? 'bg-white border-slate-100 hover:border-indigo-500' : 'bg-slate-900/40 border-slate-800 hover:border-indigo-500'}`}>
-                <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center"><Building2 size={24} /></div>
-                <div><h3 className={`font-black text-lg uppercase tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Empresa</h3><p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Gestão da Loja</p></div>
-             </button>
+        <div className={`p-6 rounded-[32px] shadow-2xl border ${isLight ? 'bg-white border-slate-100' : 'bg-slate-900/80 border-white/5 backdrop-blur-xl'}`}>
+          <div className="flex bg-slate-950/50 p-1 rounded-2xl mb-8">
+            <button 
+              onClick={() => setIsRegistering(false)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isRegistering ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}
+            >
+              Entrar
+            </button>
+            <button 
+              onClick={() => setIsRegistering(true)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isRegistering ? 'bg-teal-500 text-slate-950' : 'text-slate-500'}`}
+            >
+              Cadastrar
+            </button>
           </div>
-        ) : (
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-             {isRegistering && (
+
+          <form onSubmit={handleAuth} className="space-y-5">
+            {isRegistering && (
+              <>
                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu Nome</label>
-                   <input required value={name} onChange={e => setName(e.target.value.toUpperCase())} className={`w-full border p-4 rounded-2xl text-sm font-bold outline-none ${isLight ? 'bg-white border-slate-200 text-slate-950' : 'bg-slate-900 border-slate-800 text-white'}`} />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Conta</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setRole('client')}
+                      className={`py-3 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${role === 'client' ? 'bg-teal-500/10 border-teal-500 text-teal-500' : 'bg-transparent border-slate-800 text-slate-500'}`}
+                    >
+                      Cliente
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setRole('staff')}
+                      className={`py-3 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${role === 'staff' ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-transparent border-slate-800 text-slate-500'}`}
+                    >
+                      Colaborador
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setRole('admin')}
+                      className={`py-3 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${role === 'admin' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400' : 'bg-transparent border-slate-800 text-slate-500'}`}
+                    >
+                      Gestor
+                    </button>
+                  </div>
                 </div>
-             )}
-             <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular</label>
-                <input required value={identifier} onChange={e => setIdentifier(e.target.value)} className={`w-full border p-4 rounded-2xl text-sm font-bold outline-none ${isLight ? 'bg-white border-slate-200 text-slate-950' : 'bg-slate-900 border-slate-800 text-white'}`} />
-             </div>
-             <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha</label>
-                <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className={`w-full border p-4 rounded-2xl text-sm font-bold outline-none ${isLight ? 'bg-white border-slate-200 text-slate-950' : 'bg-slate-900 border-slate-800 text-white'}`} />
-             </div>
-             <button disabled={isLoading} className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-widest transition-all ${role === 'admin' ? 'bg-indigo-600 text-white' : role === 'staff' ? 'bg-amber-500 text-slate-950' : 'bg-teal-500 text-slate-950'}`}>
-                {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (isRegistering ? 'CRIAR CONTA' : 'ACESSAR CONTA')}
-             </button>
-             <button type="button" onClick={() => setIsRegistering(!isRegistering)} className="w-full text-center text-[9px] font-black text-slate-500 uppercase py-2">
-                {isRegistering ? 'Já tenho conta' : 'Criar nova conta'}
-             </button>
-             <button type="button" onClick={() => {setScreen('selection'); setRole(null);}} className="w-full text-center text-[9px] font-black text-slate-500 uppercase">Voltar</button>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu Nome</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input required value={name} onChange={e => setName(e.target.value.toUpperCase())} placeholder="NOME COMPLETO" className={`w-full border pl-12 pr-4 py-4 rounded-2xl text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-teal-500/20 ${isLight ? 'bg-slate-50 border-slate-200 text-slate-950' : 'bg-slate-950 border-slate-800 text-white'}`} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">E-mail ou Celular</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input required value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="EMAIL@EXEMPLO.COM" className={`w-full border pl-12 pr-4 py-4 rounded-2xl text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-teal-500/20 ${isLight ? 'bg-slate-50 border-slate-200 text-slate-950' : 'bg-slate-950 border-slate-800 text-white'}`} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input 
+                  required 
+                  type={showPassword ? "text" : "password"} 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  className={`w-full border pl-12 pr-12 py-4 rounded-2xl text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-teal-500/20 ${isLight ? 'bg-slate-50 border-slate-200 text-slate-950' : 'bg-slate-950 border-slate-800 text-white'}`} 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-teal-500 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {successMessage && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-tight">
+                <CheckCircle2 size={14} />
+                {successMessage}
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-tight">
+                <AlertCircle size={14} />
+                {error}
+              </div>
+            )}
+
+            <button disabled={isLoading} className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-widest transition-all active:scale-95 shadow-xl flex items-center justify-center gap-2 ${isRegistering ? 'bg-teal-500 text-slate-950 shadow-teal-500/20' : 'bg-indigo-600 text-white shadow-indigo-600/20'}`}>
+              {isLoading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'CRIAR MINHA CONTA' : 'ENTRAR NO SISTEMA')}
+            </button>
           </form>
-        )}
+        </div>
+
+        <button 
+          type="button"
+          onClick={() => !isRegistering && handleForgotPassword()}
+          className="w-full text-center text-[9px] text-slate-500 font-bold uppercase tracking-widest hover:text-teal-500 transition-colors"
+        >
+          {isRegistering ? 'Ao criar conta você aceita nossos termos' : 'Esqueceu sua senha? Clique aqui'}
+        </button>
       </div>
     </div>
   );

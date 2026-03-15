@@ -55,14 +55,24 @@ export const QueueView: React.FC<QueueViewProps> = ({
     if (userRole === 'staff' && myProId) {
       return professionals.filter(p => p.id === myProId);
     }
+    // Se for cliente e já estiver em uma fila, mostrar apenas o profissional dele
+    if (userRole === 'client' && currentUserEmail) {
+      const myItem = queue.find(item => 
+        item.userEmail?.toLowerCase() === currentUserEmail.toLowerCase() && 
+        item.status !== 'completed'
+      );
+      if (myItem) {
+        return professionals.filter(p => p.id === myItem.professionalId || myItem.professionalId === 'any');
+      }
+    }
     return professionals.filter(p => p.status !== 'absent');
-  }, [professionals, userRole, myProId]);
+  }, [professionals, userRole, myProId, queue, currentUserEmail]);
 
   return (
-    <div className={`space-y-8 animate-in fade-in duration-500 pb-32 ${isLight ? 'bg-slate-50 min-h-screen -mx-4 px-4' : ''}`}>
+    <div className={`space-y-6 animate-in fade-in duration-500 pb-32 ${isLight ? 'bg-slate-50 min-h-screen -mx-4 px-4' : ''}`}>
       
-      <header className="text-center py-6 space-y-2">
-         <h1 className={`text-3xl font-black font-orbitron uppercase tracking-tighter leading-none ${isLight ? 'text-slate-900' : 'text-white neon-text'}`}>
+      <header className="text-center py-4 space-y-1">
+         <h1 className={`text-xl font-black font-orbitron uppercase tracking-tighter leading-none ${isLight ? 'text-slate-900' : 'text-white neon-text'}`}>
             {establishmentName}
          </h1>
          <div className="flex items-center justify-center gap-1.5 text-slate-500">
@@ -73,48 +83,21 @@ export const QueueView: React.FC<QueueViewProps> = ({
          </div>
       </header>
 
-      {/* BANNER DE INSTALAÇÃO - DESTAQUE MÁXIMO */}
-      {!isStandalone && (
-        <section 
-          onClick={onInstallRequest} 
-          className={`cursor-pointer group relative overflow-hidden rounded-[40px] p-6 border-2 transition-all duration-500 shadow-2xl animate-bounce-short ${
-            isLight ? 'bg-indigo-600 border-indigo-400' : 'bg-indigo-600 border-indigo-500'
-          }`}
-        >
-           <div className="flex items-center justify-between gap-4 relative z-10">
-              <div className="flex items-center gap-4">
-                 <div className="w-14 h-14 bg-white text-indigo-600 rounded-[20px] flex items-center justify-center shadow-2xl">
-                    <SmartphoneNfc size={28} className="animate-pulse" />
-                 </div>
-                 <div className="text-white">
-                    <h3 className="text-sm font-black uppercase tracking-tight">Instalar Aplicativo</h3>
-                    <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest mt-0.5">Use como se fosse um app real</p>
-                 </div>
-              </div>
-              <div className="bg-white/20 p-2.5 rounded-2xl text-white">
-                 <Download size={20} />
-              </div>
-           </div>
-           {/* Efeito de brilho de fundo */}
-           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -translate-y-1/2 translate-x-1/2" />
-        </section>
-      )}
-      
       {/* STATUS CARD */}
-      <section className={`rounded-[32px] p-5 border-2 transition-all duration-700 shadow-xl ${
+      <section className={`rounded-[24px] p-4 border-2 transition-all duration-700 shadow-xl ${
         displayStatus === 'open' ? 'bg-emerald-500 border-emerald-400' : 
         displayStatus === 'lunch' ? 'bg-amber-500 border-amber-400' : 
         (isLight ? 'bg-white border-red-100 shadow-sm' : 'bg-slate-900 border-red-500/20')
       }`}>
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-[18px] flex items-center justify-center bg-black/10 text-white">
-            {displayStatus === 'open' ? <Wifi size={24} className="animate-pulse" /> : displayStatus === 'lunch' ? <Coffee size={24} /> : <DoorClosed size={24} />}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[14px] flex items-center justify-center bg-black/10 text-white">
+            {displayStatus === 'open' ? <Wifi size={20} className="animate-pulse" /> : displayStatus === 'lunch' ? <Coffee size={20} /> : <DoorClosed size={20} />}
           </div>
           <div>
-            <h2 className={`text-base font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
+            <h2 className={`text-sm font-black uppercase font-orbitron tracking-tight leading-none ${isLight && displayStatus === 'closed' ? 'text-red-500' : 'text-white'}`}>
               {displayStatus === 'open' ? 'ATENDIMENTO ATIVO' : displayStatus === 'lunch' ? 'INTERVALO' : 'SISTEMA INDISPONÍVEL'}
             </h2>
-            <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
+            <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isLight && displayStatus === 'closed' ? 'text-slate-400' : 'text-white/70'}`}>
               {displayStatus === 'open' ? 'Unidade em operação' : 'Consulte os horários de funcionamento'}
             </p>
           </div>
@@ -122,7 +105,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       </section>
 
       {/* FILAS VERTICAIS POR PROFISSIONAL */}
-      <div className="space-y-12">
+      <div className="space-y-8">
         {filteredProfessionals.map(pro => {
           const proQueue = queue.filter(item => item.professionalId === pro.id || (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id)));
           const serving = proQueue.find(item => item.status === 'serving');
@@ -148,19 +131,19 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
               {/* SENDO ATENDIDO (TOPO) */}
               {serving ? (
-                <div className={`bg-indigo-600 rounded-[32px] p-6 shadow-2xl border-2 relative overflow-hidden animate-in zoom-in ${serving.isPriority ? 'border-red-500' : 'border-white/5'}`}>
+                <div className={`bg-indigo-600 rounded-[24px] p-5 shadow-2xl border-2 relative overflow-hidden animate-in zoom-in ${serving.isPriority ? 'border-red-500' : 'border-white/5'}`}>
                   {serving.isPriority && (
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg z-20">
-                       <AlertCircle size={12} className="fill-current" />
-                       <span className="text-[8px] font-black uppercase">Prioridade</span>
+                    <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg z-20">
+                       <AlertCircle size={10} className="fill-current" />
+                       <span className="text-[7px] font-black uppercase">Prioridade</span>
                     </div>
                   )}
-                  <div className="absolute top-0 left-0 p-4 opacity-10"><Zap size={40} className="text-white" /></div>
-                  <div className="flex items-center gap-2 mb-3">
-                     <span className="text-[10px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
+                  <div className="absolute top-0 left-0 p-3 opacity-10"><Zap size={32} className="text-white" /></div>
+                  <div className="flex items-center gap-2 mb-2">
+                     <span className="text-[8px] font-black bg-teal-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">Sendo atendido</span>
                   </div>
-                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{serving.name}</h3>
-                  <p className="text-[10px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tighter">{serving.name}</h3>
+                  <p className="text-[9px] font-bold text-indigo-100 uppercase mt-1">{serving.service}</p>
                   
                   {canActionPro && (
                     <div className="flex gap-2 pt-4 relative z-10">
@@ -176,15 +159,18 @@ export const QueueView: React.FC<QueueViewProps> = ({
               )}
 
               {/* LISTA DE ESPERA (EMBAIXO) */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {waiting.map((item, index) => {
                   const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
                   const canActionItem = isAdmin || (isStaff && (item.professionalId === 'any' || item.professionalId === myProId));
 
+                  // Se for cliente, esconder os outros da lista de espera
+                  if (userRole === 'client' && !isMe && !isAdmin && !isStaff) return null;
+
                   return (
                     <div 
                       key={item.id} 
-                      className={`border-2 rounded-[32px] p-5 flex flex-col gap-4 transition-all ${
+                      className={`border-2 rounded-[24px] p-4 flex flex-col gap-3 transition-all ${
                         item.isPriority 
                           ? 'border-red-500/40 bg-red-500/5' 
                           : isMe 
@@ -195,17 +181,17 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
                              {item.isPriority ? '!' : `${index + 1}º`}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                               <h4 className={`font-black text-base uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
-                               {isMe && <span className="text-[7px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
-                               {item.isPriority && <span className="text-[7px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
+                               <h4 className={`font-black text-sm uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>{item.name}</h4>
+                               {isMe && <span className="text-[6px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
+                               {item.isPriority && <span className="text-[6px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
                             </div>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
+                            <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
                           </div>
                         </div>
                         
@@ -266,9 +252,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* BOTÃO FLUTUANTE ADICIONAR */}
       <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-40">
         {(isAdmin || isStaff) ? (
-          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-6 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"><Zap size={22} /> Entrar na Fila</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-5 rounded-[24px] shadow-2xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"><Zap size={18} /> Entrar na Fila</button>
         ) : (
-          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-7 rounded-[32px] shadow-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-3"><Zap size={22} /> Entrar na Fila</button>
+          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-6 rounded-[24px] shadow-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"><Zap size={18} /> Entrar na Fila</button>
         )}
       </div>
     </div>
