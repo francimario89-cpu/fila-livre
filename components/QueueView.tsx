@@ -188,8 +188,33 @@ export const QueueView: React.FC<QueueViewProps> = ({
                   const isMe = item.userEmail && currentUserEmail && item.userEmail.toLowerCase() === currentUserEmail.toLowerCase();
                   const canActionItem = isAdmin || (isStaff && (item.professionalId === 'any' || item.professionalId === myProId));
 
-                  // Se for cliente, esconder os outros da lista de espera
-                  if (userRole === 'client' && !isMe && !isAdmin && !isStaff) return null;
+                  // Se for cliente, mostrar apenas um placeholder para os outros da lista de espera
+                  if (userRole === 'client' && !isMe && !isAdmin && !isStaff) {
+                    return (
+                      <div 
+                        key={item.id} 
+                        className={`border-2 rounded-[24px] p-4 flex flex-col gap-3 transition-all ${
+                          item.isPriority 
+                            ? 'border-red-500/20 bg-red-500/5 opacity-50' 
+                            : isLight 
+                              ? 'bg-white border-slate-100 shadow-sm opacity-50' 
+                              : 'bg-slate-900/50 border-slate-800/50 opacity-40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] ${item.isPriority ? 'bg-red-500/50 text-white' : (isLight ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-slate-600')}`}>
+                               {item.isPriority ? '!' : `${index + 1}º`}
+                            </div>
+                            <div>
+                              <h4 className={`font-black text-[10px] uppercase leading-none ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>Paciente em espera</h4>
+                              <p className="text-[7px] font-bold text-slate-500/50 uppercase mt-1">{item.service}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div 
@@ -278,7 +303,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
         {(isAdmin || isStaff) ? (
           <button onClick={onOpenJoinModal} className="w-full bg-indigo-600 text-white font-black py-5 rounded-[24px] shadow-2xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"><Zap size={18} /> Entrar na Fila</button>
         ) : (
-          displayStatus === 'open' && <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-6 rounded-[24px] shadow-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"><Zap size={18} /> Entrar na Fila</button>
+          <button onClick={onOpenJoinModal} className="w-full bg-teal-500 text-slate-950 font-black py-6 rounded-[24px] shadow-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"><Zap size={18} /> Entrar na Fila</button>
         )}
       </div>
     </div>
