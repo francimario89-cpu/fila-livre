@@ -200,24 +200,27 @@ export const QueueView: React.FC<QueueViewProps> = ({
                         key={item.id} 
                         className={`border-2 rounded-[24px] p-4 flex flex-col gap-3 transition-all ${
                           item.isPriority 
-                            ? 'border-red-500/20 bg-red-500/5 opacity-50' 
+                            ? 'border-red-500/40 bg-red-500/5' 
                             : isLight 
-                              ? 'bg-white border-slate-100 shadow-sm opacity-50' 
-                              : 'bg-slate-900/50 border-slate-800/50 opacity-40'
+                              ? 'bg-white border-slate-200 shadow-sm' 
+                              : 'bg-slate-900 border-slate-800'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] ${item.isPriority ? 'bg-red-500/50 text-white' : (isLight ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-slate-600')}`}>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
                                {item.isPriority ? '!' : `${index + 1}º`}
                             </div>
                             <div>
-                              <h4 className={`font-black text-[10px] uppercase leading-none ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>
-                                {item.code || 'Cliente em espera'}
+                              <h4 className={`font-black text-sm uppercase leading-none tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                                {item.code ? `Senha: ${item.code}` : 'Cliente em espera'}
                               </h4>
-                              <p className="text-[7px] font-bold text-slate-500/50 uppercase mt-1">{item.service}</p>
+                              <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
                             </div>
                           </div>
+                          {item.isPriority && (
+                            <span className="text-[7px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full uppercase">PRIORIDADE</span>
+                          )}
                         </div>
                       </div>
                     );
@@ -238,18 +241,18 @@ export const QueueView: React.FC<QueueViewProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${item.isPriority ? 'bg-red-500 text-white shadow-red-500/20' : index === 0 ? 'bg-amber-500 text-slate-950 shadow-md' : (isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-teal-400')}`}>
                              {item.isPriority ? '!' : `${index + 1}º`}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                                <h4 className={`font-black text-sm uppercase leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                                 {item.name} {item.code && <span className={`text-[10px] ml-1 font-mono ${isLight ? 'text-indigo-600' : 'text-indigo-400'}`}>#{item.code}</span>}
+                                 {item.name} {item.code && <span className={`text-[11px] ml-1.5 font-mono tracking-wider px-1.5 py-0.5 rounded ${isLight ? 'bg-indigo-50 text-indigo-600' : 'bg-indigo-950/40 text-indigo-400 border border-indigo-500/20'}`}>#{item.code}</span>}
                                </h4>
                                {isMe && <span className="text-[6px] font-black bg-teal-500 text-slate-950 px-1.5 py-0.5 rounded-full uppercase">VOCÊ</span>}
                                {item.isPriority && <span className="text-[6px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase">PRIORIDADE</span>}
                             </div>
-                            <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">{item.service}</p>
                           </div>
                         </div>
                         

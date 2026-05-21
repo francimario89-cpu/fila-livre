@@ -57,16 +57,9 @@ export const BusinessSelect: React.FC<BusinessSelectProps> = ({ userEmail, userR
         const snap = await getDocs(q);
         const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as Establishment));
         setConnections(results);
-        if (results.length === 1) {
-          onSelect(results[0]);
-        }
       } else {
         const saved = JSON.parse(localStorage.getItem(`client_history_${userEmail}`) || '[]');
         setConnections(saved);
-        // Auto-selecionar se houver apenas uma unidade no histórico para agilizar
-        if (saved.length === 1) {
-          onSelect(saved[0]);
-        }
       }
     } catch (e: any) {
       console.error("Load Connections Error:", e);
