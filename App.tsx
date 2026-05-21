@@ -59,6 +59,7 @@ const App: React.FC = () => {
   };
 
   const myProId = professionals.find(p => p.email?.toLowerCase() === userEmail?.toLowerCase())?.id;
+  const effectiveUserRole = userRole === 'admin' ? 'admin' : (myProId ? 'staff' : userRole);
 
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -121,7 +122,7 @@ const App: React.FC = () => {
 
   const handleRemoveFromQueue = async (id: string) => {
     if (!currentEst) return;
-    const confirmMsg = userRole === 'client' ? "Deseja sair da fila?" : "Remover este cliente da lista?";
+    const confirmMsg = effectiveUserRole === 'client' ? "Deseja sair da fila?" : "Remover este cliente da lista?";
     if (!confirm(confirmMsg)) return;
     try {
       await deleteDoc(doc(db, "establishments", currentEst.id, "queue", id));
@@ -207,18 +208,18 @@ const App: React.FC = () => {
 
   if (isTVMode && currentEst) return <TVView queue={queue} professionals={professionals} establishmentName={currentEst.name} onClose={() => setIsTVMode(false)} theme={theme} />;
   if (!isLoggedIn) return <AuthView onLogin={(email, role) => { setUserEmail(email.toLowerCase()); setUserRole(role); setIsLoggedIn(true); setActiveTab('fila'); }} theme={theme} onToggleTheme={toggleTheme} />;
-  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={userRole} userQueues={globalUserQueues} onSelect={(est) => { setCurrentEst(est); setActiveTab('fila'); }} onLogout={() => auth.signOut()} theme={theme} />;
+  if (!currentEst) return <BusinessSelect userEmail={userEmail} userRole={effectiveUserRole} userQueues={globalUserQueues} onSelect={(est) => { setCurrentEst(est); setActiveTab('fila'); }} onLogout={() => auth.signOut()} theme={theme} />;
 
   return (
     <Layout 
-      activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'client' : userRole} 
+      activeTab={activeTab} setActiveTab={setActiveTab} userRole={effectiveUserRole === 'staff' ? 'client' : effectiveUserRole} 
       establishmentCode={currentEst.id} establishmentName={currentEst.name} onBackToDashboard={() => setCurrentEst(null)} 
       loyaltyEnabled={currentEst.loyaltyEnabled} theme={theme} onToggleTheme={toggleTheme}
       onLogout={() => auth.signOut()}
     >
       {activeTab === 'fila' && (
         <QueueView 
-          queue={queue} isAdmin={userRole === 'admin'} isStaff={userRole === 'staff'} userRole={userRole} myProId={myProId} currentUserEmail={userEmail} 
+          queue={queue} isAdmin={effectiveUserRole === 'admin'} isStaff={effectiveUserRole === 'staff'} userRole={effectiveUserRole} myProId={myProId} currentUserEmail={userEmail} 
           establishmentName={currentEst.name} estStatus={currentEst.status} professionals={professionals} 
           services={services} theme={theme} onOpenJoinModal={() => setIsJoinModalOpen(true)}
           onCallNext={handleCallNext} 
@@ -232,7 +233,7 @@ const App: React.FC = () => {
         />
       )}
       {activeTab === 'fidelidade' && <LoyaltyView cutsCount={loyaltyCount} reward={currentEst.loyaltyReward} />}
-      {activeTab === 'admin' && userRole === 'admin' && (
+      {activeTab === 'admin' && effectiveUserRole === 'admin' && (
         <AdminPanel 
           establishment={currentEst} queue={queue} services={services} professionals={professionals} estStatus={currentEst.status} bookingModel={currentEst.bookingModel || 'both'} plan={currentEst.plan || 'free'} trialStartedAt={currentEst.trialStartedAt || Date.now()} loyaltyEnabled={currentEst.loyaltyEnabled} revenue={revenue} pixKey={currentEst.pixKey || ''} 
           onUpdateEstablishment={(d) => updateDoc(doc(db, "establishments", currentEst.id), { ...d })} onDeleteEstablishment={() => deleteDoc(doc(db, "establishments", currentEst.id))} onUpdateAccessCode={(c) => Promise.resolve(true)} onSetPixKey={(k) => updateDoc(doc(db, "establishments", currentEst.id), { pixKey: k })} onUpdateStatus={(s) => updateDoc(doc(db, "establishments", currentEst.id), { status: s })} onSetBookingModel={(m) => updateDoc(doc(db, "establishments", currentEst.id), { bookingModel: m })} onSetLoyaltyEnabled={(e) => updateDoc(doc(db, "establishments", currentEst.id), { loyaltyEnabled: e })}

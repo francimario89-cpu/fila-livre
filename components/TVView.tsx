@@ -179,7 +179,7 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                           </div>
                        )}
                        <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
-                         {serving.code || serving.name.split(' ')[0]}
+                         {serving.code ? `${serving.code} - ${serving.name.split(' ')[0]}` : serving.name.split(' ')[0]}
                        </h2>
                        <p className={`text-[12px] font-black uppercase mt-3 ${isCalling ? 'text-slate-900' : 'text-white/90'}`}>{serving.service}</p>
                        {isCalling && <BellRing size={28} className="mx-auto mt-4 animate-bounce text-slate-950" />}
@@ -201,8 +201,8 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
                               <span className={`text-2xl font-black ${item.isPriority ? 'text-red-500' : isLight ? 'text-teal-600' : 'text-teal-400'}`}>
                                 {item.isPriority ? '!' : `${idx + 1}º`}
                               </span>
-                              <p className={`text-2xl font-black uppercase truncate max-w-[150px] ${item.isPriority ? 'text-red-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
-                                {item.code || item.name.split(' ')[0]}
+                              <p className={`text-2xl font-black uppercase truncate max-w-[250px] ${item.isPriority ? 'text-red-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
+                                {item.code ? `${item.code} - ${item.name.split(' ')[0]}` : item.name.split(' ')[0]}
                               </p>
                            </div>
                            {item.isPriority && <AlertCircle size={24} className="text-red-500 fill-red-500/10" />}
