@@ -159,59 +159,59 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
           const isCalling = serving && serving.id === lastCalledId;
 
           return (
-            <div key={pro.id} className={`flex flex-col border-2 rounded-[48px] overflow-hidden transition-all duration-700 shadow-xl ${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/20 border-slate-800'}`}>
+            <div key={pro.id} className={`flex flex-col border-3 rounded-[36px] overflow-hidden transition-all duration-700 shadow-2xl ${isLight ? 'bg-white border-slate-300 shadow-indigo-100/40' : 'bg-slate-900/90 border-slate-700'}`}>
               
               {/* Título do Profissional */}
-              <div className={`p-6 border-b text-center ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
-                 <h3 className={`text-xl font-black uppercase tracking-widest ${isLight ? 'text-slate-900' : 'text-slate-400'}`}>{pro.name}</h3>
+              <div className={`p-6 border-b text-center ${isLight ? 'bg-slate-100 border-slate-200 text-slate-950 font-black' : 'bg-slate-950/80 border-slate-700 text-white font-black'}`}>
+                 <h3 className={`text-2xl font-black uppercase tracking-widest ${isLight ? 'text-indigo-950' : 'text-teal-400'}`}>{pro.name}</h3>
               </div>
 
               <div className="p-6 flex-1 flex flex-col space-y-8">
                 
                 {/* ATENDIMENTO AGORA */}
                 <div className="space-y-4">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Atendendo agora:</p>
+                   <p className={`text-[11px] font-black uppercase tracking-widest text-center ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Atendendo agora:</p>
                    {serving ? (
-                    <div className={`flex flex-col justify-center text-center p-8 rounded-[40px] transition-all duration-500 shadow-2xl relative overflow-hidden ${isCalling ? 'bg-amber-400 text-slate-950 scale-[1.05]' : serving.isPriority ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                    <div className={`flex flex-col justify-center text-center p-8 rounded-[32px] transition-all duration-500 shadow-2xl relative overflow-hidden ${isCalling ? 'bg-amber-400 text-slate-950 scale-[1.05] ring-4 ring-amber-300' : serving.isPriority ? 'bg-red-600 text-white ring-4 ring-red-400' : 'bg-indigo-600 text-white ring-4 ring-indigo-400'}`}>
                        {serving.isPriority && (
                           <div className="absolute top-4 left-0 w-full flex justify-center">
-                             <span className="bg-white text-red-600 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-lg">Prioritário</span>
+                             <span className="bg-white text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">Prioritário</span>
                           </div>
                        )}
                        <h2 className="text-5xl font-black uppercase tracking-tighter leading-none break-words">
                          {serving.code || serving.name.split(' ')[0]}
                        </h2>
-                       <p className={`text-[10px] font-bold uppercase mt-3 ${isCalling ? 'text-slate-800' : 'text-white/60'}`}>{serving.service}</p>
-                       {isCalling && <BellRing size={24} className="mx-auto mt-4 animate-bounce" />}
+                       <p className={`text-[12px] font-black uppercase mt-3 ${isCalling ? 'text-slate-900' : 'text-white/90'}`}>{serving.service}</p>
+                       {isCalling && <BellRing size={28} className="mx-auto mt-4 animate-bounce text-slate-950" />}
                     </div>
                   ) : (
-                    <div className={`p-10 border-4 border-dashed rounded-[40px] text-center opacity-20 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
-                       <p className="text-xl font-black uppercase tracking-[0.3em]">LIVRE</p>
+                    <div className={`p-10 border-4 border-dashed rounded-[32px] text-center ${isLight ? 'border-slate-300 text-slate-400 bg-slate-50' : 'border-slate-800 text-slate-700 bg-slate-950/50'}`}>
+                       <p className="text-2xl font-black uppercase tracking-[0.3em]">LIVRE</p>
                     </div>
                   )}
                 </div>
 
                 {/* EM ESPERA */}
                 <div className="flex-1 flex flex-col space-y-4">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Próximos da Vez:</p>
+                   <p className={`text-[11px] font-black uppercase tracking-widest text-center ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Próximos da Vez:</p>
                    <div className="flex-1 space-y-4">
                       {waiting.map((item, idx) => (
-                        <div key={item.id} className={`p-5 rounded-[32px] border-2 flex items-center justify-between animate-in slide-in-from-bottom-2 ${item.isPriority ? 'border-red-500 bg-red-500/5 shadow-red-500/5 shadow-lg' : isLight ? 'bg-slate-50 border-slate-100' : 'bg-slate-900 border-slate-800'}`}>
+                        <div key={item.id} className={`p-6 rounded-[28px] border-3 flex items-center justify-between shadow-md transition-all ${item.isPriority ? 'border-red-500 bg-red-500/10' : isLight ? 'bg-slate-100 border-slate-300' : 'bg-slate-950 border-slate-700'}`}>
                            <div className="flex items-center gap-4">
-                              <span className={`text-lg font-black ${item.isPriority ? 'text-red-500' : 'text-teal-400'}`}>
+                              <span className={`text-2xl font-black ${item.isPriority ? 'text-red-500' : isLight ? 'text-teal-600' : 'text-teal-400'}`}>
                                 {item.isPriority ? '!' : `${idx + 1}º`}
                               </span>
-                              <p className={`text-lg font-black uppercase truncate max-w-[150px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              <p className={`text-2xl font-black uppercase truncate max-w-[150px] ${item.isPriority ? 'text-red-500' : isLight ? 'text-slate-900' : 'text-white'}`}>
                                 {item.code || item.name.split(' ')[0]}
                               </p>
                            </div>
-                           {item.isPriority && <AlertCircle size={18} className="text-red-500" />}
+                           {item.isPriority && <AlertCircle size={24} className="text-red-500 fill-red-500/10" />}
                         </div>
                       ))}
                       {waiting.length === 0 && !serving && (
-                        <div className="h-full flex items-center justify-center opacity-10 flex-col gap-2">
-                           <Clock size={40} />
-                           <span className="text-[10px] font-black uppercase tracking-widest">Sem fila</span>
+                        <div className="h-full flex items-center justify-center opacity-30 flex-col gap-2 py-8">
+                           <Clock size={48} className={isLight ? 'text-slate-400' : 'text-slate-500'} />
+                           <span className="text-[11px] font-black uppercase tracking-widest">Sem fila</span>
                         </div>
                       )}
                    </div>

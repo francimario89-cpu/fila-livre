@@ -214,6 +214,7 @@ const App: React.FC = () => {
       activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole === 'staff' ? 'client' : userRole} 
       establishmentCode={currentEst.id} establishmentName={currentEst.name} onBackToDashboard={() => setCurrentEst(null)} 
       loyaltyEnabled={currentEst.loyaltyEnabled} theme={theme} onToggleTheme={toggleTheme}
+      onLogout={() => auth.signOut()}
     >
       {activeTab === 'fila' && (
         <QueueView 
@@ -297,7 +298,7 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} currentQueue={queue} userProfile={userProfile} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} bookingModel={currentEst.bookingModel} />}
+      {isJoinModalOpen && <JoinQueueModal establishment={currentEst} services={services} professionals={professionals} currentQueue={queue} userProfile={userProfile} initialName={userProfile?.name || auth.currentUser?.displayName || ''} onClose={() => setIsJoinModalOpen(false)} onSubmit={handleJoinQueue} bookingModel={currentEst.bookingModel} />}
       {isCompletionModalOpen && selectedQueueItem && (
         <ServiceCompletionModal 
           item={selectedQueueItem} services={services} pixKey={currentEst?.pixKey} onClose={() => setIsCompletionModalOpen(false)} 

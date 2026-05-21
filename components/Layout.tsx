@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NAVIGATION_ITEMS } from '../constants';
-import { Bell, Building2, User, MapPin, LayoutGrid, Wifi, Zap, ListOrdered, ChevronUp, Sun, Moon } from 'lucide-react';
+import { Bell, Building2, User, MapPin, LayoutGrid, Wifi, Zap, ListOrdered, ChevronUp, Sun, Moon, LogOut } from 'lucide-react';
 import { QueueItem } from '../types';
 
 interface LayoutProps {
@@ -14,6 +14,7 @@ interface LayoutProps {
   establishmentName?: string;
   loyaltyEnabled: boolean;
   onBackToDashboard: () => void;
+  onLogout?: () => void;
   onClearNotifications?: () => void;
   userActiveQueues?: QueueItem[];
   theme?: 'dark' | 'light';
@@ -21,7 +22,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, establishmentName, loyaltyEnabled, onBackToDashboard, onClearNotifications, userActiveQueues = [], theme = 'dark', onToggleTheme
+  children, activeTab, setActiveTab, notificationsCount = 0, userRole, establishmentCode, establishmentName, loyaltyEnabled, onBackToDashboard, onLogout, onClearNotifications, userActiveQueues = [], theme = 'dark', onToggleTheme
 }) => {
   const filteredNav = NAVIGATION_ITEMS.filter(item => {
     if (item.id === 'fidelidade' && !loyaltyEnabled) return false;
@@ -34,8 +35,13 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className={`min-h-screen flex flex-col transition-colors duration-300`}>
       <header className="p-4 flex items-center justify-between sticky top-0 z-50 glass-card border-b border-white/5">
         <div className="flex items-center gap-3">
-          <button onClick={onBackToDashboard} className={`p-2 rounded-xl transition-colors ${theme === 'dark' ? 'bg-slate-900 border-slate-800 text-teal-400 hover:bg-slate-800' : 'bg-slate-200 border-slate-300 text-teal-600 hover:bg-slate-300'} border`}>
-            <LayoutGrid size={20} />
+          <button 
+            onClick={onBackToDashboard} 
+            className={`px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${theme === 'dark' ? 'bg-slate-900 border-slate-800 text-teal-400 hover:bg-slate-800' : 'bg-slate-200 border-slate-300 text-teal-600 hover:bg-slate-300'} border`}
+            title="Trocar de Unidade / Sair"
+          >
+            <LayoutGrid size={16} />
+            <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Trocar Unidade</span>
           </button>
           <div className="max-w-[140px] sm:max-w-[200px]">
             <div className="flex items-center gap-2">
@@ -67,6 +73,14 @@ export const Layout: React.FC<LayoutProps> = ({
               {userRole === 'admin' ? <Building2 size={14} className="text-indigo-400" /> : <User size={14} className="text-teal-400" />}
             </div>
           </div>
+
+          <button 
+            onClick={() => { if(confirm("Deseja mesmo sair da sua conta?")) onLogout?.(); }}
+            className={`p-2 rounded-xl transition-all ${theme === 'dark' ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 hover:bg-red-500 hover:text-white'} border border-transparent`}
+            title="Sair da Conta (Logout)"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </header>
 

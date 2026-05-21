@@ -119,7 +119,8 @@ export const QueueView: React.FC<QueueViewProps> = ({
         {filteredProfessionals.map(pro => {
           const proQueue = queue.filter(item => 
             item.professionalId === pro.id || 
-            (item.professionalId === 'any' && (userRole === 'admin' || myProId === pro.id || (userRole === 'client' && pro.id === 'any')))
+            item.professionalId === 'any' ||
+            pro.id === 'any'
           );
           const serving = proQueue.find(item => item.status === 'serving');
           const isServingMe = serving && serving.userEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
