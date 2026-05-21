@@ -199,10 +199,16 @@ const App: React.FC = () => {
     } catch (e) { alert("Erro ao entrar: " + e); }
   };
 
-  const handleCallNext = async (id: string) => {
+  const handleCallNext = async (id: string, proId?: string) => {
     if (!currentEst) return;
     try {
-      await updateDoc(doc(db, "establishments", currentEst.id, "queue", id), { status: 'serving' });
+      const updateData: any = { status: 'serving' };
+      if (proId && proId !== 'any') {
+        updateData.professionalId = proId;
+      } else if (myProId) {
+        updateData.professionalId = myProId;
+      }
+      await updateDoc(doc(db, "establishments", currentEst.id, "queue", id), updateData);
     } catch (e) { console.error(e); }
   };
 
@@ -222,6 +228,8 @@ const App: React.FC = () => {
           queue={queue} isAdmin={effectiveUserRole === 'admin'} isStaff={effectiveUserRole === 'staff'} userRole={effectiveUserRole} myProId={myProId} currentUserEmail={userEmail} 
           establishmentName={currentEst.name} estStatus={currentEst.status} professionals={professionals} 
           services={services} theme={theme} onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          anyProfessionalLabel={currentEst.anyProfessionalLabel}
+          anyProfessionalEnabled={currentEst.anyProfessionalEnabled ?? true}
           onCallNext={handleCallNext} 
           onFinish={(item) => { setSelectedQueueItem(item); setIsCompletionModalOpen(true); }} 
           onNoShow={handleRemoveFromQueue} 

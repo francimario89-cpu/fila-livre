@@ -18,7 +18,7 @@ interface QueueViewProps {
   dailySchedules?: Record<number, DaySchedule>;
   theme?: 'dark' | 'light';
   isStandalone?: boolean;
-  onCallNext?: (id?: string) => void;
+  onCallNext?: (id?: string, proId?: string) => void;
   onFinish?: (item: QueueItem) => void;
   onNoShow?: (id: string) => void;
   onCallNextWithItem?: (item: QueueItem) => void;
@@ -27,10 +27,12 @@ interface QueueViewProps {
   onUpdateProfessional?: (itemId: string, proId: string) => void;
   onTogglePriority?: (itemId: string, currentStatus: boolean) => void;
   onInstallRequest?: () => void;
+  anyProfessionalLabel?: string;
+  anyProfessionalEnabled?: boolean;
 }
 
 export const QueueView: React.FC<QueueViewProps> = ({ 
-  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', isStandalone, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional, onTogglePriority, onInstallRequest
+  queue, isAdmin, isStaff, userRole, myProId, currentUserEmail, establishmentName, estStatus, autoStatusEnabled, professionals, services, dailySchedules, theme = 'dark', isStandalone, onCallNext, onFinish, onNoShow, onOpenJoinModal, onLeaveQueue, onUpdateProfessional, onTogglePriority, onInstallRequest, anyProfessionalLabel, anyProfessionalEnabled
 }) => {
   const [now, setNow] = useState(new Date());
 
@@ -52,10 +54,22 @@ export const QueueView: React.FC<QueueViewProps> = ({
   }, [autoStatusEnabled, estStatus, dailySchedules, now]);
 
   const filteredProfessionals = useMemo(() => {
+    const isAnyActive = anyProfessionalEnabled ?? true;
+    const label = anyProfessionalLabel || 'Fila Geral';
+    
+    const virtualAnyProfessional: Professional = {
+      id: 'any',
+      name: label,
+      email: '',
+      status: 'available',
+      establishmentId: ''
+    };
+
     if (userRole === 'staff' && myProId) {
-      return professionals.filter(p => p.id === myProId);
+      const myProList = professionals.filter(p => p.id === myProId);
+      return isAnyActive ? [...myProList, virtualAnyProfessional] : myProList;
     }
-    // Se for cliente e já estiver em uma fila, mostrar apenas o profissional dele
+
     if (userRole === 'client' && currentUserEmail) {
       const myItem = queue.find(item => 
         item.userEmail?.toLowerCase() === currentUserEmail.toLowerCase() && 
@@ -63,20 +77,15 @@ export const QueueView: React.FC<QueueViewProps> = ({
       );
       if (myItem) {
         if (myItem.professionalId === 'any') {
-          // Retorna um profissional virtual para a fila geral
-          return [{
-            id: 'any',
-            name: 'Fila Geral',
-            email: '',
-            status: 'available',
-            establishmentId: myItem.establishmentId
-          } as Professional];
+          return [virtualAnyProfessional];
         }
         return professionals.filter(p => p.id === myItem.professionalId);
       }
     }
-    return professionals.filter(p => p.status !== 'absent');
-  }, [professionals, userRole, myProId, queue, currentUserEmail]);
+
+    const activePros = professionals.filter(p => p.status !== 'absent');
+    return isAnyActive ? [...activePros, virtualAnyProfessional] : activePros;
+  }, [professionals, userRole, myProId, queue, currentUserEmail, anyProfessionalEnabled, anyProfessionalLabel]);
 
   return (
     <div className={`space-y-6 animate-in fade-in duration-500 pb-32 ${isLight ? 'bg-slate-50 min-h-screen -mx-4 px-4' : ''}`}>
@@ -118,9 +127,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
       <div className="space-y-8">
         {filteredProfessionals.map(pro => {
           const proQueue = queue.filter(item => 
-            item.professionalId === pro.id || 
-            item.professionalId === 'any' ||
-            pro.id === 'any'
+            item.professionalId === pro.id
           );
           const serving = proQueue.find(item => item.status === 'serving');
           const isServingMe = serving && serving.userEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
@@ -276,7 +283,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                                 <button onClick={() => onNoShow?.(item.id)} className="p-2.5 bg-slate-800/10 text-slate-500 rounded-xl hover:bg-red-500 hover:text-white transition-all" title="Excluir da Lista">
                                   <Trash2 size={16} />
                                 </button>
-                                <button onClick={() => onCallNext?.(item.id)} className="bg-teal-500 text-slate-950 p-2.5 rounded-xl shadow-lg active:scale-90 transition-all hover:bg-teal-400" title="Chamar Próximo">
+                                <button onClick={() => onCallNext?.(item.id, pro.id)} className="bg-teal-500 text-slate-950 p-2.5 rounded-xl shadow-lg active:scale-90 transition-all hover:bg-teal-400" title="Chamar Próximo">
                                   <Zap size={16} />
                                 </button>
                              </div>

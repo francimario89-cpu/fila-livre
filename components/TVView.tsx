@@ -116,6 +116,17 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
   const isLight = theme === 'light';
 
+  const tvProfessionals = React.useMemo(() => {
+    const activePros = professionals.filter(p => p.status !== 'absent');
+    const virtualAny: Professional = {
+      id: 'any',
+      name: 'Fila Geral',
+      status: 'available',
+      establishmentId: ''
+    };
+    return [...activePros, virtualAny];
+  }, [professionals]);
+
   return (
     <div className={`fixed inset-0 z-[1000] flex flex-col p-8 overflow-hidden transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
       
@@ -147,8 +158,8 @@ export const TVView: React.FC<TVViewProps> = ({ queue, professionals, establishm
 
       {/* GRID DE FILAS INDIVIDUAIS NA TV */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 overflow-hidden">
-        {professionals.filter(p => p.status !== 'absent').map(pro => {
-          const proQueue = queue.filter(item => item.professionalId === pro.id || item.professionalId === 'any');
+        {tvProfessionals.map(pro => {
+          const proQueue = queue.filter(item => item.professionalId === pro.id);
           const serving = proQueue.find(item => item.status === 'serving');
           const waiting = proQueue.filter(item => item.status === 'waiting').sort((a,b) => {
             if (a.isPriority && !b.isPriority) return -1;
